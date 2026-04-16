@@ -55,7 +55,7 @@
 			},
 			forgotPassword() {
 				// 这里可以跳转到忘记密码页面或调用忘记密码接口
-				console.log('忘记密码');
+				console.log('忘记密码？');
 				uni.showToast({ title: '忘记密码功能开发中', icon: 'none' });
 			},
 			togglePassword() {
