@@ -17,7 +17,7 @@
 			<button class="login-btn" @click="login">登录</button>
 			<view class="forgot-password" @click="forgotPassword">忘记密码</view>
 			<view class="register-container">
-				<text>还没有账号？</text>
+				<text>还没有账号？？</text>
 				<text class="register-link" @click="register">立即注册</text>
 			</view>
 		</view>
