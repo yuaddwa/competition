@@ -62,9 +62,9 @@
 				this.showPassword = !this.showPassword;
 			},
 			register() {
-				// 这里可以跳转到注册页面或调用注册接口
-				console.log('注册账号');
-				uni.showToast({ title: '注册功能开发中', icon: 'none' });
+				uni.navigateTo({
+					url: '/pages/register/register'
+				});
 			}
 		}
 	}

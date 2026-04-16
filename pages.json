@@ -11,6 +11,12 @@
 			"style": {
 				"navigationBarTitleText": "首页"
 			}
+		},
+		{
+			"path": "pages/register/register",
+			"style": {
+				"navigationBarTitleText": "注册"
+			}
 		}
 	],
 	"globalStyle": {
