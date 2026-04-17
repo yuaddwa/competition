@@ -43,15 +43,15 @@ const _sfc_main = {
 function _sfc_render(_ctx, _cache, $props, $setup, $data, $options) {
   return {
     a: $data.phone,
-    b: common_vendor.o(($event) => $data.phone = $event.detail.value, "ea"),
+    b: common_vendor.o(($event) => $data.phone = $event.detail.value),
     c: $data.showPassword ? "text" : "password",
     d: $data.password,
-    e: common_vendor.o(($event) => $data.password = $event.detail.value, "66"),
+    e: common_vendor.o(($event) => $data.password = $event.detail.value),
     f: common_vendor.t($data.showPassword ? "" : ""),
-    g: common_vendor.o((...args) => $options.togglePassword && $options.togglePassword(...args), "58"),
-    h: common_vendor.o((...args) => $options.login && $options.login(...args), "35"),
-    i: common_vendor.o((...args) => $options.forgotPassword && $options.forgotPassword(...args), "25"),
-    j: common_vendor.o((...args) => $options.register && $options.register(...args), "42")
+    g: common_vendor.o((...args) => $options.togglePassword && $options.togglePassword(...args)),
+    h: common_vendor.o((...args) => $options.login && $options.login(...args)),
+    i: common_vendor.o((...args) => $options.forgotPassword && $options.forgotPassword(...args)),
+    j: common_vendor.o((...args) => $options.register && $options.register(...args))
   };
 }
 const MiniProgramPage = /* @__PURE__ */ common_vendor._export_sfc(_sfc_main, [["render", _sfc_render]]);
