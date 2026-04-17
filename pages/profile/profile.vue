@@ -2,6 +2,7 @@
 	<view class="profile-container">
 		<view class="content">
 			<text>个人页面</text>
+			<button class="logout-btn" @click="logout">退出登录 / 切换账号</button>
 		</view>
 		<view class="tab-bar">
 			<view class="tab-item" :class="{ active: currentPage === 'home' }" @click="navigateTo('home')">
@@ -30,6 +31,8 @@
 </template>
 
 <script>
+	import { clearToken } from '@/utils/index'
+
 	export default {
 		data() {
 			return {
@@ -43,6 +46,25 @@
 			navigateTo(page) {
 				uni.redirectTo({
 					url: `/pages/${page}/${page}`
+				});
+			},
+			logout() {
+				uni.showModal({
+					title: '提示',
+					content: '确认退出当前账号吗？',
+					success: (res) => {
+						if (!res.confirm) return;
+						clearToken();
+						uni.showToast({
+							title: '已退出登录',
+							icon: 'success'
+						});
+						setTimeout(() => {
+							uni.reLaunch({
+								url: '/pages/index/index'
+							});
+						}, 300);
+					}
 				});
 			}
 		}
@@ -75,6 +97,17 @@
 			align-items: center;
 			justify-content: center;
 		}
+
+	.logout-btn {
+		margin-top: 40rpx;
+		width: 360rpx;
+		height: 80rpx;
+		line-height: 80rpx;
+		background-color: #ff4d4f;
+		color: #fff;
+		font-size: 28rpx;
+		border-radius: 10rpx;
+	}
 
 	.tab-bar {
 		display: flex;
