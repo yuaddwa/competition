@@ -1,8 +1,11 @@
 {
   "pages": [
-    "pages/index/index",
     "pages/home/home",
-    "pages/register/register"
+    "pages/index/index",
+    "pages/project/project",
+    "pages/add/add",
+    "pages/message/message",
+    "pages/profile/profile"
   ],
   "window": {
     "navigationBarTextStyle": "black",

@@ -25,6 +25,8 @@
 </template>
 
 <script>
+	import { setToken } from '@/utils/index'
+
 	export default {
 		data() {
 			return {
@@ -48,6 +50,8 @@
 				}
 				// 这里可以添加登录接口调用
 				console.log('登录信息:', { phone: this.phone, password: this.password });
+				// 先写入占位 token，后续接入真实登录接口时替换成后端返回值
+				setToken('mock-token');
 				uni.showToast({ title: '登录成功', icon: 'success' });
 				uni.navigateTo({
 					url: '/pages/home/home'

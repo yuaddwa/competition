@@ -1,5 +1,6 @@
 "use strict";
 const common_vendor = require("../../common/vendor.js");
+const utils_index = require("../../utils/index.js");
 const _sfc_main = {
   data() {
     return {
@@ -20,14 +21,15 @@ const _sfc_main = {
         common_vendor.index.showToast({ title: "请输入密码", icon: "none" });
         return;
       }
-      common_vendor.index.__f__("log", "at pages/index/index.vue:50", "登录信息:", { phone: this.phone, password: this.password });
+      common_vendor.index.__f__("log", "at pages/index/index.vue:52", "登录信息:", { phone: this.phone, password: this.password });
+      utils_index.setToken("mock-token");
       common_vendor.index.showToast({ title: "登录成功", icon: "success" });
-      common_vendor.index.switchTab({
+      common_vendor.index.navigateTo({
         url: "/pages/home/home"
       });
     },
     forgotPassword() {
-      common_vendor.index.__f__("log", "at pages/index/index.vue:58", "忘记密码？");
+      common_vendor.index.__f__("log", "at pages/index/index.vue:62", "忘记密码？");
       common_vendor.index.showToast({ title: "忘记密码功能开发中", icon: "none" });
     },
     togglePassword() {
