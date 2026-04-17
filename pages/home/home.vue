@@ -10,19 +10,26 @@
 			<input
 				v-model="keyword"
 				class="search-input"
-				placeholder="搜索代理人（例如：前端、SEO、产品）"
+				placeholder="搜索部门（例如：工程、市场、产品）"
 				confirm-type="search"
 			/>
 			<text v-if="keyword" class="search-clear" @click="keyword = ''">清空</text>
 		</view>
 
-		<department-section
-			v-for="department in filteredDepartments"
-			:key="department.id"
-			:department="department"
-			@select-service="openServiceDetail"
-		/>
-		<view v-if="filteredDepartments.length === 0" class="empty-tip">没有匹配的代理人，试试其他关键词</view>
+		<view class="department-grid">
+			<view
+				v-for="(department, index) in filteredDepartments"
+				:key="department.id"
+				class="department-tile"
+				:class="tileClass(index)"
+				@click="openDepartment(department)"
+			>
+				<text class="tile-title">{{ cleanLabel(department.name) }}</text>
+				<text class="tile-desc">{{ department.desc }}</text>
+				<text class="tile-count">{{ department.services.length }} 个角色</text>
+			</view>
+		</view>
+		<view v-if="filteredDepartments.length === 0" class="empty-tip">没有匹配的部门，试试其他关键词</view>
 
 		<view class="bottom-action">
 			<button class="action-btn secondary" @click="handleCreateTask">创建任务</button>
@@ -53,31 +60,17 @@
 			</view>
 		</view>
 
-		<agent-drawer
-			:visible="showDrawer"
-			:service="selectedService"
-			@close="closeServiceDetail"
-			@create-task="handleCreateTask"
-		/>
 	</view>
 </template>
 
 <script>
 	import agentDepartments from "@/data/agentDepartments";
-	import DepartmentSection from "@/components/home/DepartmentSection.vue";
-	import AgentDrawer from "@/components/home/AgentDrawer.vue";
 
 	export default {
-		components: {
-			DepartmentSection,
-			AgentDrawer
-		},
 		data() {
 			return {
 				currentPage: 'home',
 				keyword: '',
-				showDrawer: false,
-				selectedService: {},
 				departments: agentDepartments
 			}
 		},
@@ -85,29 +78,33 @@
 			filteredDepartments() {
 				const key = this.keyword.trim().toLowerCase();
 				if (!key) return this.departments;
-				return this.departments
-					.map((department) => {
-						const departmentMatched = `${department.name} ${department.desc}`.toLowerCase().includes(key);
-						if (departmentMatched) return department;
-						const services = department.services.filter((service) => {
-							const searchText = `${service.name} ${service.intro} ${service.expertise} ${service.whenToUse}`.toLowerCase();
-							return searchText.includes(key);
-						});
-						return { ...department, services };
-					})
-					.filter((department) => department.services.length > 0);
+				return this.departments.filter((department) =>
+					`${department.name} ${department.desc}`.toLowerCase().includes(key)
+				);
 			}
 		},
 		methods: {
-			openServiceDetail(service) {
-				this.selectedService = service;
-				this.showDrawer = true;
+			cleanLabel(label = "") {
+				return label.replace(/^[^\u4e00-\u9fa5A-Za-z0-9]+/, "").trim();
 			},
-			closeServiceDetail() {
-				this.showDrawer = false;
+			tileClass(index) {
+				const pattern = [
+					"shape-wide tone-a",
+					"shape-compact tone-b",
+					"shape-compact tone-c",
+					"shape-wide tone-d",
+					"shape-compact tone-e",
+					"shape-compact tone-f"
+				];
+				return pattern[index % pattern.length];
+			},
+			openDepartment(department) {
+				uni.navigateTo({
+					url: `/pages/department/department?id=${department.id}`
+				});
 			},
 			handleBrandCta() {
-				uni.showToast({ title: '请选择下方 AI 角色开始协作', icon: 'none' });
+				uni.showToast({ title: '请选择一个部门进入', icon: 'none' });
 			},
 			handleCreateTask() {
 				uni.showToast({ title: '任务创建功能开发中', icon: 'none' });
@@ -140,7 +137,7 @@
 		min-height: 100vh;
 		padding: 30rpx;
 		padding-bottom: 220rpx;
-		background: #f6f8fb;
+		background: #f4f6fb;
 		box-sizing: border-box;
 	}
 
@@ -148,9 +145,10 @@
 		display: flex;
 		flex-direction: column;
 		padding: 40rpx 30rpx;
-		background: linear-gradient(135deg, #006dff, #4a98ff);
+		background: linear-gradient(135deg, #3158ff 0%, #6d4dff 55%, #8f59ff 100%);
 		border-radius: 24rpx;
 		color: #fff;
+		box-shadow: 0 10rpx 28rpx rgba(86, 92, 255, 0.28);
 	}
 
 	.brand-name {
@@ -169,8 +167,8 @@
 		width: 220rpx;
 		height: 68rpx;
 		line-height: 68rpx;
-		background: #fff;
-		color: #006dff;
+		background: rgba(255, 255, 255, 0.95);
+		color: #3f4df2;
 		font-size: 26rpx;
 		font-weight: 600;
 		border-radius: 34rpx;
@@ -180,10 +178,11 @@
 		margin-top: 24rpx;
 		display: flex;
 		align-items: center;
-		background: #fff;
+		background: #ffffff;
 		border-radius: 14rpx;
 		padding: 0 20rpx;
-		border: 1rpx solid #e6ebf2;
+		border: 1rpx solid #dfe6f6;
+		box-shadow: 0 4rpx 14rpx rgba(31, 45, 77, 0.05);
 	}
 
 	.search-input {
@@ -195,7 +194,102 @@
 
 	.search-clear {
 		font-size: 24rpx;
-		color: #006dff;
+		color: #5160f2;
+	}
+
+	.department-grid {
+		margin-top: 24rpx;
+		display: grid;
+		grid-template-columns: repeat(6, minmax(0, 1fr));
+		grid-auto-rows: 12rpx;
+		grid-auto-flow: dense;
+		gap: 14rpx;
+		align-items: stretch;
+	}
+
+	.department-tile {
+		grid-column: span 3;
+		grid-row: span 9;
+		background: #fff;
+		border: 1rpx solid #dfe6f2;
+		border-radius: 22rpx;
+		padding: 18rpx;
+		box-sizing: border-box;
+		display: flex;
+		flex-direction: column;
+		justify-content: space-between;
+		box-shadow: 0 8rpx 18rpx rgba(20, 38, 70, 0.05);
+		position: relative;
+		overflow: hidden;
+	}
+
+	.department-tile::after {
+		content: "";
+		position: absolute;
+		right: -30rpx;
+		top: -30rpx;
+		width: 120rpx;
+		height: 120rpx;
+		border-radius: 50%;
+		background: rgba(255, 255, 255, 0.5);
+	}
+
+	.department-tile.shape-wide {
+		grid-column: span 4;
+		grid-row: span 9;
+	}
+
+	.department-tile.shape-compact {
+		grid-column: span 2;
+		grid-row: span 9;
+	}
+
+	.department-tile.tone-a {
+		background: linear-gradient(160deg, #ffffff 0%, #eef4ff 100%);
+	}
+
+	.department-tile.tone-b {
+		background: linear-gradient(160deg, #ffffff 0%, #f2efff 100%);
+	}
+
+	.department-tile.tone-c {
+		background: linear-gradient(160deg, #ffffff 0%, #ecfaf5 100%);
+	}
+
+	.department-tile.tone-d {
+		background: linear-gradient(160deg, #ffffff 0%, #fff1e8 100%);
+	}
+
+	.department-tile.tone-e {
+		background: linear-gradient(160deg, #ffffff 0%, #edf8ff 100%);
+	}
+
+	.department-tile.tone-f {
+		background: linear-gradient(160deg, #ffffff 0%, #fff4e8 100%);
+	}
+
+	.tile-title {
+		font-size: 28rpx;
+		font-weight: 700;
+		color: #1f2d3d;
+	}
+
+	.tile-desc {
+		margin-top: 10rpx;
+		font-size: 20rpx;
+		color: #6f7a89;
+		line-height: 1.5;
+		display: -webkit-box;
+		overflow: hidden;
+		-webkit-box-orient: vertical;
+		-webkit-line-clamp: 3;
+	}
+
+	.tile-count {
+		margin-top: 16rpx;
+		font-size: 20rpx;
+		color: #4e5cf0;
+		font-weight: 600;
 	}
 
 	.empty-tip {
@@ -213,6 +307,7 @@
 		padding: 24rpx;
 		background: #fff;
 		border-radius: 20rpx;
+		border: 1rpx solid #dfe6f2;
 	}
 
 	.action-btn {
@@ -224,13 +319,14 @@
 	}
 
 	.action-btn.primary {
-		background: #006dff;
+		background: linear-gradient(135deg, #3f5dff, #6f54ff);
 		color: #fff;
+		box-shadow: 0 8rpx 18rpx rgba(76, 90, 255, 0.24);
 	}
 
 	.action-btn.secondary {
-		background: #ecf2ff;
-		color: #006dff;
+		background: #edf2ff;
+		color: #4a5af2;
 	}
 
 	.tab-bar {
@@ -241,7 +337,6 @@
 		display: flex;
 		align-items: center;
 		height: 100rpx;
-		padding-bottom: env(safe-area-inset-bottom);
 		background-color: #fff;
 		border-top: 1rpx solid #e8e8e8;
 		z-index: 100;
