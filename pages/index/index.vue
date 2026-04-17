@@ -49,7 +49,7 @@
 				// 这里可以添加登录接口调用
 				console.log('登录信息:', { phone: this.phone, password: this.password });
 				uni.showToast({ title: '登录成功', icon: 'success' });
-				uni.navigateTo({
+				uni.redirectTo({
 					url: '/pages/home/home'
 				});
 			},
@@ -62,7 +62,7 @@
 				this.showPassword = !this.showPassword;
 			},
 			register() {
-				uni.navigateTo({
+				uni.redirectTo({
 					url: '/pages/register/register'
 				});
 			}

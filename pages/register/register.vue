@@ -113,43 +113,47 @@ export default {
 
 		// 注册
 		register() {
-			if (!this.phone) {
-				uni.showToast({ title: '请输入手机号', icon: 'none' });
-				return;
-			}
+				if (!this.phone) {
+					uni.showToast({ title: '请输入手机号', icon: 'none' });
+					return;
+				}
 
-			if (!this.inputCode) {
-				uni.showToast({ title: '请输入验证码', icon: 'none' });
-				return;
-			}
+				if (!this.inputCode) {
+					uni.showToast({ title: '请输入验证码', icon: 'none' });
+					return;
+				}
 
-			// ⭐ 已修复：trim 防空格
-			if (this.inputCode.trim() !== this.realCode) {
-				uni.showToast({ title: '验证码错误', icon: 'none' });
-				this.drawCaptcha();
-				return;
-			}
+				// ⭐ 已修复：trim 防空格
+				if (this.inputCode.trim() !== this.realCode) {
+					uni.showToast({ title: '验证码错误', icon: 'none' });
+					this.drawCaptcha();
+					return;
+				}
 
-			if (!this.password) {
-				uni.showToast({ title: '请输入密码', icon: 'none' });
-				return;
-			}
+				if (!this.password) {
+					uni.showToast({ title: '请输入密码', icon: 'none' });
+					return;
+				}
 
-			if (this.password !== this.confirmPassword) {
-				uni.showToast({ title: '两次密码不一致', icon: 'none' });
-				return;
-			}
+				if (this.password !== this.confirmPassword) {
+					uni.showToast({ title: '两次密码不一致', icon: 'none' });
+					return;
+				}
 
-			uni.showToast({ title: '注册成功', icon: 'success' });
+				uni.showToast({ title: '注册成功', icon: 'success' });
 
-			setTimeout(() => {
-				uni.navigateBack();
-			}, 1500);
-		},
+				setTimeout(() => {
+					uni.redirectTo({
+						url: '/pages/index/index'
+					});
+				}, 1500);
+			},
 
 		goLogin() {
-			uni.navigateBack();
-		}
+				uni.redirectTo({
+					url: '/pages/index/index'
+				});
+			}
 	}
 }
 </script>

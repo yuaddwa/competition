@@ -41,7 +41,7 @@
 		},
 		methods: {
 			navigateTo(page) {
-				uni.navigateTo({
+				uni.redirectTo({
 					url: `/pages/${page}/${page}`
 				});
 			}
