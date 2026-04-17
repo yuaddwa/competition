@@ -41,7 +41,8 @@
 		},
 		methods: {
 			navigateTo(page) {
-				uni.navigateTo({
+				if (page === this.currentPage) return;
+				uni.redirectTo({
 					url: `/pages/${page}/${page}`
 				});
 			}
