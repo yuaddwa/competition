@@ -73,9 +73,9 @@
 <style>
 	@font-face {
 		font-family: 'iconfont';  /* Project id 5162264 */
-		src: url('/static/download/font_5162264_7wiwoqz0939/iconfont.woff2') format('woff2'),
-			 url('/static/download/font_5162264_7wiwoqz0939/iconfont.woff') format('woff'),
-			 url('/static/download/font_5162264_7wiwoqz0939/iconfont.ttf') format('truetype');
+		src: url('../static/download/font_5162264_g3oiz4ouy1i/iconfont.woff2') format('woff2'),
+			 url('../static/download/font_5162264_g3oiz4ouy1i/iconfont.woff') format('woff'),
+			 url('../static/download/font_5162264_g3oiz4ouy1i/iconfont.ttf') format('truetype');
 	}
 
 	.iconfont {

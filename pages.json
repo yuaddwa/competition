@@ -1,37 +1,49 @@
 {
 	"pages": [
 		{
-			"path": "pages/home/home",
+			"path": "pages/index/index",
 			"style": {
-				"navigationBarTitleText": ""
+				"navigationBarTitleText": "",
+				"navigationBarBackButtonHidden": true
 			}
 		},
 		{
-			"path": "pages/index/index",
+			"path": "pages/home/home",
 			"style": {
-				"navigationBarTitleText": ""
+				"navigationBarTitleText": "",
+				"navigationBarBackButtonHidden": true
 			}
 		},
 		{
 			"path": "pages/project/project",
 			"style": {
-				"navigationBarTitleText": ""
+				"navigationBarTitleText": "",
+				"navigationBarBackButtonHidden": true
 			}
 		},
 		{
 			"path": "pages/add/add",
 			"style": {
-				"navigationBarTitleText": ""
+				"navigationBarTitleText": "",
+				"navigationBarBackButtonHidden": true
 			}
 		},
 		{
 			"path": "pages/message/message",
 			"style": {
-				"navigationBarTitleText": ""
+				"navigationBarTitleText": "",
+				"navigationBarBackButtonHidden": true
 			}
 		},
 		{
 			"path": "pages/profile/profile",
+			"style": {
+				"navigationBarTitleText": "",
+				"navigationBarBackButtonHidden": true
+			}
+		},
+		{
+			"path": "pages/register/register",
 			"style": {
 				"navigationBarTitleText": ""
 			}

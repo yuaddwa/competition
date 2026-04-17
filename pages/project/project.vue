@@ -5,24 +5,24 @@
 		</view>
 		<view class="tab-bar">
 			<view class="tab-item" :class="{ active: currentPage === 'home' }" @click="navigateTo('home')">
-				<text class="tab-icon">🏠</text>
+				<text class="tab-icon iconfont">&#xe64f;</text>
 				<text class="tab-text">首页</text>
 			</view>
 			<view class="tab-item" :class="{ active: currentPage === 'project' }" @click="navigateTo('project')">
-				<text class="tab-icon">📁</text>
+				<text class="tab-icon iconfont">&#xe620;</text>
 				<text class="tab-text">项目</text>
 			</view>
 			<view class="tab-item center-item">
 				<view class="center-button" @click="navigateTo('add')">
-					<text class="center-icon">➕</text>
+					<text class="center-icon iconfont"></text>
 				</view>
 			</view>
 			<view class="tab-item" :class="{ active: currentPage === 'message' }" @click="navigateTo('message')">
-				<text class="tab-icon">💬</text>
+				<text class="tab-icon iconfont">&#xe87c;</text>
 				<text class="tab-text">消息</text>
 			</view>
 			<view class="tab-item" :class="{ active: currentPage === 'profile' }" @click="navigateTo('profile')">
-				<text class="tab-icon">👤</text>
+				<text class="tab-icon iconfont">&#xe654;</text>
 				<text class="tab-text">个人</text>
 			</view>
 		</view>
@@ -50,6 +50,18 @@
 </script>
 
 <style>
+	@font-face {
+		font-family: 'iconfont';  /* Project id 5162264 */
+		src: url('../../static/download/font_5162264_g3oiz4ouy1i/iconfont.woff2') format('woff2'),
+			 url('../../static/download/font_5162264_g3oiz4ouy1i/iconfont.woff') format('woff'),
+			 url('../../static/download/font_5162264_g3oiz4ouy1i/iconfont.ttf') format('truetype');
+	}
+
+	.iconfont {
+		font-family: 'iconfont' !important;
+		font-size: 36rpx;
+	}
+
 	.project-container {
 		display: flex;
 		flex-direction: column;
