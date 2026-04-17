@@ -1,39 +1,18 @@
 <template>
 	<view class="home-page">
-		<view class="brand-section">
-			<text class="brand-name">AI 一人公司</text>
-			<text class="brand-tagline">建设未来，一次承诺一个。</text>
-			<button class="brand-cta" @click="handleBrandCta">开始协作</button>
-		</view>
-
-		<view class="search-box">
-			<input
-				v-model="keyword"
-				class="search-input"
-				placeholder="搜索部门（例如：工程、市场、产品）"
-				confirm-type="search"
-			/>
-			<text v-if="keyword" class="search-clear" @click="keyword = ''">清空</text>
-		</view>
-
 		<view class="department-grid">
 			<view
-				v-for="(department, index) in filteredDepartments"
+				v-for="(department, index) in departments"
 				:key="department.id"
 				class="department-tile"
 				:class="tileClass(index)"
+				:style="tileStyle(department.id)"
 				@click="openDepartment(department)"
 			>
 				<text class="tile-title">{{ cleanLabel(department.name) }}</text>
 				<text class="tile-desc">{{ department.desc }}</text>
 				<text class="tile-count">{{ department.services.length }} 个角色</text>
 			</view>
-		</view>
-		<view v-if="filteredDepartments.length === 0" class="empty-tip">没有匹配的部门，试试其他关键词</view>
-
-		<view class="bottom-action">
-			<button class="action-btn secondary" @click="handleCreateTask">创建任务</button>
-			<button class="action-btn primary" @click="handleOpenWorkflow">进入工作流</button>
 		</view>
 
 		<view class="tab-bar">
@@ -70,17 +49,7 @@
 		data() {
 			return {
 				currentPage: 'home',
-				keyword: '',
 				departments: agentDepartments
-			}
-		},
-		computed: {
-			filteredDepartments() {
-				const key = this.keyword.trim().toLowerCase();
-				if (!key) return this.departments;
-				return this.departments.filter((department) =>
-					`${department.name} ${department.desc}`.toLowerCase().includes(key)
-				);
 			}
 		},
 		methods: {
@@ -89,28 +58,43 @@
 			},
 			tileClass(index) {
 				const pattern = [
-					"shape-wide tone-a",
-					"shape-compact tone-b",
-					"shape-compact tone-c",
-					"shape-wide tone-d",
-					"shape-compact tone-e",
-					"shape-compact tone-f"
+					"shape-wide",
+					"shape-compact",
+					"shape-compact",
+					"shape-wide",
+					"shape-compact",
+					"shape-compact"
 				];
 				return pattern[index % pattern.length];
+			},
+			tileStyle(departmentId) {
+				const map = {
+					engineering: { bg: "linear-gradient(160deg, #ffffff 0%, #eaf2ff 100%)", border: "#cfe0ff", accent: "#3d67ff", glow: "rgba(80, 132, 255, 0.22)" },
+					design: { bg: "linear-gradient(160deg, #ffffff 0%, #f4ecff 100%)", border: "#e1d2ff", accent: "#7b4dff", glow: "rgba(142, 86, 255, 0.2)" },
+					paid: { bg: "linear-gradient(160deg, #ffffff 0%, #fff2e8 100%)", border: "#ffd9c2", accent: "#ff7b2f", glow: "rgba(255, 145, 84, 0.2)" },
+					sales: { bg: "linear-gradient(160deg, #ffffff 0%, #eaf8ff 100%)", border: "#c8e9ff", accent: "#1689d9", glow: "rgba(84, 174, 235, 0.2)" },
+					marketing: { bg: "linear-gradient(160deg, #ffffff 0%, #fff0f6 100%)", border: "#ffd3e8", accent: "#e04b8b", glow: "rgba(236, 112, 171, 0.2)" },
+					product: { bg: "linear-gradient(160deg, #ffffff 0%, #f1f4ff 100%)", border: "#d7defd", accent: "#5567db", glow: "rgba(111, 124, 226, 0.2)" },
+					pm: { bg: "linear-gradient(160deg, #ffffff 0%, #f2fff4 100%)", border: "#cfeeda", accent: "#2f9d5b", glow: "rgba(97, 197, 136, 0.2)" },
+					qa: { bg: "linear-gradient(160deg, #ffffff 0%, #edfaff 100%)", border: "#cdeeff", accent: "#1d8fc2", glow: "rgba(92, 187, 224, 0.2)" },
+					support: { bg: "linear-gradient(160deg, #ffffff 0%, #f7f2ff 100%)", border: "#dfd2ff", accent: "#7450cc", glow: "rgba(136, 106, 214, 0.2)" },
+					spatial: { bg: "linear-gradient(160deg, #ffffff 0%, #eef8ff 100%)", border: "#cfe6ff", accent: "#3a78d6", glow: "rgba(94, 152, 230, 0.2)" },
+					special: { bg: "linear-gradient(160deg, #ffffff 0%, #fff4ec 100%)", border: "#ffd9c5", accent: "#dc6b33", glow: "rgba(235, 142, 95, 0.2)" },
+					finance: { bg: "linear-gradient(160deg, #ffffff 0%, #eefbf5 100%)", border: "#cde8dd", accent: "#2c8f68", glow: "rgba(101, 193, 153, 0.2)" },
+					academic: { bg: "linear-gradient(160deg, #ffffff 0%, #f5f6ff 100%)", border: "#dfe1fb", accent: "#5a63c9", glow: "rgba(127, 136, 224, 0.2)" }
+				};
+				const theme = map[departmentId] || { bg: "linear-gradient(160deg, #ffffff 0%, #f2f6ff 100%)", border: "#dfe6f2", accent: "#4e5cf0", glow: "rgba(92, 120, 255, 0.2)" };
+				return {
+					"--tile-bg": theme.bg,
+					"--tile-border": theme.border,
+					"--tile-accent": theme.accent,
+					"--tile-glow": theme.glow
+				};
 			},
 			openDepartment(department) {
 				uni.navigateTo({
 					url: `/pages/department/department?id=${department.id}`
 				});
-			},
-			handleBrandCta() {
-				uni.showToast({ title: '请选择一个部门进入', icon: 'none' });
-			},
-			handleCreateTask() {
-				uni.showToast({ title: '任务创建功能开发中', icon: 'none' });
-			},
-			handleOpenWorkflow() {
-				uni.showToast({ title: '工作流入口开发中', icon: 'none' });
 			},
 			navigateTo(page) {
 				uni.redirectTo({
@@ -141,64 +125,8 @@
 		box-sizing: border-box;
 	}
 
-	.brand-section {
-		display: flex;
-		flex-direction: column;
-		padding: 40rpx 30rpx;
-		background: linear-gradient(135deg, #3158ff 0%, #6d4dff 55%, #8f59ff 100%);
-		border-radius: 24rpx;
-		color: #fff;
-		box-shadow: 0 10rpx 28rpx rgba(86, 92, 255, 0.28);
-	}
-
-	.brand-name {
-		font-size: 42rpx;
-		font-weight: 700;
-	}
-
-	.brand-tagline {
-		margin-top: 12rpx;
-		font-size: 26rpx;
-		opacity: 0.95;
-	}
-
-	.brand-cta {
-		margin-top: 24rpx;
-		width: 220rpx;
-		height: 68rpx;
-		line-height: 68rpx;
-		background: rgba(255, 255, 255, 0.95);
-		color: #3f4df2;
-		font-size: 26rpx;
-		font-weight: 600;
-		border-radius: 34rpx;
-	}
-
-	.search-box {
-		margin-top: 24rpx;
-		display: flex;
-		align-items: center;
-		background: #ffffff;
-		border-radius: 14rpx;
-		padding: 0 20rpx;
-		border: 1rpx solid #dfe6f6;
-		box-shadow: 0 4rpx 14rpx rgba(31, 45, 77, 0.05);
-	}
-
-	.search-input {
-		flex: 1;
-		height: 76rpx;
-		font-size: 26rpx;
-		color: #1f2d3d;
-	}
-
-	.search-clear {
-		font-size: 24rpx;
-		color: #5160f2;
-	}
-
 	.department-grid {
-		margin-top: 24rpx;
+		margin-top: 4rpx;
 		display: grid;
 		grid-template-columns: repeat(6, minmax(0, 1fr));
 		grid-auto-rows: 12rpx;
@@ -210,8 +138,8 @@
 	.department-tile {
 		grid-column: span 3;
 		grid-row: span 9;
-		background: #fff;
-		border: 1rpx solid #dfe6f2;
+		background: var(--tile-bg, #fff);
+		border: 1rpx solid var(--tile-border, #dfe6f2);
 		border-radius: 22rpx;
 		padding: 18rpx;
 		box-sizing: border-box;
@@ -231,7 +159,7 @@
 		width: 120rpx;
 		height: 120rpx;
 		border-radius: 50%;
-		background: rgba(255, 255, 255, 0.5);
+		background: var(--tile-glow, rgba(255, 255, 255, 0.5));
 	}
 
 	.department-tile.shape-wide {
@@ -242,30 +170,6 @@
 	.department-tile.shape-compact {
 		grid-column: span 2;
 		grid-row: span 9;
-	}
-
-	.department-tile.tone-a {
-		background: linear-gradient(160deg, #ffffff 0%, #eef4ff 100%);
-	}
-
-	.department-tile.tone-b {
-		background: linear-gradient(160deg, #ffffff 0%, #f2efff 100%);
-	}
-
-	.department-tile.tone-c {
-		background: linear-gradient(160deg, #ffffff 0%, #ecfaf5 100%);
-	}
-
-	.department-tile.tone-d {
-		background: linear-gradient(160deg, #ffffff 0%, #fff1e8 100%);
-	}
-
-	.department-tile.tone-e {
-		background: linear-gradient(160deg, #ffffff 0%, #edf8ff 100%);
-	}
-
-	.department-tile.tone-f {
-		background: linear-gradient(160deg, #ffffff 0%, #fff4e8 100%);
 	}
 
 	.tile-title {
@@ -288,45 +192,8 @@
 	.tile-count {
 		margin-top: 16rpx;
 		font-size: 20rpx;
-		color: #4e5cf0;
+		color: var(--tile-accent, #4e5cf0);
 		font-weight: 600;
-	}
-
-	.empty-tip {
-		margin-top: 20rpx;
-		text-align: center;
-		font-size: 24rpx;
-		color: #8a97a8;
-	}
-
-	.bottom-action {
-		display: flex;
-		align-items: center;
-		gap: 18rpx;
-		margin-top: 28rpx;
-		padding: 24rpx;
-		background: #fff;
-		border-radius: 20rpx;
-		border: 1rpx solid #dfe6f2;
-	}
-
-	.action-btn {
-		flex: 1;
-		height: 78rpx;
-		line-height: 78rpx;
-		font-size: 28rpx;
-		border-radius: 39rpx;
-	}
-
-	.action-btn.primary {
-		background: linear-gradient(135deg, #3f5dff, #6f54ff);
-		color: #fff;
-		box-shadow: 0 8rpx 18rpx rgba(76, 90, 255, 0.24);
-	}
-
-	.action-btn.secondary {
-		background: #edf2ff;
-		color: #4a5af2;
 	}
 
 	.tab-bar {
