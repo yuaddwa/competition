@@ -17,7 +17,7 @@
 			<button class="login-btn" @click="login">登录</button>
 			<view class="forgot-password" @click="forgotPassword">忘记密码</view>
 			<view class="register-container">
-				<text>还没有账号？</text>
+				<text>还没有账号？？</text>
 				<text class="register-link" @click="register">立即注册</text>
 			</view>
 		</view>
@@ -49,7 +49,7 @@
 				// 这里可以添加登录接口调用
 				console.log('登录信息:', { phone: this.phone, password: this.password });
 				uni.showToast({ title: '登录成功', icon: 'success' });
-				uni.switchTab({
+				uni.navigateTo({
 					url: '/pages/home/home'
 				});
 			},
@@ -62,9 +62,9 @@
 				this.showPassword = !this.showPassword;
 			},
 			register() {
-				// 这里可以跳转到注册页面或调用注册接口
-				console.log('注册账号');
-				uni.showToast({ title: '注册功能开发中', icon: 'none' });
+				uni.navigateTo({
+					url: '/pages/register/register'
+				});
 			}
 		}
 	}
