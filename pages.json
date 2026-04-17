@@ -1,21 +1,39 @@
 {
 	"pages": [
 		{
+			"path": "pages/home/home",
+			"style": {
+				"navigationBarTitleText": ""
+			}
+		},
+		{
 			"path": "pages/index/index",
 			"style": {
 				"navigationBarTitleText": ""
 			}
 		},
 		{
-			"path": "pages/home/home",
+			"path": "pages/project/project",
 			"style": {
-				"navigationBarTitleText": "首页"
+				"navigationBarTitleText": ""
 			}
 		},
 		{
-			"path": "pages/register/register",
+			"path": "pages/add/add",
 			"style": {
-				"navigationBarTitleText": "注册"
+				"navigationBarTitleText": ""
+			}
+		},
+		{
+			"path": "pages/message/message",
+			"style": {
+				"navigationBarTitleText": ""
+			}
+		},
+		{
+			"path": "pages/profile/profile",
+			"style": {
+				"navigationBarTitleText": ""
 			}
 		}
 	],

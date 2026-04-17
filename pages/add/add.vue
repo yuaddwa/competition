@@ -1,7 +1,7 @@
 <template>
-	<view class="home-container">
+	<view class="add-container">
 		<view class="content">
-			<text>登录成功</text>
+			<text>添加页面</text>
 		</view>
 		<view class="tab-bar">
 			<view class="tab-item" :class="{ active: currentPage === 'home' }" @click="navigateTo('home')">
@@ -33,7 +33,7 @@
 	export default {
 		data() {
 			return {
-				currentPage: 'home'
+				currentPage: 'add'
 			}
 		},
 		onLoad() {
@@ -50,7 +50,7 @@
 </script>
 
 <style>
-	.home-container {
+	.add-container {
 		display: flex;
 		flex-direction: column;
 		height: 100vh;
