@@ -53,7 +53,7 @@
 				// 先写入占位 token，后续接入真实登录接口时替换成后端返回值
 				setToken('mock-token');
 				uni.showToast({ title: '登录成功', icon: 'success' });
-				uni.navigateTo({
+				uni.redirectTo({
 					url: '/pages/home/home'
 				});
 			},
@@ -66,7 +66,7 @@
 				this.showPassword = !this.showPassword;
 			},
 			register() {
-				uni.navigateTo({
+				uni.redirectTo({
 					url: '/pages/register/register'
 				});
 			}

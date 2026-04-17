@@ -116,7 +116,6 @@
 				uni.showToast({ title: '工作流入口开发中', icon: 'none' });
 			},
 			navigateTo(page) {
-				if (page === this.currentPage) return;
 				uni.redirectTo({
 					url: `/pages/${page}/${page}`
 				});
