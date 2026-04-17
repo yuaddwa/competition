@@ -51,7 +51,7 @@ function _sfc_render(_ctx, _cache, $props, $setup, $data, $options) {
     g: common_vendor.o((...args) => $options.togglePassword && $options.togglePassword(...args), "58"),
     h: common_vendor.o((...args) => $options.login && $options.login(...args), "35"),
     i: common_vendor.o((...args) => $options.forgotPassword && $options.forgotPassword(...args), "25"),
-    j: common_vendor.o((...args) => $options.register && $options.register(...args), "f8")
+    j: common_vendor.o((...args) => $options.register && $options.register(...args), "42")
   };
 }
 const MiniProgramPage = /* @__PURE__ */ common_vendor._export_sfc(_sfc_main, [["render", _sfc_render]]);
