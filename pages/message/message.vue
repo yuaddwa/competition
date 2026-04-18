@@ -51,6 +51,8 @@
 </template>
 
 <script>
+	import AppTabBar from "@/components/AppTabBar.vue";
+
 	export default {
 		data() {
 			return {
