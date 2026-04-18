@@ -158,8 +158,10 @@
 						setUserInfo(user || { phone });
 						uni.showToast({ title: "注册成功", icon: "success" });
 						setTimeout(() => {
-							uni.navigateBack({
-								delta: 1,
+							/* 登录页 often 用 redirectTo 打开注册，栈里可能没有上一页，navigateBack 易失败；
+							   进入 Tab 页必须用 switchTab，比 reLaunch 更稳 */
+							uni.switchTab({
+								url: "/pages/profile/profile",
 								fail: () => {
 									uni.reLaunch({ url: "/pages/profile/profile" });
 								},

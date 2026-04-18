@@ -1,14 +1,22 @@
 import { getToken, buildQuery } from "./index";
 
-/** 默认与 vite.config.js 代理目标一致；小程序/App 等非 H5 仍为直连 */
-let _baseUrl = "http://127.0.0.1:8081/";
-// #ifdef H5
-if (import.meta.env.DEV) {
-	/* H5 开发：请求同源 /api…，由 Vite 转到后端，避免跨域 */
-	_baseUrl = "";
+/**
+ * 接口根地址：
+ * - H5 + 开发：留空 → 请求为相对路径 `/api/...`，发到当前页面所在源（如 localhost:5173），
+ *   由 vite.config.js 里 `^/api` 代理转到后端；若写死 8081 会绕过代理且易跨域。
+ * - 小程序 / App / H5 生产包：直连后端（默认与 .env.development 里代理目标一致）。
+ */
+function resolveBaseUrl() {
+	let base = "http://127.0.0.1:8081/";
+	// #ifdef H5
+	if (import.meta.env.DEV) {
+		base = "";
+	}
+	// #endif
+	return base;
 }
-// #endif
-export const BASE_URL = _baseUrl;
+
+export const BASE_URL = resolveBaseUrl();
 const TIMEOUT = 10000;
 
 /** 统一网络错误文案，便于全局排查 */
