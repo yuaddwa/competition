@@ -1,6 +1,6 @@
 import { getToken, buildQuery } from "./index";
 
-export const BASE_URL = "http://127.0.0.1:8081/";
+export const BASE_URL = "http://120.27.137.241:8081/";
 const TIMEOUT = 10000;
 
 /** 统一网络错误文案，便于全局排查 */
@@ -64,14 +64,23 @@ function request(options = {}) {
           return;
         }
 
-        let message = (resData && (resData.msg || resData.message)) || "请求失败";
-        if (statusCode >= 500) {
-          message = "服务暂时不可用，请稍后重试";
-        } else if (statusCode === 404) {
+        const serverMsg =
+          (resData &&
+            (resData.msg ||
+              resData.message ||
+              resData.error ||
+              (typeof resData === "string" ? resData : ""))) ||
+          "";
+        let message = serverMsg || "请求失败";
+        if (statusCode === 404) {
           message = "接口不存在或路径错误";
         }
+        if (statusCode >= 500 && !serverMsg) {
+          message = "服务暂时不可用，请稍后重试";
+        }
         if (showError) {
-          uni.showToast({ title: message, icon: "none", duration: 2600 });
+          const toastMsg = statusCode ? `${message}(${statusCode})` : message;
+          uni.showToast({ title: toastMsg, icon: "none", duration: 2600 });
         }
         reject({ statusCode, message, data: resData });
       },

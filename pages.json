@@ -61,6 +61,12 @@
 			}
 		},
 		{
+			"path": "pages/profile/profile-info",
+			"style": {
+				"navigationBarTitleText": "个人资料"
+			}
+		},
+		{
 			"path": "pages/login/login",
 			"style": {
 				"navigationBarTitleText": "登录"

@@ -4,11 +4,11 @@
 		<view class="auth-main">
 			<view class="auth-card">
 			<text class="brand">欢迎回来</text>
-			<text class="sub">使用手机号登录，开始使用工作台</text>
+			<text class="sub">使用账号或手机号登录，开始使用工作台</text>
 
 			<view class="field">
-				<text class="lab">手机号</text>
-				<input class="inp" type="number" maxlength="11" v-model="phone" placeholder="请输入手机号" placeholder-class="ph" />
+				<text class="lab">账号 / 手机号</text>
+				<input class="inp" v-model="phone" placeholder="请输入账号或手机号" placeholder-class="ph" />
 			</view>
 
 			<view class="field">
@@ -47,9 +47,9 @@
 		},
 		methods: {
 			async onLogin() {
-				const phone = (this.phone || "").trim();
-				if (!phone) {
-					uni.showToast({ title: "请输入手机号", icon: "none" });
+				const account = String(this.phone || "").trim();
+				if (!account) {
+					uni.showToast({ title: "请输入账号或手机号", icon: "none" });
 					return;
 				}
 				if (!this.password) {
@@ -58,13 +58,18 @@
 				}
 				this.loading = true;
 				try {
-					const { token, user } = await authApi.login({ phone, password });
+					const { token, user } = await authApi.login({
+						phone: account,
+						username: account,
+						account,
+						password: this.password,
+					});
 					if (!token) {
 						uni.showToast({ title: "登录成功但未返回 token", icon: "none" });
 						return;
 					}
 					setToken(token);
-					setUserInfo(user || { phone });
+					setUserInfo(user || { phone: account, username: account });
 					uni.showToast({ title: "登录成功", icon: "success" });
 					setTimeout(() => {
 						uni.navigateBack({
