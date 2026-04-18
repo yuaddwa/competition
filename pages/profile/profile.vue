@@ -1,6 +1,7 @@
 <template>
 	<view class="profile-page">
-		<scroll-view scroll-y class="main-scroll" :show-scrollbar="false">
+		<!-- 同 home：小程序原生 scroll-view 会盖住 fixed 自定义 Tab -->
+		<view class="main-scroll">
 			<!-- 顶部资料区（仿「我」页：方角头像 + 昵称 + 副账号文案 + 右侧箭头） -->
 			<view class="profile-header" @click="onHeaderTap">
 				<view class="avatar-wrap">
@@ -37,7 +38,7 @@
 					<text class="cell-title">布置任务</text>
 					<text class="cell-arrow">›</text>
 				</view>
-				<view class="cell cell-border" @click="goPage('/pages/message/message')">
+				<view class="cell cell-border" @click="goPage('/pages/chat/chat')">
 					<view class="cell-icon bg-msg">
 						<text class="iconfont cell-glyph">&#xe87c;</text>
 					</view>
@@ -103,7 +104,7 @@
 			</view>
 
 			<view class="scroll-pad" />
-		</scroll-view>
+		</view>
 		<AppTabBar current="profile" />
 	</view>
 </template>
@@ -174,7 +175,7 @@
 					"/pages/home/home": "home",
 					"/pages/project/project": "project",
 					"/pages/add/add": "add",
-					"/pages/message/message": "message",
+					"/pages/chat/chat": "message",
 				}[url];
 				if (tabKey) {
 					switchMainTab(tabKey);
@@ -219,6 +220,8 @@
 		height: 0;
 		padding: 0;
 		box-sizing: border-box;
+		overflow-y: auto;
+		-webkit-overflow-scrolling: touch;
 	}
 
 	/* 顶部资料 */

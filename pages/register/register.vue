@@ -1,7 +1,8 @@
 <template>
 	<view class="auth-page">
 		<view class="auth-bg" />
-		<scroll-view scroll-y class="scroll" :show-scrollbar="false">
+		<!-- 同 home：小程序原生 scroll-view 会盖住 fixed 自定义 Tab -->
+		<view class="scroll">
 			<view class="auth-card">
 				<text class="brand">创建账号</text>
 				<text class="sub">手机号注册；验证码用于防止机器批量注册（本地图形校验）</text>
@@ -45,7 +46,7 @@
 				</view>
 			</view>
 			<view class="bottom-pad" />
-		</scroll-view>
+		</view>
 		<!-- 非 Tab 页默认无底栏，挂上与主页一致的导航 -->
 		<AppTabBar current="profile" />
 	</view>
@@ -187,6 +188,8 @@
 	.auth-page {
 		min-height: 100vh;
 		position: relative;
+		display: flex;
+		flex-direction: column;
 		box-sizing: border-box;
 	}
 
@@ -204,9 +207,12 @@
 	.scroll {
 		position: relative;
 		z-index: 1;
-		max-height: 100vh;
-		padding: 36rpx 32rpx 60rpx;
+		flex: 1;
+		min-height: 0;
+		padding: 36rpx 32rpx 40rpx;
 		box-sizing: border-box;
+		overflow-y: auto;
+		-webkit-overflow-scrolling: touch;
 	}
 
 	.auth-card {
