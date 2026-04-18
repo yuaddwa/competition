@@ -33,6 +33,7 @@
 			</view>
 		</view>
 		<AppTabBar current="message" />
+		<AppTabBar current="message" />
 	</view>
 </template>
 
@@ -42,6 +43,9 @@
 	import { groupMessagesByProject, loadMessages } from "@/utils/messageUtils";
 
 	export default {
+		components: {
+			AppTabBar
+		},
 		components: {
 			AppTabBar
 		},
@@ -240,10 +244,20 @@
 		color: #333;
 	}
 
+	.message-project {
+		font-size: 28rpx;
+		font-weight: 600;
+		color: #333;
+	}
+
 	.unread-badge {
+		background-color: #ff4d4f;
 		background-color: #ff4d4f;
 		color: #fff;
 		font-size: 20rpx;
+		padding: 2rpx 12rpx;
+		border-radius: 12rpx;
+		min-width: 24rpx;
 		padding: 2rpx 12rpx;
 		border-radius: 12rpx;
 		min-width: 24rpx;
@@ -251,6 +265,7 @@
 	}
 
 	.message-time {
+		font-size: 20rpx;
 		font-size: 20rpx;
 		color: #999;
 	}

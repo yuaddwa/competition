@@ -159,8 +159,12 @@ function request(options = {}) {
             );
           }
         }
+        if (statusCode >= 500 && !serverMsg) {
+          message = "服务暂时不可用，请稍后重试";
+        }
         if (showError) {
-          uni.showToast({ title: message, icon: "none", duration: 2600 });
+          const toastMsg = statusCode ? `${message}(${statusCode})` : message;
+          uni.showToast({ title: toastMsg, icon: "none", duration: 2600 });
         }
         reject({ statusCode, message, data: resData });
       },
