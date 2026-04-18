@@ -1201,11 +1201,12 @@
 		top: 0;
 		bottom: 0;
 		background: rgba(15, 23, 42, 0.45);
-		z-index: 400;
+		z-index: 10050;
 		display: flex;
 		align-items: flex-end;
 		justify-content: center;
-		padding: 40rpx 24rpx 80rpx;
+		padding: 40rpx 24rpx;
+		padding-bottom: calc(48rpx + env(safe-area-inset-bottom));
 		box-sizing: border-box;
 	}
 

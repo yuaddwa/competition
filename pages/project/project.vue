@@ -1,4 +1,5 @@
 <template>
+	<view class="page-root">
 	<view class="project-container">
 		<scroll-view scroll-y class="scroll" refresher-enabled :refresher-triggered="refreshing" @refresherrefresh="onRefresh">
 			<view class="hero-header">
@@ -21,7 +22,7 @@
 				<text class="empty-emoji">📂</text>
 				<text class="empty-title">还没有工作流</text>
 				<text class="empty-desc">创建一个工作流后，可在「布置任务」里关联下发，或直接进入工作台查看任务与沟通。</text>
-				<button class="empty-primary" type="primary" @click="showCreate = true">创建工作流</button>
+				<button class="empty-primary" type="primary" @click="openCreate">创建工作流</button>
 				<button class="empty-secondary" @click="goAdd">去布置任务</button>
 			</view>
 
@@ -46,8 +47,12 @@
 		</scroll-view>
 
 		<view class="fab-row">
-			<button class="fab-btn" type="primary" @click="showCreate = true">＋ 新建工作流</button>
+			<button class="fab-btn" type="primary" @click="openCreate">＋ 新建工作流</button>
 		</view>
+	</view>
+
+		<!-- 弹窗打开时隐藏底栏，避免与自定义 Tab 层叠导致按钮被挡（各端表现不一致） -->
+		<AppTabBar v-if="!showCreate" current="project" />
 
 		<view v-if="showCreate" class="mask" @click.self="showCreate = false">
 			<view class="dialog" @click.stop>
@@ -60,7 +65,6 @@
 				</view>
 			</view>
 		</view>
-		<AppTabBar current="project" />
 	</view>
 </template>
 
@@ -136,6 +140,10 @@
 			goAdd() {
 				switchMainTab("add");
 			},
+			openCreate() {
+				uni.hideTabBar({ animation: false });
+				this.showCreate = true;
+			},
 			async submitCreate() {
 				const title = (this.newTitle || "").trim();
 				if (!title) {
@@ -172,6 +180,13 @@
 </script>
 
 <style scoped>
+	.page-root {
+		width: 100%;
+		min-height: 100vh;
+		position: relative;
+		box-sizing: border-box;
+	}
+
 	.project-container {
 		display: flex;
 		flex-direction: column;
@@ -456,16 +471,19 @@
 		top: 0;
 		bottom: 0;
 		background: rgba(0, 0, 0, 0.45);
-		z-index: 200;
+		z-index: 100000;
 		display: flex;
 		align-items: flex-end;
 		justify-content: center;
-		padding: 40rpx 28rpx 80rpx;
+		padding: 32rpx 28rpx;
+		padding-bottom: calc(56rpx + env(safe-area-inset-bottom));
 		box-sizing: border-box;
 	}
 
 	.dialog {
 		width: 100%;
+		max-height: calc(85vh - env(safe-area-inset-bottom));
+		overflow-y: auto;
 		background: #fff;
 		border-radius: 24rpx;
 		padding: 32rpx;

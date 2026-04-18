@@ -46,14 +46,18 @@
 			</view>
 			<view class="bottom-pad" />
 		</scroll-view>
+		<!-- 非 Tab 页默认无底栏，挂上与主页一致的导航 -->
+		<AppTabBar current="profile" />
 	</view>
 </template>
 
 <script>
 	import { setToken, setUserInfo } from "@/utils/index";
 	import * as authApi from "@/api/authApi";
+	import AppTabBar from "@/components/AppTabBar.vue";
 
 	export default {
+		components: { AppTabBar },
 		data() {
 			return {
 				phone: "",
@@ -321,7 +325,9 @@
 	}
 
 	.bottom-pad {
-		height: 80rpx;
+		height: 200rpx;
+		padding-bottom: env(safe-area-inset-bottom);
+		box-sizing: border-box;
 	}
 </style>
 

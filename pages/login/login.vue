@@ -24,14 +24,17 @@
 				<text class="link" @click="goRegister">还没有账号？注册</text>
 			</view>
 		</view>
+		<AppTabBar current="profile" />
 	</view>
 </template>
 
 <script>
 	import { setToken, setUserInfo } from "@/utils/index";
 	import * as authApi from "@/api/authApi";
+	import AppTabBar from "@/components/AppTabBar.vue";
 
 	export default {
+		components: { AppTabBar },
 		data() {
 			return {
 				phone: "",
@@ -99,7 +102,8 @@
 	.auth-page {
 		min-height: 100vh;
 		position: relative;
-		padding: 48rpx 36rpx 80rpx;
+		padding: 48rpx 36rpx 0;
+		padding-bottom: calc(220rpx + env(safe-area-inset-bottom));
 		box-sizing: border-box;
 	}
 

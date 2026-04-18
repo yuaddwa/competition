@@ -1,7 +1,23 @@
 import { getToken, buildQuery } from "./index";
 
-export const BASE_URL = "http://120.27.137.241/";
+export const BASE_URL = "http://127.0.0.1:8081/";
 const TIMEOUT = 10000;
+
+/** 统一网络错误文案，便于全局排查 */
+export function toastNetworkMessage(err, hint = "") {
+  const msg = (err && err.errMsg) || String(err || "");
+  let title = hint || "网络异常，请稍后重试";
+  if (msg.includes("timeout") || msg.includes("超时")) {
+    title = "请求超时，请检查网络后重试";
+  } else if (msg.includes("domain") || msg.includes("域名")) {
+    title = "请求被拒绝：请配置合法域名或检查网络";
+  } else if (msg.includes("abort")) {
+    title = "请求已中断";
+  } else if (msg.includes("fail") && msg.includes("ssl")) {
+    title = "安全连接失败，请稍后重试";
+  }
+  uni.showToast({ title, icon: "none", duration: 2600 });
+}
 
 function normalizeUrl(url = "") {
   return url.startsWith("/") ? url : `/${url}`;
@@ -48,15 +64,20 @@ function request(options = {}) {
           return;
         }
 
-        const message = (resData && (resData.msg || resData.message)) || "请求失败";
+        let message = (resData && (resData.msg || resData.message)) || "请求失败";
+        if (statusCode >= 500) {
+          message = "服务暂时不可用，请稍后重试";
+        } else if (statusCode === 404) {
+          message = "接口不存在或路径错误";
+        }
         if (showError) {
-          uni.showToast({ title: message, icon: "none" });
+          uni.showToast({ title: message, icon: "none", duration: 2600 });
         }
         reject({ statusCode, message, data: resData });
       },
       fail: (err) => {
         if (showError) {
-          uni.showToast({ title: "网络异常，请稍后重试", icon: "none" });
+          toastNetworkMessage(err);
         }
         reject(err);
       },
