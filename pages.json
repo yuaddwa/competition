@@ -4,7 +4,9 @@
 			"path": "pages/home/home",
 			"style": {
 				"navigationBarTitleText": "首页",
-				"navigationBarBackButtonHidden": true
+				"navigationBarBackButtonHidden": true,
+				"navigationStyle": "custom",
+				"navigationBarBackgroundColor": "#ededed"
 			}
 		},
 		{
@@ -44,14 +46,30 @@
 			"path": "pages/message/message",
 			"style": {
 				"navigationBarTitleText": "消息",
-				"navigationBarBackButtonHidden": true
+				"navigationBarBackButtonHidden": true,
+				"navigationStyle": "custom",
+				"navigationBarBackgroundColor": "#ededed"
 			}
 		},
 		{
 			"path": "pages/chat/chat",
 			"style": {
 				"navigationBarTitleText": "",
-				"navigationBarBackButtonHidden": true
+				"navigationBarBackButtonHidden": true,
+				"navigationStyle": "custom",
+				"navigationBarBackgroundColor": "#ededed"
+			}
+		},
+		{
+			"path": "pages/chat/chat-settings",
+			"style": {
+				"navigationBarTitleText": "聊天信息"
+			}
+		},
+		{
+			"path": "pages/chat/chat-search",
+			"style": {
+				"navigationBarTitleText": "查找聊天记录"
 			}
 		},
 		{
@@ -83,6 +101,18 @@
 			"path": "pages/register/register",
 			"style": {
 				"navigationBarTitleText": "注册"
+			}
+		},
+		{
+			"path": "pages/team/create-group",
+			"style": {
+				"navigationBarTitleText": "创建项目群"
+			}
+		},
+		{
+			"path": "pages/team/create-agent",
+			"style": {
+				"navigationBarTitleText": "创建数字员工"
 			}
 		}
 	],

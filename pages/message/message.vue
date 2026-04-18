@@ -1,277 +1,432 @@
 <template>
-	<view class="message-page">
-		<view class="content">
-			<view v-if="groupedMessages.length === 0" class="empty-state">
-				<text class="empty-icon iconfont">&#xe87c;</text>
-				<text class="empty-text">还没有消息哦</text>
-			</view>
-			<view v-else class="message-list">
-				<view
-					v-for="(g, index) in groupedMessages"
-					:key="g.projectName + '-' + index"
-					class="message-item"
-					@click="openChat(g.projectName)"
-				>
-					<view class="avatar-wrapper">
-						<image
-							class="avatar-image"
-							:src="getDepartmentAvatar(g.projectName)"
-							mode="aspectFit"
-						/>
-					</view>
-					<view class="message-body">
-						<view class="message-header">
-							<view class="project-info">
-								<text class="message-project">{{ g.projectName }}</text>
-								<view v-if="g.unread > 0" class="unread-badge">{{ g.unread }}</view>
-							</view>
-							<text class="message-time">{{ formatTime(g.latestMessage.time) }}</text>
-						</view>
-						<text class="message-content">{{ getMessagePreview(g) }}</text>
-					</view>
+	<view class="page-root">
+		<view class="navbar-wrap" :style="{ paddingTop: statusBarPx + 'px' }">
+			<view class="navbar">
+				<view class="navbar-side"></view>
+				<text class="navbar-title">消息</text>
+				<view class="navbar-side navbar-side-right" @click="showAddMenu">
+					<text class="navbar-plus">＋</text>
 				</view>
 			</view>
 		</view>
-		<AppTabBar current="message" />
+
+		<scroll-view scroll-y class="feed-scroll" :refresher-enabled="true" :refresher-triggered="refreshing" @refresherrefresh="onRefresh">
+			<view class="tip-line">
+				<text class="tip-t">每日 21:00 各岗位提交日报 · 21:30 经理推送总览；点进会话为微信式聊天</text>
+			</view>
+
+			<view v-if="loading" class="wx-loading"><text>加载中...</text></view>
+			<view v-else-if="feedRows.length === 0" class="wx-empty">
+				<text class="wx-empty-t">暂无会话</text>
+				<text class="wx-empty-sub">点击右上角「＋」创建项目群或数字员工</text>
+			</view>
+			<view v-else>
+				<view
+					v-for="row in feedRows"
+					:key="row.id"
+					class="wx-cell"
+					hover-class="wx-cell-hover"
+					@click="onRowTap(row)"
+				>
+					<view class="wx-avatar" :style="{ background: avatarBg(row) }">
+						<text class="wx-avatar-t">{{ avatarLetter(row) }}</text>
+					</view>
+					<view class="wx-cell-main">
+						<view class="wx-cell-top">
+							<view class="wx-title-wrap">
+								<text class="wx-title">{{ row.title }}</text>
+								<text v-if="row.badge" class="wx-tag">{{ row.badge }}</text>
+							</view>
+							<text class="wx-time">{{ formatRowTime(row.time) }}</text>
+						</view>
+						<view class="wx-cell-bottom">
+							<text class="wx-sub">{{ row.subtitle }}</text>
+							<view v-if="row.unread > 0" class="wx-badge">{{ row.unread > 99 ? "99+" : row.unread }}</view>
+						</view>
+					</view>
+				</view>
+			</view>
+			<view class="wx-pad"></view>
+		</scroll-view>
+
+		<AppTabBar current="message"></AppTabBar>
 	</view>
 </template>
 
 <script>
 	import AppTabBar from "@/components/AppTabBar.vue";
-	import agentDepartments from "@/data/agentDepartments";
-	import { groupMessagesByProject, loadMessages } from "@/utils/messageUtils";
+	import {
+		getDailyBriefing,
+		buildMessageFeedRows,
+		loadProjectGroups,
+		loadDigitalAgents,
+		MANAGER_ID,
+	} from "@/utils/virtualTeamStore";
 
 	export default {
-		components: {
-			AppTabBar,
-		},
+		components: { AppTabBar },
 		data() {
 			return {
-				messages: []
-			}
-		},
-		computed: {
-			groupedMessages() {
-				const grouped = groupMessagesByProject(this.messages);
-				const byName = {};
-				grouped.forEach(item => {
-					byName[item.projectName] = item;
-				});
-
-				const departmentEntries = agentDepartments.map((dept, index) => {
-					const projectName = dept.name.replace(/^[^\s\u4e00-\u9fa5A-Za-z]+/, "").trim();
-					const existed = byName[projectName];
-					if (existed) return existed;
-					return {
-						projectName,
-						unread: 0,
-						latestMessage: {
-							content: "点击进入部门会话",
-							time: new Date(0).toISOString()
-						},
-						__order: index
-					};
-				});
-
-				return departmentEntries.sort((a, b) => {
-					const aTime = new Date(a.latestMessage.time).getTime();
-					const bTime = new Date(b.latestMessage.time).getTime();
-					if (aTime === bTime) {
-						return (a.__order || 0) - (b.__order || 0);
-					}
-					return bTime - aTime;
-				});
-			}
+				statusBarPx: 20,
+				feedRows: [],
+				briefing: {
+					managerSummary: "",
+					scheduleNote: "",
+					managerTime: "",
+					employeeLines: [],
+				},
+				refreshing: false,
+				loading: true,
+			};
 		},
 		onLoad() {
+			const sys = uni.getSystemInfoSync();
+			this.statusBarPx = sys.statusBarHeight || 20;
 			uni.hideTabBar({ animation: false });
-			this.loadMessagesData();
+			this.loadList();
 		},
 		onShow() {
 			uni.hideTabBar({ animation: false });
-			this.loadMessagesData();
+			this.loadList();
 		},
 		methods: {
-			loadMessagesData() {
-				this.messages = loadMessages();
-			},
-			formatTime(time) {
-				const date = new Date(time)
-				if (date.getFullYear() === 1970) {
-					return ''
+			async loadList() {
+				this.loading = true;
+				try {
+					this.briefing = getDailyBriefing();
+					const feed = buildMessageFeedRows();
+					let mapped = [];
+					try {
+						const mod = await import("@/utils/conversationInbox");
+						const unified = await mod.loadUnifiedConversationList();
+						const extra = unified.filter((u) => u.convType === "workflow" || u.convType === "local");
+						mapped = extra.map((u) => ({
+							id: u.id,
+							rowKind: "unified",
+							convType: u.convType,
+							title: u.title,
+							subtitle: u.subtitle || "",
+							time: u.time,
+							unread: u.unread || 0,
+							badge: "",
+							navigate: u.navigate,
+						}));
+					} catch (e2) {
+						console.warn("[message] unified inbox", e2);
+					}
+					this.feedRows = [...feed, ...mapped];
+				} catch (e) {
+					console.warn("[message] load", e);
+					this.feedRows = buildMessageFeedRows();
+				} finally {
+					this.loading = false;
+					this.refreshing = false;
 				}
-				const month = date.getMonth() + 1
-				const day = date.getDate()
-				const hour = date.getHours().toString().padStart(2, '0')
-				const minute = date.getMinutes().toString().padStart(2, '0')
-				return `${month}/${day} ${hour}:${minute}`
 			},
-			openChat(projectName) {
-				uni.navigateTo({
-					url: `/pages/chat/chat?projectName=${encodeURIComponent(projectName)}`
-				})
+			async onRefresh() {
+				this.refreshing = true;
+				await this.loadList();
 			},
-			getMessagePreview(group) {
-				if (group.unread > 0) {
-					return `有 ${group.unread} 条新消息`
+			showAddMenu() {
+				uni.showActionSheet({
+					itemList: ["创建项目群", "创建数字员工"],
+					success: (res) => {
+						if (res.tapIndex === 0) {
+							uni.navigateTo({ url: "/pages/team/create-group" });
+						} else if (res.tapIndex === 1) {
+							uni.navigateTo({ url: "/pages/team/create-agent" });
+						}
+					},
+				});
+			},
+			avatarBg(row) {
+				const colors = ["#07c160", "#10aeff", "#576b95", "#fa9d3b", "#1485ee", "#9a6bff"];
+				const s = row.id || row.title || "";
+				let h = 0;
+				for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+				return colors[h % colors.length];
+			},
+			avatarLetter(row) {
+				if (row.rowKind === "manager") return "经";
+				if (row.rowKind === "group") return "群";
+				if (row.rowKind === "unified" && row.convType === "workflow") return "项";
+				const t = (row.title || "?").trim();
+				return t.slice(0, 1);
+			},
+			formatWxTime(iso) {
+				const d = new Date(iso);
+				if (Number.isNaN(d.getTime())) return "";
+				const now = new Date();
+				const pad = (n) => (n < 10 ? "0" + n : "" + n);
+				const sameDay = d.toDateString() === now.toDateString();
+				if (sameDay) return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+				const yest = new Date(now);
+				yest.setDate(yest.getDate() - 1);
+				if (d.toDateString() === yest.toDateString()) return "昨天";
+				return `${d.getMonth() + 1}月${d.getDate()}日`;
+			},
+			formatRowTime(t) {
+				if (t == null || t === "") return "";
+				const d = new Date(t);
+				if (!Number.isNaN(d.getTime())) return this.formatWxTime(t);
+				return String(t);
+			},
+			onRowTap(row) {
+				if (row.rowKind === "unified" && row.navigate) {
+					const n = row.navigate;
+					if (n.mode === "remote") {
+						const q = [
+							`workflowId=${encodeURIComponent(n.workflowId)}`,
+							`threadId=${encodeURIComponent(n.threadId)}`,
+							`workflowTitle=${encodeURIComponent(n.workflowTitle || "")}`,
+							`threadTitle=${encodeURIComponent(n.threadTitle || "")}`,
+						].join("&");
+						uni.navigateTo({ url: `/pages/chat/chat?${q}` });
+						return;
+					}
+					if (n.mode === "local" && n.projectName) {
+						uni.navigateTo({
+							url: `/pages/chat/chat?projectName=${encodeURIComponent(n.projectName)}`,
+						});
+					}
+					return;
 				}
-				return '暂无新消息'
+				if (row.rowKind === "manager") {
+					uni.navigateTo({
+						url: `/pages/chat/chat?mode=virtual&kind=manager&id=${encodeURIComponent(MANAGER_ID)}&title=${encodeURIComponent("经理总览")}`,
+					});
+					return;
+				}
+				if (row.rowKind === "daily_agent" && row.agentId) {
+					const agents = loadDigitalAgents();
+					const a = agents.find((x) => x.id === row.agentId);
+					const title = a ? `${a.name}（${a.role}）` : "数字员工";
+					uni.navigateTo({
+						url: `/pages/chat/chat?mode=virtual&kind=agent&id=${encodeURIComponent(row.agentId)}&title=${encodeURIComponent(title)}`,
+					});
+					return;
+				}
+				if (row.rowKind === "group" && row.groupId) {
+					const groups = loadProjectGroups();
+					const g = groups.find((x) => x.id === row.groupId);
+					const name = g ? g.name : "项目群";
+					uni.navigateTo({
+						url: `/pages/chat/chat?mode=virtual&kind=group&id=${encodeURIComponent(row.groupId)}&title=${encodeURIComponent(name)}`,
+					});
+				}
 			},
-			getDepartmentAvatar(projectName) {
-				const map = {
-					工程部: "/static/工程部的图标，一个扳手_.png",
-					设计部: "/static/设计部的图标，一支笔_.png",
-					付费媒体部: "/static/一群小人观看电视__.png",
-					销售部: "/static/一个小人把货物卖给另一个小人_.png",
-					市场部: "/static/一个天平_.png",
-					产品部: "/static/一个产品_.png",
-					项目管理部: "/static/许多的项目_.png",
-					测试部: "/static/一个小人对着电脑测试_.png",
-					支援部: "/static/一个医疗的符号_.png",
-					空间计算部: "/static/立体的正方形.png",
-					专业部门: "/static/一本书.png",
-					财务部: "/static/美金的图标.png",
-					学术部: "/static/一群小人观看电视__ (1).png"
-				};
-				return map[projectName] || "/static/logo.png";
-			}
-		}
-	}
+		},
+	};
 </script>
 
 <style>
-	@font-face {
-		font-family: 'iconfont';
-		src: url('../../static/download/font_5162264_g3oiz4ouy1i/iconfont.woff2') format('woff2'),
-			 url('../../static/download/font_5162264_g3oiz4ouy1i/iconfont.woff') format('woff'),
-			 url('../../static/download/font_5162264_g3oiz4ouy1i/iconfont.ttf') format('truetype');
-	}
-
-	.iconfont {
-		font-family: 'iconfont' !important;
-		font-size: 36rpx;
-	}
-
-	.message-page {
-		display: flex;
-		flex-direction: column;
+	.page-root {
 		height: 100vh;
-		background: #f4f6fb;
-	}
-
-	.content {
-		flex: 1;
 		display: flex;
 		flex-direction: column;
+		background: #ededed;
+		box-sizing: border-box;
 	}
 
-	.empty-state {
-		flex: 1;
+	.navbar-wrap {
+		background: #ededed;
+		flex-shrink: 0;
+	}
+
+	.navbar {
+		height: 88rpx;
 		display: flex;
-		flex-direction: column;
+		flex-direction: row;
+		align-items: center;
+		justify-content: space-between;
+		padding: 0 8rpx 0 24rpx;
+		border-bottom: 1rpx solid #d9d9d9;
+	}
+
+	.navbar-side {
+		width: 88rpx;
+		min-height: 1px;
+	}
+
+	.navbar-side-right {
+		display: flex;
+		align-items: center;
+		justify-content: flex-end;
+		padding-right: 16rpx;
+	}
+
+	.navbar-title {
+		flex: 1;
+		text-align: center;
+		font-size: 34rpx;
+		font-weight: 600;
+		color: #000;
+	}
+
+	.navbar-plus {
+		font-size: 44rpx;
+		font-weight: 300;
+		color: #191919;
+		line-height: 1;
+	}
+
+	.feed-scroll {
+		flex: 1;
+		height: 0;
+	}
+
+	.tip-line {
+		padding: 16rpx 24rpx 12rpx;
+		background: #ededed;
+	}
+
+	.tip-t {
+		font-size: 22rpx;
+		color: #888;
+		line-height: 1.45;
+	}
+
+	.wx-loading {
+		padding: 60rpx;
+		text-align: center;
+		color: #888;
+		font-size: 28rpx;
+	}
+
+	.wx-empty {
+		padding: 80rpx 40rpx;
+		text-align: center;
+	}
+
+	.wx-empty-t {
+		display: block;
+		font-size: 28rpx;
+		color: #888;
+	}
+
+	.wx-empty-sub {
+		display: block;
+		margin-top: 16rpx;
+		font-size: 24rpx;
+		color: #b2b2b2;
+		line-height: 1.5;
+	}
+
+	.wx-cell {
+		display: flex;
+		flex-direction: row;
+		align-items: stretch;
+		padding: 20rpx 24rpx;
+		background: #fff;
+		border-bottom: 1rpx solid #e5e5e5;
+	}
+
+	.wx-cell-hover {
+		background: #f0f0f0 !important;
+	}
+
+	.wx-avatar {
+		width: 96rpx;
+		height: 96rpx;
+		border-radius: 12rpx;
+		flex-shrink: 0;
+		display: flex;
 		align-items: center;
 		justify-content: center;
+		margin-right: 24rpx;
 	}
 
-	.empty-icon {
-		font-family: 'iconfont' !important;
-		font-size: 80rpx;
-		color: #ccc;
-		margin-bottom: 20rpx;
+	.wx-avatar-t {
+		font-size: 34rpx;
+		font-weight: 600;
+		color: #fff;
 	}
 
-	.empty-text {
-		font-size: 28rpx;
-		color: #999;
-	}
-
-	.message-list {
+	.wx-cell-main {
 		flex: 1;
-		padding: 20rpx;
-		overflow-y: auto;
-	}
-
-	.message-item {
-		background: #fff;
-		border-radius: 16rpx;
-		padding: 24rpx;
-		margin-bottom: 20rpx;
+		min-width: 0;
 		display: flex;
-		align-items: flex-start;
-		gap: 20rpx;
+		flex-direction: column;
+		justify-content: space-between;
+		padding: 4rpx 0;
 	}
 
-	.avatar-wrapper {
-		width: 80rpx;
-		height: 80rpx;
-		border-radius: 50%;
-		background: #f0f2f7;
+	.wx-cell-top {
+		display: flex;
+		flex-direction: row;
+		justify-content: space-between;
+		align-items: center;
+		margin-bottom: 8rpx;
+	}
+
+	.wx-title-wrap {
+		flex: 1;
+		min-width: 0;
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		gap: 12rpx;
+		padding-right: 16rpx;
+	}
+
+	.wx-title {
+		font-size: 32rpx;
+		color: #191919;
+		font-weight: 500;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.wx-tag {
+		font-size: 20rpx;
+		color: #fff;
+		background: #fa5151;
+		padding: 2rpx 10rpx;
+		border-radius: 6rpx;
+		flex-shrink: 0;
+	}
+
+	.wx-time {
+		font-size: 22rpx;
+		color: #b2b2b2;
+		flex-shrink: 0;
+	}
+
+	.wx-cell-bottom {
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		justify-content: space-between;
+		gap: 16rpx;
+	}
+
+	.wx-sub {
+		font-size: 26rpx;
+		color: #999;
+		flex: 1;
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.wx-badge {
+		min-width: 32rpx;
+		height: 32rpx;
+		padding: 0 8rpx;
+		background: #fa5151;
+		color: #fff;
+		font-size: 20rpx;
+		border-radius: 16rpx;
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		flex-shrink: 0;
-		overflow: hidden;
 	}
 
-	.avatar-image {
-		width: 56rpx;
-		height: 56rpx;
-	}
-
-	.message-body {
-		flex: 1;
-		min-width: 0;
-	}
-
-	.message-header {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		margin-bottom: 12rpx;
-	}
-
-	.project-info {
-		display: flex;
-		align-items: center;
-		gap: 10rpx;
-	}
-
-	.message-project {
-		font-size: 28rpx;
-		font-weight: 600;
-		color: #333;
-	}
-
-	.message-project {
-		font-size: 28rpx;
-		font-weight: 600;
-		color: #333;
-	}
-
-	.unread-badge {
-		background-color: #ff4d4f;
-		background-color: #ff4d4f;
-		color: #fff;
-		font-size: 20rpx;
-		padding: 2rpx 12rpx;
-		border-radius: 12rpx;
-		min-width: 24rpx;
-		padding: 2rpx 12rpx;
-		border-radius: 12rpx;
-		min-width: 24rpx;
-		text-align: center;
-	}
-
-	.message-time {
-		font-size: 20rpx;
-		font-size: 20rpx;
-		color: #999;
-	}
-
-	.message-content {
-		font-size: 24rpx;
-		color: #666;
-		line-height: 1.5;
-		display: block;
+	.wx-pad {
+		height: 24rpx;
+		padding-bottom: env(safe-area-inset-bottom);
 	}
 </style>

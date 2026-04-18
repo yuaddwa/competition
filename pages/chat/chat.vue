@@ -1,57 +1,120 @@
 <template>
 	<view class="chat-page">
-		<view class="chat-header">
-			<text class="back-button iconfont" @click="goBack">&#xe602;</text>
-			<text v-if="projectName === '工程部'" class="avatar-icon iconfont icon-laoban"></text>
-			<text v-else class="avatar-icon iconfont icon-xiangmu"></text>
-			<text class="chat-title">{{ pageTitle }}</text>
-		</view>
-		<view v-if="!selectedEmployeeId" class="employee-panel">
-			<view
-				v-if="employeeOptions.length > 0"
-				v-for="item in employeeOptions"
-				:key="item.id"
-				class="employee-item"
-				@click="openEmployee(item.id)"
-			>
-				<text class="employee-id">{{ item.cnId }}</text>
-				<text class="employee-raw">({{ item.id }})</text>
+		<view class="chat-header-wrap" :style="{ paddingTop: statusBarPx + 'px' }">
+			<view class="chat-header">
+				<text class="back-button iconfont" @click="goBack">&#xe602;</text>
+				<text v-if="headerIsBoss" class="avatar-icon iconfont icon-laoban"></text>
+				<text v-else class="avatar-icon iconfont icon-xiangmu"></text>
+				<text class="chat-title">{{ headerTitle }}</text>
+				<text class="chat-more" @click="openSettings">⋯</text>
 			</view>
-			<text v-else class="employee-empty">当前部门暂无员工 ID 配置</text>
 		</view>
-		<scroll-view
-			class="chat-content"
-			scroll-y
-			:scroll-into-view="chatScrollIntoView"
-			:scroll-with-animation="true"
-			v-if="selectedEmployeeId && chatMessages.length > 0"
-		>
-			<view
-				v-for="msg in chatMessages"
-				:key="msg.id"
-				:id="`msg-${msg.id}`"
-				class="bubble-row"
-				:class="{ 'my-message': msg.isMine }"
+
+		<view v-if="loading" class="chat-empty">
+			<text>加载中…</text>
+		</view>
+
+		<view v-else-if="chatMessages.length > 0" class="chat-scroll-wrap">
+			<scroll-view
+				scroll-y
+				class="chat-scroll"
+				:scroll-into-view="scrollIntoView"
+				scroll-with-animation
+				:show-scrollbar="false"
+				@scroll="onChatScroll"
+				@scrolltolower="onScrollToLower"
 			>
-				<view class="message-bubble" :class="{ 'my-message': msg.isMine }">
-					<text class="bubble-text">{{ msg.content }}</text>
+				<view class="chat-scroll-inner">
+					<view
+						v-for="msg in chatMessages"
+						:key="msg.id"
+						:id="safeScrollId(msg.id)"
+						class="bubble-row"
+						:class="{
+							'my-message': msg.isMine,
+							'multi-on': multiSelectMode,
+							'msg-selected': isMsgSelected(msg.id),
+						}"
+						@click="onBubbleRowTap(msg)"
+					>
+						<text v-if="!msg.isMine && msg.senderName" class="bubble-sender">{{ msg.senderName }}</text>
+						<view
+							class="message-bubble"
+							:class="{ 'my-message': msg.isMine }"
+							@longpress.stop="onBubbleLongPress(msg)"
+						>
+							<text class="bubble-text">{{ msg.content }}</text>
+						</view>
+						<text class="bubble-meta-time">{{ formatTime(msg.time) }}</text>
+					</view>
+					<view id="chat-bottom-anchor" class="bottom-anchor"></view>
 				</view>
-				<text class="bubble-meta-time">{{ formatTime(msg.time) }}</text>
+			</scroll-view>
+
+			<view v-if="showStickBottom && !multiSelectMode" class="float-to-bottom" @click="scrollToBottom">
+				<text class="float-to-bottom-icon">⌄</text>
 			</view>
-		</scroll-view>
-		<view v-else-if="selectedEmployeeId" class="chat-empty">
+		</view>
+
+		<view v-else class="chat-empty chat-empty-flex">
 			<text>暂无消息</text>
 		</view>
-		<view v-if="selectedEmployeeId" class="chat-input">
-			<input type="text" v-model="inputText" placeholder="输入消息..." class="input-field" />
-			<view class="send-button" @click="sendMessage">{{ isReplying ? "生成中..." : "发送" }}</view>
+
+		<view v-if="!loading && multiSelectMode" class="multi-bar safe-bottom">
+			<text class="multi-cancel" @click="exitMultiSelect">取消</text>
+			<text class="multi-count">已选 {{ selectedIds.length }} 条</text>
+			<view class="multi-actions">
+				<text class="multi-link" @click="batchCopy">复制</text>
+				<text class="multi-link" @click="batchForward">转发</text>
+				<text class="multi-link multi-link-danger" @click="batchDelete">删除</text>
+			</view>
+		</view>
+
+		<view v-else-if="!loading" class="chat-input safe-bottom">
+			<input type="text" v-model="inputText" placeholder="输入消息..." class="input-field" confirm-type="send" @confirm="sendMessage" />
+			<view class="send-button" @click="sendMessage">发送</view>
 		</view>
 	</view>
 </template>
 
 <script>
-	import agentDepartments from "@/data/agentDepartments";
-	import { loadChatMessages, markMessagesAsRead } from "@/utils/messageUtils";
+	import { loadChatMessages, markMessagesAsRead, removeLocalProjectMessage, removeLocalProjectMessagesByIds } from "@/utils/messageUtils";
+	import { markCommsThreadRead } from "@/utils/commsInbox";
+	import {
+		loadVirtualChatMessages,
+		appendVirtualChat,
+		clearGroupUnread,
+		clearAgentUnread,
+		clearManagerFeedUnread,
+		ensureAgentChatSeed,
+		ensureManagerChatSeed,
+		removeVirtualChatMessage,
+		removeVirtualChatMessagesByIds,
+	} from "@/utils/virtualTeamStore";
+	import * as workflowApi from "@/api/workflowApi";
+	import { pickId } from "@/utils/apiHelpers";
+	import { getUserInfo } from "@/utils/index";
+
+	const RECALL_MS = 2 * 60 * 1000;
+
+	function messageBody(m) {
+		if (!m || typeof m !== "object") return "";
+		return m.body || m.content || m.text || "";
+	}
+
+	function messageTime(m) {
+		if (!m || typeof m !== "object") return "";
+		return m.createdAt || m.time || m.timestamp || "";
+	}
+
+	function remoteMessageIsMine(m, user) {
+		if (!m || !user) return false;
+		const phone = user.phone || user.mobile || user.username || "";
+		if (phone && (m.senderPhone === phone || m.fromPhone === phone || m.phone === phone)) return true;
+		const uid = user.id ?? user.userId;
+		if (uid != null && (m.fromUserId === uid || m.senderId === uid || m.userId === uid)) return true;
+		return false;
+	}
 
 	const ID_TOKEN_CN_MAP = {
 		eng: "工程",
@@ -166,74 +229,384 @@
 	export default {
 		data() {
 			return {
+				statusBarPx: 20,
 				projectName: "",
-				selectedEmployeeId: "",
+				mode: "local",
+				workflowId: "",
+				threadId: "",
+				workflowTitle: "",
+				threadTitle: "",
 				inputText: "",
 				chatMessages: [],
-				chatScrollIntoView: "",
-				isReplying: false,
+				loading: false,
+				sending: false,
+				virtualKind: "",
+				virtualId: "",
+				virtualTitle: "",
+				_chatShownOnce: false,
+				scrollIntoView: "",
+				showStickBottom: false,
+				multiSelectMode: false,
+				selectedIds: [],
 			};
 		},
 		computed: {
-			currentDepartment() {
-				const normalizedProjectName = normalizeDepartmentName(this.projectName);
-				return agentDepartments.find(dept => {
-					const normalizedDeptName = normalizeDepartmentName(dept.name);
-					return (
-						normalizedDeptName === normalizedProjectName ||
-						normalizedDeptName.includes(normalizedProjectName) ||
-						normalizedProjectName.includes(normalizedDeptName)
-					);
-				}) || null;
+			headerTitle() {
+				if (this.mode === "virtual") {
+					return (this.virtualTitle || "").trim() || "聊天";
+				}
+				if (this.mode === "remote") {
+					const a = (this.workflowTitle || "").trim();
+					const b = (this.threadTitle || "").trim();
+					if (a && b) return `${a} · ${b}`;
+					return a || b || "工作流沟通";
+				}
+				return this.projectName || "聊天";
 			},
-			employeeOptions() {
-				if (!this.currentDepartment) return [];
-				return (this.currentDepartment.services || []).map(service => ({
-					id: service.id,
-					cnId: translateIdToChinese(service.id)
-				}));
+			headerIsBoss() {
+				return this.mode === "local" && this.projectName === "老板";
 			},
-			pageTitle() {
-				if (!this.selectedEmployeeId) return this.projectName;
-				const selected = this.employeeOptions.find(item => item.id === this.selectedEmployeeId);
-				return selected ? `${this.projectName} · ${selected.cnId}` : this.projectName;
-			}
 		},
 		onLoad(options) {
+			try {
+				const sys = uni.getSystemInfoSync();
+				this.statusBarPx = sys.statusBarHeight || 20;
+			} catch (e) {
+				this.statusBarPx = 20;
+			}
+			const vm = options && options.mode === "virtual";
+			if (vm) {
+				this.mode = "virtual";
+				this.virtualKind = options.kind ? decodeURIComponent(options.kind) : "";
+				this.virtualId = options.id ? decodeURIComponent(options.id) : "";
+				this.virtualTitle = options.title ? decodeURIComponent(options.title) : "";
+				this.loadVirtualMessages(true);
+				return;
+			}
+			const wf = options && options.workflowId ? decodeURIComponent(options.workflowId) : "";
+			const th = options && options.threadId ? decodeURIComponent(options.threadId) : "";
+			if (wf && th) {
+				this.mode = "remote";
+				this.workflowId = wf;
+				this.threadId = th;
+				this.workflowTitle = options.workflowTitle ? decodeURIComponent(options.workflowTitle) : "";
+				this.threadTitle = options.threadTitle ? decodeURIComponent(options.threadTitle) : "";
+				this.loadRemoteMessages(true);
+				return;
+			}
 			const raw = options && options.projectName;
 			if (raw) {
+				this.mode = "local";
 				this.projectName = decodeURIComponent(raw);
-				this.selectedEmployeeId = options && options.employeeId ? decodeURIComponent(options.employeeId) : "";
-				this.loadChatMessages();
+				this.loadChatMessages(true);
+				this.markAsRead();
+			}
+		},
+		onShow() {
+			if (this.mode === "virtual" && this.virtualId) {
+				if (this.virtualKind === "group") clearGroupUnread(this.virtualId);
+				if (this.virtualKind === "agent") clearAgentUnread(this.virtualId);
+				if (this.virtualKind === "manager") clearManagerFeedUnread();
+			}
+			const first = !this._chatShownOnce;
+			this._chatShownOnce = true;
+			if (first) return;
+			if (this.mode === "virtual" && this.virtualId) {
+				this.loadVirtualMessages(false);
+			} else if (this.mode === "remote" && this.workflowId && this.threadId) {
+				this.loadRemoteMessages(false);
+			} else if (this.mode === "local" && this.projectName) {
+				this.loadChatMessages(false);
 				this.markAsRead();
 			}
 		},
 		methods: {
+			safeScrollId(id) {
+				return "sm-" + String(id == null ? "x" : id).replace(/[^a-zA-Z0-9_-]/g, "_");
+			},
 			goBack() {
 				uni.navigateBack();
 			},
-			loadChatMessages() {
-				const all = loadChatMessages(this.projectName);
-				if (this.selectedEmployeeId) {
-					this.chatMessages = all.filter(msg => msg.employeeId === this.selectedEmployeeId);
-					this.scrollToLatestMessage();
+			openSettings() {
+				const q = [];
+				if (this.mode === "virtual") {
+					q.push("mode=virtual");
+					q.push(`kind=${encodeURIComponent(this.virtualKind)}`);
+					q.push(`id=${encodeURIComponent(this.virtualId)}`);
+					q.push(`title=${encodeURIComponent(this.virtualTitle || this.headerTitle)}`);
+				} else if (this.mode === "remote") {
+					q.push("mode=remote");
+					q.push(`workflowId=${encodeURIComponent(this.workflowId)}`);
+					q.push(`threadId=${encodeURIComponent(this.threadId)}`);
+					q.push(`title=${encodeURIComponent(this.headerTitle)}`);
+					q.push(`workflowTitle=${encodeURIComponent(this.workflowTitle)}`);
+					q.push(`threadTitle=${encodeURIComponent(this.threadTitle)}`);
+				} else {
+					q.push("mode=local");
+					q.push(`projectName=${encodeURIComponent(this.projectName)}`);
+				}
+				uni.navigateTo({ url: `/pages/chat/chat-settings?${q.join("&")}` });
+			},
+			scrollToBottom() {
+				this.showStickBottom = false;
+				this.$nextTick(() => {
+					this.scrollIntoView = "chat-bottom-anchor";
+					setTimeout(() => {
+						this.scrollIntoView = "";
+					}, 400);
+				});
+			},
+			onChatScroll(e) {
+				const d = (e && e.detail) || {};
+				const top = typeof d.scrollTop === "number" ? d.scrollTop : 0;
+				this.showStickBottom = top > 120;
+			},
+			onScrollToLower() {
+				this.showStickBottom = false;
+			},
+			isMsgSelected(id) {
+				return this.selectedIds.indexOf(id) >= 0;
+			},
+			onBubbleRowTap(msg) {
+				if (!this.multiSelectMode) return;
+				const i = this.selectedIds.indexOf(msg.id);
+				if (i >= 0) this.selectedIds.splice(i, 1);
+				else this.selectedIds.push(msg.id);
+			},
+			onBubbleLongPress(msg) {
+				if (this.multiSelectMode) return;
+				this.openBubbleMenu(msg);
+			},
+			canRecall(msg) {
+				if (!msg || !msg.isMine) return false;
+				if (this.mode === "remote") return false;
+				const t = new Date(msg.time).getTime();
+				if (Number.isNaN(t)) return false;
+				return Date.now() - t <= RECALL_MS;
+			},
+			copyText(text) {
+				const t = (text || "").trim();
+				if (!t) return;
+				uni.setClipboardData({
+					data: t,
+					success: () => uni.showToast({ title: "已复制", icon: "none" }),
+				});
+			},
+			forwardMessage(msg) {
+				const t = msg && msg.content ? String(msg.content) : "";
+				if (!t) return;
+				uni.setStorageSync("chat_forward_draft", t);
+				uni.setClipboardData({
+					data: t,
+					success: () => uni.showToast({ title: "已复制，可粘贴到其他会话", icon: "none", duration: 2200 }),
+				});
+			},
+			enterMultiSelect(msg) {
+				this.multiSelectMode = true;
+				this.selectedIds = msg && msg.id ? [msg.id] : [];
+			},
+			exitMultiSelect() {
+				this.multiSelectMode = false;
+				this.selectedIds = [];
+			},
+			selectedMessagesList() {
+				const set = new Set(this.selectedIds);
+				return this.chatMessages.filter((m) => set.has(m.id));
+			},
+			batchCopy() {
+				const list = this.selectedMessagesList();
+				if (!list.length) {
+					uni.showToast({ title: "请先选择消息", icon: "none" });
 					return;
 				}
-				this.chatMessages = all.filter(msg => !msg.employeeId);
-				this.scrollToLatestMessage();
+				const text = list
+					.map((m) => m.content || "")
+					.filter(Boolean)
+					.join("\n");
+				this.copyText(text);
+			},
+			batchForward() {
+				const list = this.selectedMessagesList();
+				if (!list.length) {
+					uni.showToast({ title: "请先选择消息", icon: "none" });
+					return;
+				}
+				const text = list
+					.map((m) => m.content || "")
+					.filter(Boolean)
+					.join("\n");
+				uni.setStorageSync("chat_forward_draft", text);
+				uni.setClipboardData({
+					data: text,
+					success: () => uni.showToast({ title: "已复制合并内容，可粘贴到其他会话", icon: "none", duration: 2200 }),
+				});
+			},
+			batchDelete() {
+				if (this.mode === "remote") {
+					uni.showToast({ title: "远程会话暂不支持删除", icon: "none" });
+					return;
+				}
+				const list = this.selectedMessagesList();
+				if (!list.length) {
+					uni.showToast({ title: "请先选择消息", icon: "none" });
+					return;
+				}
+				uni.showModal({
+					title: "删除消息",
+					content: `将删除已选的 ${list.length} 条消息（仅本机）`,
+					success: (res) => {
+						if (!res.confirm) return;
+						const ids = list.map((m) => m.id);
+						if (this.mode === "virtual") {
+							removeVirtualChatMessagesByIds(this.virtualKind, this.virtualId, ids);
+							this.loadVirtualMessages(false);
+						} else {
+							removeLocalProjectMessagesByIds(this.projectName, ids);
+							this.loadChatMessages(false);
+						}
+						this.exitMultiSelect();
+						this.$nextTick(() => this.scrollToBottom());
+					},
+				});
+			},
+			recallMessage(msg) {
+				if (!msg || !msg.isMine) return;
+				if (this.mode === "remote") {
+					uni.showToast({ title: "远程消息暂不支持撤回", icon: "none" });
+					return;
+				}
+				if (this.mode === "virtual") {
+					removeVirtualChatMessage(this.virtualKind, this.virtualId, msg.id);
+					this.loadVirtualMessages(false);
+				} else {
+					removeLocalProjectMessage(this.projectName, msg.id);
+					this.loadChatMessages(false);
+				}
+				uni.showToast({ title: "已撤回", icon: "none" });
+				this.$nextTick(() => this.scrollToBottom());
+			},
+			deleteMessage(msg) {
+				if (!msg) return;
+				if (this.mode === "remote") {
+					uni.showToast({ title: "远程消息无法删除", icon: "none" });
+					return;
+				}
+				uni.showModal({
+					title: "删除消息",
+					content: "从本机删除该条消息？",
+					success: (res) => {
+						if (!res.confirm) return;
+						if (this.mode === "virtual") {
+							removeVirtualChatMessage(this.virtualKind, this.virtualId, msg.id);
+							this.loadVirtualMessages(false);
+						} else {
+							removeLocalProjectMessage(this.projectName, msg.id);
+							this.loadChatMessages(false);
+						}
+						this.$nextTick(() => this.scrollToBottom());
+					},
+				});
+			},
+			openBubbleMenu(msg) {
+				const isRemote = this.mode === "remote";
+				const itemList = [];
+				const handlers = [];
+				const push = (label, fn) => {
+					itemList.push(label);
+					handlers.push(fn);
+				};
+				push("复制", () => this.copyText(msg.content));
+				if (!isRemote) {
+					if (msg.isMine && this.canRecall(msg)) {
+						push("撤回", () => this.recallMessage(msg));
+					}
+					push("删除", () => this.deleteMessage(msg));
+				}
+				push("转发", () => this.forwardMessage(msg));
+				push("多选", () => this.enterMultiSelect(msg));
+				uni.showActionSheet({
+					itemList,
+					success: (res) => {
+						const fn = handlers[res.tapIndex];
+						if (fn) fn();
+					},
+				});
+			},
+			loadChatMessages(alsoScroll) {
+				this.chatMessages = loadChatMessages(this.projectName);
+				if (alsoScroll) this.$nextTick(() => this.scrollToBottom());
 			},
 			markAsRead() {
 				markMessagesAsRead(this.projectName);
 			},
-			openEmployee(employeeId) {
-				uni.navigateTo({
-					url: `/pages/chat/chat?projectName=${encodeURIComponent(this.projectName)}&employeeId=${encodeURIComponent(employeeId)}`
-				});
+			async loadRemoteMessages(alsoScroll) {
+				this.loading = true;
+				try {
+					const list = await workflowApi.listMessages(this.workflowId, this.threadId);
+					const arr = Array.isArray(list) ? list : [];
+					const sorted = [...arr].sort((a, b) => {
+						const ta = new Date(messageTime(a) || 0).getTime();
+						const tb = new Date(messageTime(b) || 0).getTime();
+						return ta - tb;
+					});
+					const user = getUserInfo();
+					this.chatMessages = sorted.map((m) => ({
+						id: pickId(m) || m.messageId || `m-${messageTime(m)}`,
+						content: messageBody(m) || "（空）",
+						time: messageTime(m) || new Date().toISOString(),
+						isMine: remoteMessageIsMine(m, user),
+					}));
+					const last = sorted.length ? sorted[sorted.length - 1] : null;
+					const lastIso = last ? messageTime(last) : new Date().toISOString();
+					markCommsThreadRead(this.workflowId, this.threadId, lastIso);
+				} catch (e) {
+					console.warn("[chat] remote load", e);
+					this.chatMessages = [];
+				} finally {
+					this.loading = false;
+				}
+				if (alsoScroll) this.$nextTick(() => this.scrollToBottom());
+			},
+			loadVirtualMessages(alsoScroll) {
+				this.loading = true;
+				try {
+					if (this.virtualKind === "agent" && this.virtualId) {
+						ensureAgentChatSeed(this.virtualId);
+					}
+					if (this.virtualKind === "manager") {
+						ensureManagerChatSeed();
+					}
+					const list = loadVirtualChatMessages(this.virtualKind, this.virtualId);
+					this.chatMessages = list.map((m) => ({
+						id: m.id,
+						content: m.content,
+						time: m.time,
+						isMine: !!m.isMine,
+						senderName: m.senderName || "",
+					}));
+				} finally {
+					this.loading = false;
+				}
+				if (alsoScroll) this.$nextTick(() => this.scrollToBottom());
 			},
 			sendMessage() {
-				if (!this.inputText.trim() || this.isReplying) return;
-
-				const userContent = this.inputText.trim();
+				if (!this.inputText.trim()) return;
+				if (this.mode === "virtual") {
+					const body = this.inputText.trim();
+					appendVirtualChat(this.virtualKind, this.virtualId, {
+						content: body,
+						isMine: true,
+						senderName: "",
+					});
+					this.inputText = "";
+					this.loadVirtualMessages(false);
+					this.$nextTick(() => this.scrollToBottom());
+					return;
+				}
+				if (this.mode === "remote") {
+					this.sendRemote();
+					return;
+				}
 				const newMessage = {
 					id: "msg-" + Date.now(),
 					projectName: this.projectName,
@@ -250,7 +623,8 @@
 				uni.setStorageSync("projectMessages", allMessages);
 
 				this.inputText = "";
-				this.loadChatMessages();
+				this.loadChatMessages(false);
+				this.$nextTick(() => this.scrollToBottom());
 
 				if (
 					this.projectName === UI_DESIGNER_DEPARTMENT &&
@@ -274,116 +648,32 @@
 						const updatedMessages = uni.getStorageSync("projectMessages") || [];
 						updatedMessages.unshift(replyMessage);
 						uni.setStorageSync("projectMessages", updatedMessages);
-						this.loadChatMessages();
+						this.loadChatMessages(false);
+						this.$nextTick(() => this.scrollToBottom());
 					}, 1000);
 				}
 			},
-			async replyFromUiDesignerApi(userContent) {
-				const apiKey = uni.getStorageSync("uiDesignerApiKey") || import.meta.env.VITE_UI_DESIGNER_API_KEY || "";
-				const apiUrl = uni.getStorageSync("uiDesignerApiUrl") || import.meta.env.VITE_UI_DESIGNER_API_URL || "https://api.openai.com/v1/chat/completions";
-				const apiModel = uni.getStorageSync("uiDesignerModel") || import.meta.env.VITE_UI_DESIGNER_MODEL || "gpt-4o-mini";
-
-				if (!apiKey) {
-					uni.showToast({
-						title: "缺少 API Key，请先配置 uiDesignerApiKey",
-						icon: "none",
-						duration: 2600
-					});
-					return;
-				}
-
-				this.isReplying = true;
+			async sendRemote() {
+				if (this.sending) return;
+				const body = this.inputText.trim();
+				this.sending = true;
 				try {
-					const response = await new Promise((resolve, reject) => {
-						uni.request({
-							url: apiUrl,
-							method: "POST",
-							header: {
-								"Content-Type": "application/json",
-								Authorization: `Bearer ${apiKey}`
-							},
-							data: {
-								model: apiModel,
-								messages: [
-									{
-										role: "system",
-										content: "你是设计部的界面设计员工，擅长界面布局、组件规范、可用性与视觉一致性。请用简洁中文给出可执行建议。"
-									},
-									{
-										role: "user",
-										content: userContent
-									}
-								],
-								temperature: 0.7
-							},
-							success: resolve,
-							fail: reject
-						});
+					await workflowApi.sendMessage(this.workflowId, this.threadId, {
+						content: body,
+						body,
 					});
-
-					if (!response || response.statusCode < 200 || response.statusCode >= 300) {
-						throw new Error(`HTTP ${response?.statusCode || "UNKNOWN"}`);
-					}
-
-					const errorMessage =
-						response?.data?.error?.message ||
-						response?.data?.message ||
-						response?.data?.msg ||
-						"";
-					const content = extractAssistantText(response?.data);
-					if (!content) {
-						const dataSnippet = JSON.stringify(response?.data || {}).slice(0, 180);
-						throw new Error(errorMessage || `接口返回中未找到可用回复内容: ${dataSnippet}`);
-					}
-
-					const replyMessage = {
-						id: "msg-" + Date.now(),
-						projectName: this.projectName,
-						employeeId: this.selectedEmployeeId,
-						title: "回复",
-						content,
-						time: new Date().toISOString(),
-						read: false
-					};
-					const updatedMessages = uni.getStorageSync("projectMessages") || [];
-					updatedMessages.unshift(replyMessage);
-					uni.setStorageSync("projectMessages", updatedMessages);
-					this.loadChatMessages();
-				} catch (error) {
-					const errText = error?.message || "未知错误";
-					const failMessage = {
-						id: "msg-" + Date.now(),
-						projectName: this.projectName,
-						employeeId: this.selectedEmployeeId,
-						title: "系统提示",
-						content: `接口调用失败：${errText}`,
-						time: new Date().toISOString(),
-						read: false
-					};
-					const updatedMessages = uni.getStorageSync("projectMessages") || [];
-					updatedMessages.unshift(failMessage);
-					uni.setStorageSync("projectMessages", updatedMessages);
-					this.loadChatMessages();
-					uni.showToast({
-						title: "回复失败，已写入错误详情",
-						icon: "none",
-						duration: 2600
-					});
+					this.inputText = "";
+					await this.loadRemoteMessages(false);
+					this.$nextTick(() => this.scrollToBottom());
+				} catch (e) {
+					console.warn("[chat] send", e);
 				} finally {
-					this.isReplying = false;
+					this.sending = false;
 				}
-			},
-			scrollToLatestMessage() {
-				if (!this.chatMessages.length) return;
-				const last = this.chatMessages[this.chatMessages.length - 1];
-				const targetId = `msg-${last.id}`;
-				this.chatScrollIntoView = "";
-				this.$nextTick(() => {
-					this.chatScrollIntoView = targetId;
-				});
 			},
 			formatTime(time) {
 				const date = new Date(time);
+				if (Number.isNaN(date.getTime())) return "";
 				const hour = date.getHours().toString().padStart(2, "0");
 				const minute = date.getMinutes().toString().padStart(2, "0");
 				return `${hour}:${minute}`;
@@ -409,17 +699,22 @@
 		display: flex;
 		flex-direction: column;
 		height: 100vh;
-		background-color: #f4f6fb;
+		background-color: #ededed;
+	}
+
+	.chat-header-wrap {
+		background-color: #ededed;
+		flex-shrink: 0;
+		border-bottom: 1rpx solid #d9d9d9;
 	}
 
 	.chat-header {
-		height: 80rpx;
-		background-color: #fff;
-		border-bottom: 1rpx solid #e8e8e8;
+		min-height: 88rpx;
+		background-color: #ededed;
 		display: flex;
 		align-items: center;
-		padding: 0 30rpx;
-		flex-shrink: 0;
+		padding: 8rpx 24rpx 12rpx;
+		box-sizing: border-box;
 	}
 
 	.back-button {
@@ -428,22 +723,42 @@
 	}
 
 	.avatar-icon {
-		font-family: 'iconfont' !important;
+		font-family: "iconfont" !important;
 		font-size: 40rpx;
 		margin-right: 16rpx;
 	}
 
 	.chat-title {
-		font-size: 28rpx;
+		font-size: 34rpx;
 		font-weight: 600;
 		flex: 1;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		text-align: center;
+		padding: 0 8rpx;
 	}
 
-	.chat-content {
+	.chat-more {
+		font-size: 44rpx;
+		line-height: 1;
+		color: #111;
+		padding: 8rpx 0 8rpx 16rpx;
+		font-weight: 600;
+		letter-spacing: 2rpx;
+	}
+
+	.chat-scroll-wrap {
 		flex: 1;
-		padding: 20rpx;
-		padding-right: 28rpx;
-		padding-bottom: calc(120rpx + env(safe-area-inset-bottom));
+		min-height: 0;
+		position: relative;
+		display: flex;
+		flex-direction: column;
+	}
+
+	.chat-scroll {
+		flex: 1;
+		height: 100%;
 		min-height: 0;
 		width: 100%;
 		box-sizing: border-box;
@@ -484,6 +799,39 @@
 		padding: 12rpx 0;
 	}
 
+	.chat-scroll-inner {
+		padding: 20rpx;
+		padding-bottom: 24rpx;
+	}
+
+	.bottom-anchor {
+		height: 1px;
+		width: 100%;
+	}
+
+	.float-to-bottom {
+		position: absolute;
+		right: 28rpx;
+		bottom: 32rpx;
+		width: 72rpx;
+		height: 72rpx;
+		border-radius: 50%;
+		background: rgba(255, 255, 255, 0.96);
+		box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.12);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		z-index: 50;
+		border: 1rpx solid #e0e0e0;
+	}
+
+	.float-to-bottom-icon {
+		font-size: 40rpx;
+		color: #576b95;
+		line-height: 1;
+		font-weight: 600;
+	}
+
 	.chat-empty {
 		flex: 1;
 		display: flex;
@@ -491,6 +839,11 @@
 		justify-content: center;
 		color: #999;
 		font-size: 28rpx;
+		min-height: 0;
+	}
+
+	.chat-empty-flex {
+		flex: 1;
 		min-height: 0;
 	}
 
@@ -505,6 +858,21 @@
 
 	.bubble-row.my-message {
 		align-items: flex-end;
+	}
+
+	.bubble-row.multi-on.msg-selected .message-bubble {
+		box-shadow: 0 0 0 4rpx #07c160;
+	}
+
+	.bubble-sender {
+		font-size: 22rpx;
+		color: #888;
+		margin-bottom: 6rpx;
+		margin-left: 4rpx;
+	}
+
+	.bubble-row.my-message .bubble-sender {
+		display: none;
 	}
 
 	.message-bubble {
@@ -537,9 +905,12 @@
 		margin-top: 8rpx;
 	}
 
+	.safe-bottom {
+		padding-bottom: env(safe-area-inset-bottom);
+	}
+
 	.chat-input {
 		min-height: 100rpx;
-		padding-bottom: env(safe-area-inset-bottom);
 		background-color: #fff;
 		border-top: 1rpx solid #e8e8e8;
 		display: flex;
@@ -547,10 +918,7 @@
 		padding-left: 30rpx;
 		padding-right: 30rpx;
 		padding-top: 20rpx;
-		position: fixed;
-		left: 0;
-		right: 0;
-		bottom: 0;
+		flex-shrink: 0;
 		gap: 20rpx;
 		z-index: 100;
 		box-sizing: border-box;
@@ -572,5 +940,44 @@
 		border-radius: 30rpx;
 		font-size: 24rpx;
 		font-weight: 600;
+	}
+
+	.multi-bar {
+		min-height: 100rpx;
+		background: #f7f7f7;
+		border-top: 1rpx solid #e0e0e0;
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		padding: 16rpx 24rpx;
+		flex-shrink: 0;
+		z-index: 100;
+		gap: 16rpx;
+	}
+
+	.multi-cancel {
+		font-size: 28rpx;
+		color: #576b95;
+	}
+
+	.multi-count {
+		flex: 1;
+		font-size: 26rpx;
+		color: #888;
+	}
+
+	.multi-actions {
+		display: flex;
+		flex-direction: row;
+		gap: 24rpx;
+	}
+
+	.multi-link {
+		font-size: 28rpx;
+		color: #576b95;
+	}
+
+	.multi-link-danger {
+		color: #fa5151;
 	}
 </style>

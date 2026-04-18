@@ -1,333 +1,352 @@
 <template>
-	<view class="home-page">
-		<!-- 不用 scroll-view：小程序里 scroll-view 为原生层，会盖住 fixed 的自定义 Tab（z-index 无效） -->
-		<view class="scroll">
-			<view class="hero">
-				<text class="hero-kicker">组织 · 沟通</text>
-				<text class="hero-title">指挥中心</text>
-				<text class="hero-desc">优先展示与高管直接对齐的部门；其余部门按条线收起，避免首页拥挤。</text>
-			</view>
-
-			<view class="section">
-				<view class="section-head">
-					<text class="section-title">高管直连</text>
-					<text class="section-desc">节奏与决策对齐的核心入口</text>
+	<view class="page-root">
+		<view class="navbar-wrap" :style="{ paddingTop: statusBarPx + 'px' }">
+			<view class="navbar">
+				<view class="navbar-side" />
+				<view class="navbar-center">
+					<text class="navbar-title">全员群</text>
+					<text class="navbar-sub">共 {{ agentCount }} 位数字员工 · 日报与总览发在本群</text>
 				</view>
-				<view class="featured-grid">
-					<view
-						v-for="department in featuredDepartments"
-						:key="department.id"
-						class="tile featured"
-						:style="tileStyle(department.id)"
-						@click="openDepartment(department)"
-					>
-						<text class="tile-title">{{ cleanLabel(department.name) }}</text>
-						<text class="tile-desc">{{ department.desc }}</text>
-						<text class="tile-count">{{ department.services.length }} 个角色</text>
-					</view>
+				<view class="navbar-side navbar-side-right" @click="openHallSettings">
+					<text class="navbar-more">⋯</text>
 				</view>
 			</view>
+		</view>
 
-			<view class="expand-toggle" @click="showOrgRest = !showOrgRest">
-				<text class="expand-text">{{ showOrgRest ? "收起组织条线" : `查看其余 ${otherDeptCount} 个部门（按条线）` }}</text>
-				<text class="expand-icon">{{ showOrgRest ? "︿" : "﹀" }}</text>
-			</view>
-
-			<view v-if="showOrgRest" class="org-rest">
-				<view v-for="(block, bi) in groupedOtherSections" :key="bi" class="org-block">
-					<text class="org-block-title">{{ block.title }}</text>
-					<view class="org-grid">
-						<view
-							v-for="department in block.departments"
-							:key="department.id"
-							class="tile org"
-							:style="tileStyle(department.id)"
-							@click="openDepartment(department)"
-						>
-							<text class="tile-title sm">{{ cleanLabel(department.name) }}</text>
-							<text class="tile-desc sm">{{ department.desc }}</text>
-							<text class="tile-count sm">{{ department.services.length }} 个角色</text>
+		<scroll-view scroll-y class="chat-scroll" :scroll-into-view="scrollToId" scroll-with-animation>
+			<view v-if="loading" class="chat-empty"><text>加载中…</text></view>
+			<view v-else class="chat-inner">
+				<view
+					v-for="msg in hallMessages"
+					:key="msg.id"
+					:id="'m-' + msg.id"
+					class="hall-row"
+					:class="{ 'is-mine': msg.isMine }"
+				>
+					<view v-if="!msg.isMine" class="hall-left">
+						<view class="hall-av" :style="{ background: avatarColor(msg.senderName || '') }">
+							<text class="hall-av-t">{{ avatarLetter(msg) }}</text>
+						</view>
+						<view class="hall-bubble-wrap">
+							<text v-if="msg.senderName" class="hall-name">{{ msg.senderName }}</text>
+							<view class="hall-bubble" :class="{ manager: msg.isManager }">
+								<text class="hall-text">{{ msg.content }}</text>
+							</view>
+							<text class="hall-time">{{ formatTime(msg.time) }}</text>
 						</view>
 					</view>
+					<view v-else class="hall-right">
+						<view class="hall-bubble mine">
+							<text class="hall-text">{{ msg.content }}</text>
+						</view>
+						<text class="hall-time">{{ formatTime(msg.time) }}</text>
+					</view>
 				</view>
 			</view>
+			<view id="bottom-anchor" class="bottom-anchor" />
+		</scroll-view>
 
-			<view class="scroll-pad" />
+		<view class="chat-input">
+			<input type="text" v-model="inputText" class="input-field" placeholder="发送消息到全员群…" placeholder-class="iph" />
+			<view class="send-button" @click="sendHall">发送</view>
 		</view>
+
 		<AppTabBar current="home" />
 	</view>
 </template>
 
 <script>
-	import agentDepartments from "@/data/agentDepartments";
-	import { HOME_FEATURED_IDS, HOME_OTHER_GROUPS } from "@/data/companyHierarchy";
 	import AppTabBar from "@/components/AppTabBar.vue";
+	import {
+		loadHQChatMessages,
+		appendHQMessage,
+		ensureHallWelcome,
+		ensureHallDailyDigest,
+		loadDigitalAgents,
+		HQ_ID,
+	} from "@/utils/virtualTeamStore";
 
 	export default {
 		components: { AppTabBar },
 		data() {
 			return {
-				departments: agentDepartments,
-				showOrgRest: false,
+				statusBarPx: 20,
+				hallMessages: [],
+				loading: true,
+				inputText: "",
+				scrollToId: "",
 			};
 		},
 		computed: {
-			deptMap() {
-				const m = {};
-				for (const d of this.departments) {
-					m[d.id] = d;
-				}
-				return m;
-			},
-			featuredDepartments() {
-				return HOME_FEATURED_IDS.map((id) => this.deptMap[id]).filter(Boolean);
-			},
-			groupedOtherSections() {
-				return HOME_OTHER_GROUPS.map((g) => ({
-					title: g.title,
-					departments: g.departmentIds.map((id) => this.deptMap[id]).filter(Boolean),
-				})).filter((block) => block.departments.length > 0);
-			},
-			otherDeptCount() {
-				return Math.max(0, this.departments.length - this.featuredDepartments.length);
+			agentCount() {
+				return loadDigitalAgents().length;
 			},
 		},
 		onLoad() {
+			const sys = uni.getSystemInfoSync();
+			this.statusBarPx = sys.statusBarHeight || 20;
 			uni.hideTabBar({ animation: false });
 		},
 		onShow() {
 			uni.hideTabBar({ animation: false });
+			this.bootstrapHall();
 		},
 		methods: {
-			cleanLabel(label = "") {
-				return label.replace(/^[^\u4e00-\u9fa5A-Za-z0-9]+/, "").trim();
-			},
-			tileStyle(departmentId) {
-				const map = {
-					engineering: { bg: "linear-gradient(160deg, #ffffff 0%, #eaf2ff 100%)", border: "#cfe0ff", accent: "#3d67ff", glow: "rgba(80, 132, 255, 0.22)" },
-					design: { bg: "linear-gradient(160deg, #ffffff 0%, #f4ecff 100%)", border: "#e1d2ff", accent: "#7b4dff", glow: "rgba(142, 86, 255, 0.2)" },
-					paid: { bg: "linear-gradient(160deg, #ffffff 0%, #fff2e8 100%)", border: "#ffd9c2", accent: "#ff7b2f", glow: "rgba(255, 145, 84, 0.2)" },
-					sales: { bg: "linear-gradient(160deg, #ffffff 0%, #eaf8ff 100%)", border: "#c8e9ff", accent: "#1689d9", glow: "rgba(84, 174, 235, 0.2)" },
-					marketing: { bg: "linear-gradient(160deg, #ffffff 0%, #fff0f6 100%)", border: "#ffd3e8", accent: "#e04b8b", glow: "rgba(236, 112, 171, 0.2)" },
-					product: { bg: "linear-gradient(160deg, #ffffff 0%, #f1f4ff 100%)", border: "#d7defd", accent: "#5567db", glow: "rgba(111, 124, 226, 0.2)" },
-					pm: { bg: "linear-gradient(160deg, #ffffff 0%, #f2fff4 100%)", border: "#cfeeda", accent: "#2f9d5b", glow: "rgba(97, 197, 136, 0.2)" },
-					qa: { bg: "linear-gradient(160deg, #ffffff 0%, #edfaff 100%)", border: "#cdeeff", accent: "#1d8fc2", glow: "rgba(92, 187, 224, 0.2)" },
-					support: { bg: "linear-gradient(160deg, #ffffff 0%, #f7f2ff 100%)", border: "#dfd2ff", accent: "#7450cc", glow: "rgba(136, 106, 214, 0.2)" },
-					spatial: { bg: "linear-gradient(160deg, #ffffff 0%, #eef8ff 100%)", border: "#cfe6ff", accent: "#3a78d6", glow: "rgba(94, 152, 230, 0.2)" },
-					special: { bg: "linear-gradient(160deg, #ffffff 0%, #fff4ec 100%)", border: "#ffd9c5", accent: "#dc6b33", glow: "rgba(235, 142, 95, 0.2)" },
-					finance: { bg: "linear-gradient(160deg, #ffffff 0%, #eefbf5 100%)", border: "#cde8dd", accent: "#2c8f68", glow: "rgba(101, 193, 153, 0.2)" },
-					academic: { bg: "linear-gradient(160deg, #ffffff 0%, #f5f6ff 100%)", border: "#dfe1fb", accent: "#5a63c9", glow: "rgba(127, 136, 224, 0.2)" },
-				};
-				const theme = map[departmentId] || { bg: "linear-gradient(160deg, #ffffff 0%, #f2f6ff 100%)", border: "#dfe6f2", accent: "#4e5cf0", glow: "rgba(92, 120, 255, 0.2)" };
-				return {
-					"--tile-bg": theme.bg,
-					"--tile-border": theme.border,
-					"--tile-accent": theme.accent,
-					"--tile-glow": theme.glow,
-				};
-			},
-			openDepartment(department) {
+			openHallSettings() {
 				uni.navigateTo({
-					url: `/pages/department/department?id=${department.id}`,
+					url: `/pages/chat/chat-settings?mode=virtual&kind=hq&id=${encodeURIComponent(HQ_ID)}&title=${encodeURIComponent("全员群")}`,
 				});
+			},
+			bootstrapHall() {
+				this.loading = true;
+				try {
+					ensureHallWelcome();
+					ensureHallDailyDigest();
+					this.hallMessages = loadHQChatMessages();
+					this.$nextTick(() => {
+						this.scrollToBottom();
+					});
+				} finally {
+					this.loading = false;
+				}
+			},
+			scrollToBottom() {
+				this.scrollToId = "bottom-anchor";
+			},
+			sendHall() {
+				const t = (this.inputText || "").trim();
+				if (!t) return;
+				appendHQMessage({ content: t, isMine: true, senderName: "我" });
+				this.inputText = "";
+				this.hallMessages = loadHQChatMessages();
+				this.$nextTick(() => this.scrollToBottom());
+			},
+			avatarColor(name) {
+				const colors = ["#07c160", "#10aeff", "#576b95", "#fa9d3b", "#1485ee", "#9a6bff"];
+				let h = 0;
+				const s = String(name || "");
+				for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+				return colors[h % colors.length];
+			},
+			avatarLetter(msg) {
+				const n = (msg.senderName || "员").trim();
+				if (n === "系统") return "系";
+				if (n.includes("经理总览")) return "经";
+				return n.slice(0, 1);
+			},
+			formatTime(time) {
+				const date = new Date(time);
+				if (Number.isNaN(date.getTime())) return "";
+				const h = date.getHours().toString().padStart(2, "0");
+				const m = date.getMinutes().toString().padStart(2, "0");
+				return `${h}:${m}`;
 			},
 		},
 	};
 </script>
 
 <style>
-	.home-page {
+	.page-root {
 		height: 100vh;
 		display: flex;
 		flex-direction: column;
-		background: #f4f6fb;
+		background: #ededed;
 		box-sizing: border-box;
 	}
 
-	.scroll {
-		flex: 1;
-		height: 0;
-		padding: 28rpx 28rpx 0;
-		box-sizing: border-box;
-		overflow-y: auto;
-		-webkit-overflow-scrolling: touch;
+	.navbar-wrap {
+		background: #ededed;
+		flex-shrink: 0;
+		border-bottom: 1rpx solid #d9d9d9;
 	}
 
-	.hero {
-		margin-bottom: 28rpx;
+	.navbar {
+		min-height: 88rpx;
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		padding: 8rpx 16rpx 12rpx;
 	}
 
-	.hero-kicker {
-		display: block;
-		font-size: 22rpx;
-		font-weight: 600;
-		color: #64748b;
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
+	.navbar-side {
+		width: 24rpx;
+		min-width: 56rpx;
 	}
 
-	.hero-title {
-		display: block;
-		margin-top: 8rpx;
+	.navbar-side-right {
+		display: flex;
+		align-items: center;
+		justify-content: flex-end;
+	}
+
+	.navbar-more {
 		font-size: 44rpx;
-		font-weight: 800;
-		color: #0f172a;
-		letter-spacing: -0.02em;
+		font-weight: 600;
+		color: #111;
+		padding: 8rpx 8rpx 8rpx 16rpx;
+		line-height: 1;
 	}
 
-	.hero-desc {
-		display: block;
-		margin-top: 12rpx;
-		font-size: 24rpx;
-		color: #64748b;
-		line-height: 1.55;
-	}
-
-	.section-head {
-		margin-bottom: 18rpx;
-	}
-
-	.section-title {
-		display: block;
-		font-size: 30rpx;
-		font-weight: 800;
-		color: #1e293b;
-	}
-
-	.section-desc {
-		display: block;
-		margin-top: 6rpx;
-		font-size: 24rpx;
-		color: #94a3b8;
-	}
-
-	.featured-grid {
-		display: grid;
-		grid-template-columns: repeat(2, minmax(0, 1fr));
-		gap: 16rpx;
-	}
-
-	.tile {
-		background: var(--tile-bg, #fff);
-		border: 1rpx solid var(--tile-border, #dfe6f2);
-		border-radius: 22rpx;
-		padding: 22rpx;
-		box-sizing: border-box;
+	.navbar-center {
+		flex: 1;
 		display: flex;
 		flex-direction: column;
-		justify-content: space-between;
-		min-height: 200rpx;
-		box-shadow: 0 8rpx 18rpx rgba(20, 38, 70, 0.05);
-		position: relative;
-		overflow: hidden;
-	}
-
-	.tile::after {
-		content: "";
-		position: absolute;
-		right: -30rpx;
-		top: -30rpx;
-		width: 120rpx;
-		height: 120rpx;
-		border-radius: 50%;
-		background: var(--tile-glow, rgba(255, 255, 255, 0.5));
-	}
-
-	.tile-title {
-		font-size: 28rpx;
-		font-weight: 700;
-		color: #1f2d3d;
-	}
-
-	.tile-title.sm {
-		font-size: 26rpx;
-	}
-
-	.tile-desc {
-		margin-top: 10rpx;
-		font-size: 20rpx;
-		color: #6f7a89;
-		line-height: 1.45;
-		display: -webkit-box;
-		overflow: hidden;
-		-webkit-box-orient: vertical;
-		-webkit-line-clamp: 3;
-	}
-
-	.tile-desc.sm {
-		font-size: 19rpx;
-		-webkit-line-clamp: 2;
-	}
-
-	.tile-count {
-		margin-top: 16rpx;
-		font-size: 20rpx;
-		color: var(--tile-accent, #4e5cf0);
-		font-weight: 600;
-	}
-
-	.tile-count.sm {
-		font-size: 19rpx;
-		margin-top: 12rpx;
-	}
-
-	.expand-toggle {
-		margin: 8rpx 0 24rpx;
-		padding: 22rpx 20rpx;
-		background: #fff;
-		border-radius: 16rpx;
-		border: 1rpx solid #e2e8f0;
-		display: flex;
-		justify-content: space-between;
 		align-items: center;
-		box-shadow: 0 4rpx 12rpx rgba(15, 23, 42, 0.04);
 	}
 
-	.expand-text {
-		font-size: 26rpx;
+	.navbar-title {
+		font-size: 34rpx;
 		font-weight: 600;
-		color: #334155;
+		color: #000;
+	}
+
+	.navbar-sub {
+		font-size: 22rpx;
+		color: #888;
+		margin-top: 4rpx;
+		text-align: center;
+		line-height: 1.35;
+	}
+
+	.chat-scroll {
 		flex: 1;
-		padding-right: 16rpx;
+		height: 0;
 	}
 
-	.expand-icon {
+	.chat-inner {
+		padding: 20rpx 24rpx 24rpx;
+	}
+
+	.chat-empty {
+		padding: 80rpx;
+		text-align: center;
+		color: #999;
 		font-size: 28rpx;
-		color: #94a3b8;
 	}
 
-	.org-rest {
-		padding-bottom: 8rpx;
-	}
-
-	.org-block {
+	.hall-row {
 		margin-bottom: 28rpx;
 	}
 
-	.org-block-title {
-		display: block;
-		font-size: 24rpx;
-		font-weight: 700;
-		color: #475569;
-		margin-bottom: 14rpx;
-		border-left: 6rpx solid #3b82f6;
-		padding-left: 12rpx;
+	.hall-row.is-mine {
+		display: flex;
+		justify-content: flex-end;
 	}
 
-	.org-grid {
-		display: grid;
-		grid-template-columns: repeat(2, minmax(0, 1fr));
-		gap: 12rpx;
+	.hall-left {
+		display: flex;
+		flex-direction: row;
+		align-items: flex-start;
 	}
 
-	.tile.org {
-		min-height: 168rpx;
-		padding: 18rpx;
+	.hall-av {
+		width: 72rpx;
+		height: 72rpx;
+		border-radius: 8rpx;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		margin-right: 16rpx;
+		flex-shrink: 0;
 	}
 
-	.scroll-pad {
-		/* 底栏在文档流内占用高度，此处只需少量尾部留白 */
-		height: 32rpx;
+	.hall-av-t {
+		font-size: 28rpx;
+		font-weight: 600;
+		color: #fff;
+	}
+
+	.hall-bubble-wrap {
+		max-width: 75%;
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+	}
+
+	.hall-name {
+		font-size: 22rpx;
+		color: #888;
+		margin-bottom: 6rpx;
+	}
+
+	.hall-bubble {
+		background: #fff;
+		padding: 16rpx 20rpx;
+		border-radius: 12rpx;
+		box-shadow: 0 2rpx 6rpx rgba(0, 0, 0, 0.06);
+	}
+
+	.hall-bubble.manager {
+		background: #e8f5e9;
+		border: 1rpx solid #c8e6c9;
+	}
+
+	.hall-bubble.mine {
+		background: #95ec69;
+	}
+
+	.hall-text {
+		font-size: 28rpx;
+		color: #191919;
+		line-height: 1.55;
+		white-space: pre-wrap;
+		word-break: break-word;
+	}
+
+	.hall-bubble.mine .hall-text {
+		color: #191919;
+	}
+
+	.hall-time {
+		font-size: 20rpx;
+		color: #b2b2b2;
+		margin-top: 8rpx;
+	}
+
+	.hall-right {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-end;
+		max-width: 85%;
+		margin-left: auto;
+	}
+
+	.bottom-anchor {
+		height: 2rpx;
+	}
+
+	.chat-input {
+		min-height: 100rpx;
 		padding-bottom: env(safe-area-inset-bottom);
+		background: #f7f7f7;
+		border-top: 1rpx solid #dcdcdc;
+		display: flex;
+		align-items: center;
+		padding: 16rpx 24rpx;
+		gap: 16rpx;
+		flex-shrink: 0;
+		box-sizing: border-box;
+	}
+
+	.input-field {
+		flex: 1;
+		height: 72rpx;
+		background: #fff;
+		border-radius: 12rpx;
+		padding: 0 24rpx;
+		font-size: 28rpx;
+	}
+
+	.iph {
+		color: #bbb;
+	}
+
+	.send-button {
+		padding: 16rpx 28rpx;
+		background: #07c160;
+		color: #fff;
+		border-radius: 12rpx;
+		font-size: 28rpx;
+		font-weight: 600;
 	}
 </style>
