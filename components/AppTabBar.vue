@@ -49,12 +49,11 @@
 </script>
 
 <style scoped>
+	/* 小程序里 fixed 底栏常与滚动层叠顺序异常；作为 flex 子元素贴在页面底部更稳定 */
 	.app-tab-bar {
-		position: fixed;
-		left: 0;
-		right: 0;
-		bottom: 0;
-		z-index: 999;
+		flex-shrink: 0;
+		width: 100%;
+		z-index: 100;
 		display: flex;
 		flex-direction: row;
 		align-items: flex-end;

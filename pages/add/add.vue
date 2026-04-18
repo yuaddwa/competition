@@ -1,6 +1,7 @@
 <template>
 	<view class="add-page">
-		<scroll-view scroll-y class="scroll" :show-scrollbar="false">
+		<!-- 同 home：小程序原生 scroll-view 会盖住 fixed 自定义 Tab -->
+		<view class="scroll">
 			<view class="hero">
 				<view class="hero-icon">⚡</view>
 				<view class="hero-copy">
@@ -74,7 +75,7 @@
 			</view>
 
 			<view class="pad-bottom" />
-		</scroll-view>
+		</view>
 		<AppTabBar current="add" />
 	</view>
 </template>
@@ -242,6 +243,8 @@
 		height: 0;
 		padding: 28rpx 28rpx 0;
 		box-sizing: border-box;
+		overflow-y: auto;
+		-webkit-overflow-scrolling: touch;
 	}
 
 	.hero {

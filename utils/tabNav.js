@@ -6,7 +6,7 @@ export const TAB_PAGE = {
 	home: "/pages/home/home",
 	project: "/pages/project/project",
 	add: "/pages/add/add",
-	message: "/pages/message/message",
+	message: "/pages/chat/chat",
 	profile: "/pages/profile/profile",
 };
 

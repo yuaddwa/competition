@@ -1,6 +1,7 @@
 <template>
 	<view class="home-page">
-		<scroll-view scroll-y class="scroll" :show-scrollbar="false">
+		<!-- 不用 scroll-view：小程序里 scroll-view 为原生层，会盖住 fixed 的自定义 Tab（z-index 无效） -->
+		<view class="scroll">
 			<view class="hero">
 				<text class="hero-kicker">组织 · 沟通</text>
 				<text class="hero-title">指挥中心</text>
@@ -52,7 +53,7 @@
 			</view>
 
 			<view class="scroll-pad" />
-		</scroll-view>
+		</view>
 		<AppTabBar current="home" />
 	</view>
 </template>
@@ -148,6 +149,8 @@
 		height: 0;
 		padding: 28rpx 28rpx 0;
 		box-sizing: border-box;
+		overflow-y: auto;
+		-webkit-overflow-scrolling: touch;
 	}
 
 	.hero {
@@ -323,7 +326,8 @@
 	}
 
 	.scroll-pad {
-		height: 200rpx;
+		/* 底栏在文档流内占用高度，此处只需少量尾部留白 */
+		height: 32rpx;
 		padding-bottom: env(safe-area-inset-bottom);
 	}
 </style>

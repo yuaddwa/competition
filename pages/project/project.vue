@@ -1,6 +1,8 @@
 <template>
 	<view class="page-root">
 	<view class="project-container">
+		<!-- 预留底栏高度，缩短原生 scroll-view，否则小程序里会盖住 fixed 自定义 Tab -->
+		<view class="scroll-clip">
 		<scroll-view scroll-y class="scroll" refresher-enabled :refresher-triggered="refreshing" @refresherrefresh="onRefresh">
 			<view class="hero-header">
 				<view class="hero-left">
@@ -45,6 +47,7 @@
 
 			<view class="bottom-spacer" />
 		</scroll-view>
+		</view>
 
 		<view class="fab-row">
 			<button class="fab-btn" type="primary" @click="openCreate">＋ 新建工作流</button>
@@ -182,21 +185,33 @@
 <style scoped>
 	.page-root {
 		width: 100%;
-		min-height: 100vh;
+		height: 100vh;
+		display: flex;
+		flex-direction: column;
 		position: relative;
 		box-sizing: border-box;
+		overflow: hidden;
 	}
 
 	.project-container {
+		flex: 1;
+		min-height: 0;
 		display: flex;
 		flex-direction: column;
-		height: 100vh;
 		background: #f1f5f9;
 	}
 
-	.scroll {
+	.scroll-clip {
 		flex: 1;
 		height: 0;
+		min-height: 0;
+		/* 缩短原生 scroll-view，避免压住上层；底栏改文档流后略缩短即可 */
+		padding-bottom: 24rpx;
+		box-sizing: border-box;
+	}
+
+	.scroll {
+		height: 100%;
 		padding: 24rpx 28rpx 200rpx;
 		box-sizing: border-box;
 	}
@@ -443,7 +458,8 @@
 		position: fixed;
 		left: 0;
 		right: 0;
-		bottom: 120rpx;
+		/* 底栏在文档流内约 100rpx + 安全区，留出悬浮按钮空间 */
+		bottom: calc(108rpx + env(safe-area-inset-bottom));
 		padding: 0 28rpx;
 		z-index: 90;
 	}
