@@ -38,7 +38,7 @@ export function loadMessages() {
 	if (firstLaunch) {
 		const bossMessage = {
 			id: 'boss-' + Date.now(),
-			projectName: '老板',
+			projectName: '工程部',
 			title: '问候',
 			content: '有什么问题',
 			time: new Date().toISOString(),

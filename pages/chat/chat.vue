@@ -116,6 +116,116 @@
 		return false;
 	}
 
+	const ID_TOKEN_CN_MAP = {
+		eng: "工程",
+		des: "设计",
+		paid: "付费媒体",
+		sales: "销售",
+		mkt: "市场",
+		prd: "产品",
+		pm: "项目管理",
+		qa: "测试",
+		sup: "支援",
+		spatial: "空间计算",
+		sp: "专业",
+		fin: "财务",
+		ac: "学术",
+		frontend: "前端",
+		backend: "后端",
+		mobile: "移动应用",
+		ai: "人工智能",
+		ui: "界面设计",
+		ux: "用户体验",
+		arch: "架构",
+		ppc: "PPC投放",
+		tracking: "跟踪测量",
+		creative: "创意",
+		outbound: "外联",
+		deal: "交易",
+		se: "销售工程",
+		growth: "增长",
+		content: "内容",
+		seo: "搜索优化",
+		feedback: "反馈",
+		pri: "优先级",
+		shepherd: "项目牧羊人",
+		experiment: "实验追踪",
+		jira: "Jira流程",
+		evidence: "证据收集",
+		api: "接口测试",
+		perf: "性能测试",
+		response: "响应支持",
+		analytics: "分析",
+		compliance: "合规",
+		xr: "XR交互",
+		vision: "visionOS",
+		metal: "Metal渲染",
+		orchestrator: "编排",
+		mcp: "MCP",
+		doc: "文档",
+		bookkeeper: "账务控制",
+		fpa: "财务规划分析",
+		tax: "税务",
+		anthro: "人类学",
+		history: "历史学",
+		psych: "心理学"
+	};
+
+	function translateIdToChinese(id) {
+		if (!id) return "";
+		return id
+			.split("-")
+			.map(token => ID_TOKEN_CN_MAP[token] || token.toUpperCase())
+			.join("·");
+	}
+
+	function normalizeDepartmentName(name) {
+		return (name || "")
+			.replace(/^[^\s\u4e00-\u9fa5A-Za-z]+/, "")
+			.replace(/\s+/g, "")
+			.trim();
+	}
+
+	const UI_DESIGNER_EMPLOYEE_ID = "des-ui";
+	const UI_DESIGNER_DEPARTMENT = "设计部";
+
+	function extractAssistantText(resData) {
+		if (!resData) return "";
+		const contentFromChoices = resData?.choices?.[0]?.message?.content;
+		if (typeof contentFromChoices === "string" && contentFromChoices.trim()) {
+			return contentFromChoices.trim();
+		}
+		if (Array.isArray(contentFromChoices)) {
+			const text = contentFromChoices
+				.map(part => (typeof part?.text === "string" ? part.text : ""))
+				.join("")
+				.trim();
+			if (text) return text;
+		}
+		const directText =
+			resData?.reply ||
+			resData?.text ||
+			resData?.content ||
+			resData?.data?.reply ||
+			resData?.data?.content ||
+			resData?.data?.text;
+		if (typeof directText === "string" && directText.trim()) {
+			return directText.trim();
+		}
+		const geminiText = resData?.candidates?.[0]?.content?.parts
+			?.map(part => (typeof part?.text === "string" ? part.text : ""))
+			.join("")
+			.trim();
+		if (geminiText) {
+			return geminiText;
+		}
+		const outputText = resData?.output_text || resData?.output?.[0]?.content?.[0]?.text;
+		if (typeof outputText === "string" && outputText.trim()) {
+			return outputText.trim();
+		}
+		return "";
+	}
+
 	export default {
 		data() {
 			return {
@@ -500,8 +610,9 @@
 				const newMessage = {
 					id: "msg-" + Date.now(),
 					projectName: this.projectName,
+					employeeId: this.selectedEmployeeId || "",
 					title: "消息",
-					content: this.inputText.trim(),
+					content: userContent,
 					time: new Date().toISOString(),
 					sender: "me",
 					read: true,
@@ -515,11 +626,20 @@
 				this.loadChatMessages(false);
 				this.$nextTick(() => this.scrollToBottom());
 
-				if (this.projectName === "老板") {
+				if (
+					this.projectName === UI_DESIGNER_DEPARTMENT &&
+					this.selectedEmployeeId === UI_DESIGNER_EMPLOYEE_ID
+				) {
+					this.replyFromUiDesignerApi(userContent);
+					return;
+				}
+
+				if (this.projectName === "工程部" && this.selectedEmployeeId) {
 					setTimeout(() => {
 						const replyMessage = {
 							id: "msg-" + Date.now(),
-							projectName: "老板",
+							projectName: "工程部",
+							employeeId: this.selectedEmployeeId,
 							title: "回复",
 							content: "好的，我知道了",
 							time: new Date().toISOString(),
@@ -640,6 +760,43 @@
 		flex: 1;
 		height: 100%;
 		min-height: 0;
+		width: 100%;
+		box-sizing: border-box;
+	}
+
+	.employee-panel {
+		padding: 20rpx;
+		background: #f8faff;
+		border-bottom: 1rpx solid #e8edf7;
+	}
+
+	.employee-item {
+		background: #fff;
+		border-radius: 12rpx;
+		padding: 24rpx 22rpx;
+		margin-bottom: 16rpx;
+		min-height: 96rpx;
+		display: flex;
+		align-items: center;
+		gap: 8rpx;
+	}
+
+	.employee-id {
+		font-size: 24rpx;
+		color: #333;
+		font-weight: 600;
+	}
+
+	.employee-raw {
+		font-size: 22rpx;
+		color: #999;
+	}
+
+	.employee-empty {
+		display: block;
+		font-size: 24rpx;
+		color: #999;
+		padding: 12rpx 0;
 	}
 
 	.chat-scroll-inner {
@@ -695,6 +852,8 @@
 		flex-direction: column;
 		margin-bottom: 20rpx;
 		align-items: flex-start;
+		width: 100%;
+		box-sizing: border-box;
 	}
 
 	.bubble-row.my-message {
@@ -722,6 +881,8 @@
 		border-radius: 16rpx;
 		background-color: #fff;
 		box-shadow: 0 2rpx 4rpx rgba(0, 0, 0, 0.1);
+		box-sizing: border-box;
+		word-break: break-word;
 	}
 
 	.message-bubble.my-message {
