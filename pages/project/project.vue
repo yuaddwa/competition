@@ -1,14 +1,28 @@
 <template>
 	<view class="project-container">
 		<scroll-view scroll-y class="scroll" refresher-enabled :refresher-triggered="refreshing" @refresherrefresh="onRefresh">
-			<view class="header-block">
-				<text class="page-title">工作流</text>
-				<text class="page-sub">选择或创建一个工作流进入工作台</text>
+			<view class="hero-header">
+				<view class="hero-left">
+					<text class="page-title">工作流</text>
+					<text class="page-sub">选择已有项目进入工作台，或新建一条协作流水线</text>
+				</view>
+				<view class="stat-chip">
+					<text class="stat-num">{{ workflows.length }}</text>
+					<text class="stat-lab">个</text>
+				</view>
 			</view>
 
-			<view v-if="!loading && workflows.length === 0" class="empty">
-				<text class="empty-title">暂无工作流</text>
-				<text class="empty-desc">点击下方按钮创建第一个工作流</text>
+			<view v-if="loading" class="loading-row">
+				<view class="loading-dot"></view>
+				<text class="loading-t">加载中…</text>
+			</view>
+
+			<view v-else-if="workflows.length === 0" class="empty">
+				<text class="empty-emoji">📂</text>
+				<text class="empty-title">还没有工作流</text>
+				<text class="empty-desc">创建一个工作流后，可在「布置任务」里关联下发，或直接进入工作台查看任务与沟通。</text>
+				<button class="empty-primary" type="primary" @click="showCreate = true">创建工作流</button>
+				<button class="empty-secondary" @click="goAdd">去布置任务</button>
 			</view>
 
 			<view
@@ -17,18 +31,22 @@
 				class="wf-card"
 				@click="openWorkbench(w)"
 			>
-				<view class="wf-card-top">
-					<text class="wf-title">{{ workflowTitle(w) }}</text>
-					<text class="wf-id">{{ workflowKey(w) }}</text>
+				<view class="wf-row">
+					<view class="wf-icon">◇</view>
+					<view class="wf-main">
+						<text class="wf-title">{{ workflowTitle(w) }}</text>
+						<text v-if="workflowDesc(w)" class="wf-desc">{{ workflowDesc(w) }}</text>
+						<text class="wf-id">{{ workflowKey(w) }}</text>
+					</view>
+					<text class="wf-go">›</text>
 				</view>
-				<text v-if="workflowDesc(w)" class="wf-desc">{{ workflowDesc(w) }}</text>
 			</view>
 
 			<view class="bottom-spacer" />
 		</scroll-view>
 
 		<view class="fab-row">
-			<button class="fab-btn" type="primary" @click="showCreate = true">新建工作流</button>
+			<button class="fab-btn" type="primary" @click="showCreate = true">＋ 新建工作流</button>
 		</view>
 
 		<view v-if="showCreate" class="mask" @click.self="showCreate = false">
@@ -42,41 +60,20 @@
 				</view>
 			</view>
 		</view>
-
-		<view class="tab-bar">
-			<view class="tab-item" :class="{ active: currentPage === 'home' }" @click="navigateTo('home')">
-				<text class="tab-icon iconfont">&#xe64f;</text>
-				<text class="tab-text">首页</text>
-			</view>
-			<view class="tab-item" :class="{ active: currentPage === 'project' }" @click="navigateTo('project')">
-				<text class="tab-icon iconfont">&#xe620;</text>
-				<text class="tab-text">项目</text>
-			</view>
-			<view class="tab-item center-item">
-				<view class="center-button" @click="navigateTo('add')">
-					<text class="center-icon iconfont"></text>
-				</view>
-			</view>
-			<view class="tab-item" :class="{ active: currentPage === 'message' }" @click="navigateTo('message')">
-				<text class="tab-icon iconfont">&#xe87c;</text>
-				<text class="tab-text">消息</text>
-			</view>
-			<view class="tab-item" :class="{ active: currentPage === 'profile' }" @click="navigateTo('profile')">
-				<text class="tab-icon iconfont">&#xe654;</text>
-				<text class="tab-text">个人</text>
-			</view>
-		</view>
+		<AppTabBar current="project" />
 	</view>
 </template>
 
 <script>
 	import * as workflowApi from "@/api/workflowApi";
 	import { pickId } from "@/utils/apiHelpers";
+	import { switchMainTab } from "@/utils/tabNav";
+	import AppTabBar from "@/components/AppTabBar.vue";
 
 	export default {
+		components: { AppTabBar },
 		data() {
 			return {
-				currentPage: "project",
 				workflows: [],
 				loading: true,
 				refreshing: false,
@@ -86,7 +83,11 @@
 				creating: false,
 			};
 		},
+		onLoad() {
+			uni.hideTabBar({ animation: false });
+		},
 		onShow() {
+			uni.hideTabBar({ animation: false });
 			this.loadList();
 		},
 		methods: {
@@ -132,6 +133,9 @@
 					url: `/pages/workflow/workbench?id=${encodeURIComponent(id)}`,
 				});
 			},
+			goAdd() {
+				switchMainTab("add");
+			},
 			async submitCreate() {
 				const title = (this.newTitle || "").trim();
 				if (!title) {
@@ -163,33 +167,16 @@
 					this.creating = false;
 				}
 			},
-			navigateTo(page) {
-				uni.redirectTo({
-					url: `/pages/${page}/${page}`,
-				});
-			},
 		},
 	};
 </script>
 
-<style>
-	@font-face {
-		font-family: 'iconfont';
-		src: url('../../static/download/font_5162264_g3oiz4ouy1i/iconfont.woff2') format('woff2'),
-			 url('../../static/download/font_5162264_g3oiz4ouy1i/iconfont.woff') format('woff'),
-			 url('../../static/download/font_5162264_g3oiz4ouy1i/iconfont.ttf') format('truetype');
-	}
-
-	.iconfont {
-		font-family: 'iconfont' !important;
-		font-size: 36rpx;
-	}
-
+<style scoped>
 	.project-container {
 		display: flex;
 		flex-direction: column;
 		height: 100vh;
-		background: #f4f6fb;
+		background: #f1f5f9;
 	}
 
 	.scroll {
@@ -199,80 +186,238 @@
 		box-sizing: border-box;
 	}
 
-	.header-block {
+	.hero-header {
+		display: flex;
+		flex-direction: row;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: 20rpx;
+		padding: 28rpx;
 		margin-bottom: 20rpx;
+		background: linear-gradient(135deg, #ffffff 0%, #eff6ff 100%);
+		border-radius: 24rpx;
+		border: 1rpx solid #e0e7ff;
+		box-shadow: 0 16rpx 40rpx rgba(37, 99, 235, 0.08);
+	}
+
+	.hero-left {
+		flex: 1;
+		min-width: 0;
 	}
 
 	.page-title {
-		font-size: 40rpx;
-		font-weight: 700;
-		color: #1f2d3d;
+		display: block;
+		font-size: 38rpx;
+		font-weight: 800;
+		color: #0f172a;
+		letter-spacing: -0.02em;
 	}
 
 	.page-sub {
 		display: block;
-		margin-top: 8rpx;
+		margin-top: 12rpx;
 		font-size: 24rpx;
-		color: #6f7a89;
+		color: #64748b;
+		line-height: 1.5;
+	}
+
+	.stat-chip {
+		flex-shrink: 0;
+		min-width: 100rpx;
+		padding: 16rpx 20rpx;
+		border-radius: 20rpx;
+		background: linear-gradient(135deg, #2563eb, #7c3aed);
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		box-shadow: 0 10rpx 28rpx rgba(37, 99, 235, 0.35);
+	}
+
+	.stat-num {
+		font-size: 40rpx;
+		font-weight: 800;
+		color: #fff;
+		line-height: 1;
+	}
+
+	.stat-lab {
+		font-size: 20rpx;
+		color: rgba(255, 255, 255, 0.85);
+		margin-top: 4rpx;
+		font-weight: 600;
+	}
+
+	.loading-row {
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		justify-content: center;
+		gap: 16rpx;
+		padding: 48rpx 20rpx;
+	}
+
+	.loading-dot {
+		width: 14rpx;
+		height: 14rpx;
+		border-radius: 50%;
+		background: #2563eb;
+		animation: pulse 1s ease-in-out infinite;
+	}
+
+	@keyframes pulse {
+		0%,
+		100% {
+			opacity: 0.35;
+			transform: scale(0.9);
+		}
+		50% {
+			opacity: 1;
+			transform: scale(1);
+		}
+	}
+
+	.loading-t {
+		font-size: 26rpx;
+		color: #64748b;
 	}
 
 	.empty {
-		padding: 80rpx 20rpx;
+		padding: 56rpx 24rpx 40rpx;
 		align-items: center;
 		text-align: center;
+		background: #fff;
+		border-radius: 24rpx;
+		border: 1rpx dashed #cbd5e1;
+		margin-bottom: 24rpx;
+	}
+
+	.empty-emoji {
+		display: block;
+		font-size: 72rpx;
+		margin-bottom: 16rpx;
 	}
 
 	.empty-title {
-		font-size: 30rpx;
-		color: #333;
-		font-weight: 600;
+		display: block;
+		font-size: 32rpx;
+		color: #0f172a;
+		font-weight: 800;
 	}
 
 	.empty-desc {
 		display: block;
-		margin-top: 12rpx;
-		font-size: 24rpx;
-		color: #888;
+		margin-top: 14rpx;
+		font-size: 26rpx;
+		color: #64748b;
+		line-height: 1.55;
+		padding: 0 8rpx;
+	}
+
+	.empty-primary {
+		margin-top: 36rpx;
+		width: 100%;
+		max-width: 520rpx;
+		height: 88rpx;
+		line-height: 88rpx;
+		border-radius: 44rpx;
+		font-size: 30rpx;
+		font-weight: 700;
+		background: linear-gradient(135deg, #2563eb, #4f46e5) !important;
+		border: none;
+		box-shadow: 0 12rpx 32rpx rgba(37, 99, 235, 0.28);
+	}
+
+	.empty-primary::after {
+		border: none;
+	}
+
+	.empty-secondary {
+		margin-top: 20rpx;
+		width: 100%;
+		max-width: 520rpx;
+		height: 80rpx;
+		line-height: 80rpx;
+		border-radius: 40rpx;
+		font-size: 28rpx;
+		font-weight: 700;
+		background: #f8fafc !important;
+		color: #2563eb !important;
+		border: 2rpx solid #bfdbfe !important;
+	}
+
+	.empty-secondary::after {
+		border: none;
 	}
 
 	.wf-card {
 		background: #fff;
 		border-radius: 20rpx;
-		padding: 24rpx;
-		margin-bottom: 18rpx;
-		border: 1rpx solid #e8ecf3;
-		box-shadow: 0 8rpx 20rpx rgba(20, 38, 70, 0.06);
+		padding: 0;
+		margin-bottom: 16rpx;
+		border: 1rpx solid #e2e8f0;
+		box-shadow: 0 8rpx 24rpx rgba(15, 23, 42, 0.05);
+		overflow: hidden;
 	}
 
-	.wf-card-top {
+	.wf-row {
 		display: flex;
-		justify-content: space-between;
-		align-items: baseline;
-		gap: 16rpx;
+		flex-direction: row;
+		align-items: stretch;
+		padding: 22rpx 22rpx 22rpx 18rpx;
+		gap: 14rpx;
+	}
+
+	.wf-icon {
+		width: 64rpx;
+		flex-shrink: 0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-size: 28rpx;
+		color: #2563eb;
+		font-weight: 700;
+		background: #eff6ff;
+		border-radius: 16rpx;
+	}
+
+	.wf-main {
+		flex: 1;
+		min-width: 0;
 	}
 
 	.wf-title {
+		display: block;
 		font-size: 30rpx;
 		font-weight: 700;
-		color: #1f2d3d;
-		flex: 1;
+		color: #0f172a;
+	}
+
+	.wf-desc {
+		display: block;
+		margin-top: 8rpx;
+		font-size: 24rpx;
+		color: #64748b;
+		line-height: 1.45;
 	}
 
 	.wf-id {
+		display: block;
+		margin-top: 12rpx;
 		font-size: 22rpx;
-		color: #98a2b3;
-		max-width: 240rpx;
+		color: #94a3b8;
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
 
-	.wf-desc {
-		display: block;
-		margin-top: 12rpx;
-		font-size: 24rpx;
-		color: #6f7a89;
-		line-height: 1.5;
+	.wf-go {
+		flex-shrink: 0;
+		align-self: center;
+		font-size: 40rpx;
+		color: #cbd5e1;
+		font-weight: 300;
+		padding-left: 8rpx;
 	}
 
 	.bottom-spacer {
@@ -285,15 +430,23 @@
 		right: 0;
 		bottom: 120rpx;
 		padding: 0 28rpx;
-		z-index: 20;
+		z-index: 90;
 	}
 
 	.fab-btn {
 		width: 100%;
-		height: 88rpx;
-		line-height: 88rpx;
-		border-radius: 44rpx;
+		height: 92rpx;
+		line-height: 92rpx;
+		border-radius: 46rpx;
 		font-size: 30rpx;
+		font-weight: 700;
+		background: linear-gradient(135deg, #2563eb, #4f46e5) !important;
+		border: none;
+		box-shadow: 0 12rpx 36rpx rgba(37, 99, 235, 0.35);
+	}
+
+	.fab-btn::after {
+		border: none;
 	}
 
 	.mask {
@@ -315,23 +468,24 @@
 		width: 100%;
 		background: #fff;
 		border-radius: 24rpx;
-		padding: 28rpx;
+		padding: 32rpx;
 		box-sizing: border-box;
+		box-shadow: 0 24rpx 80rpx rgba(15, 23, 42, 0.18);
 	}
 
 	.dialog-title {
-		font-size: 32rpx;
-		font-weight: 700;
-		color: #1f2d3d;
-		margin-bottom: 20rpx;
+		font-size: 34rpx;
+		font-weight: 800;
+		color: #0f172a;
+		margin-bottom: 24rpx;
 	}
 
 	.dialog-input {
 		width: 100%;
-		height: 80rpx;
-		border: 1rpx solid #e8e8e8;
-		border-radius: 12rpx;
-		padding: 0 20rpx;
+		height: 84rpx;
+		border: 1rpx solid #e2e8f0;
+		border-radius: 16rpx;
+		padding: 0 22rpx;
 		margin-bottom: 16rpx;
 		font-size: 28rpx;
 		box-sizing: border-box;
@@ -351,80 +505,21 @@
 
 	.btn {
 		min-width: 160rpx;
-		height: 72rpx;
-		line-height: 72rpx;
+		height: 76rpx;
+		line-height: 76rpx;
 		font-size: 28rpx;
-		border-radius: 12rpx;
+		font-weight: 700;
+		border-radius: 38rpx;
 	}
 
 	.btn.ghost {
-		background: #f2f4f8;
-		color: #333;
+		background: #f1f5f9 !important;
+		color: #475569 !important;
+		border: none !important;
 	}
 
 	.btn.primary {
-		padding: 0 28rpx;
-	}
-
-	.tab-bar {
-		display: flex;
-		align-items: center;
-		height: 100rpx;
-		background-color: #fff;
-		border-top: 1rpx solid #e8e8e8;
-		position: relative;
-		z-index: 50;
-	}
-
-	.tab-item {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		flex: 1;
-		height: 100%;
-	}
-
-	.tab-icon {
-		font-size: 36rpx;
-		margin-bottom: 8rpx;
-	}
-
-	.tab-text {
-		font-size: 20rpx;
-		color: #666;
-	}
-
-	.tab-item.active .tab-text {
-		color: #333;
-		font-weight: bold;
-	}
-
-	.center-item {
-		display: flex;
-		align-items: flex-start;
-		justify-content: center;
-		flex: 1;
-	}
-
-	.center-button {
-		width: 80rpx;
-		height: 80rpx;
-		border-radius: 50%;
-		background-color: #007aff;
-		color: #fff;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		margin-top: -40rpx;
-		box-shadow: 0 2rpx 8rpx rgba(0, 122, 255, 0.3);
-		position: absolute;
-		left: 50%;
-		transform: translateX(-50%);
-	}
-
-	.center-icon {
-		font-size: 40rpx;
-		color: #fff;
+		padding: 0 32rpx;
+		box-shadow: 0 8rpx 24rpx rgba(37, 99, 235, 0.25);
 	}
 </style>

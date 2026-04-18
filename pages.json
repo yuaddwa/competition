@@ -1,14 +1,14 @@
 {
 	"pages": [
 		{
-			"path": "pages/index/index",
+			"path": "pages/home/home",
 			"style": {
-				"navigationBarTitleText": "",
+				"navigationBarTitleText": "首页",
 				"navigationBarBackButtonHidden": true
 			}
 		},
 		{
-			"path": "pages/home/home",
+			"path": "pages/index/index",
 			"style": {
 				"navigationBarTitleText": "",
 				"navigationBarBackButtonHidden": true
@@ -50,14 +50,26 @@
 		{
 			"path": "pages/profile/profile",
 			"style": {
-				"navigationBarTitleText": "",
+				"navigationBarTitleText": "我的",
 				"navigationBarBackButtonHidden": true
+			}
+		},
+		{
+			"path": "pages/profile/change-password",
+			"style": {
+				"navigationBarTitleText": "修改密码"
+			}
+		},
+		{
+			"path": "pages/login/login",
+			"style": {
+				"navigationBarTitleText": "登录"
 			}
 		},
 		{
 			"path": "pages/register/register",
 			"style": {
-				"navigationBarTitleText": ""
+				"navigationBarTitleText": "注册"
 			}
 		}
 	],
@@ -66,6 +78,44 @@
 		"navigationBarTitleText": "",
 		"navigationBarBackgroundColor": "#F8F8F8",
 		"backgroundColor": "#F8F8F8"
+	},
+	"tabBar": {
+		"color": "#64748b",
+		"selectedColor": "#2563eb",
+		"backgroundColor": "#ffffff",
+		"borderStyle": "black",
+		"list": [
+			{
+				"pagePath": "pages/home/home",
+				"text": "首页",
+				"iconPath": "static/tabbar/tab.png",
+				"selectedIconPath": "static/tabbar/tab-active.png"
+			},
+			{
+				"pagePath": "pages/project/project",
+				"text": "项目",
+				"iconPath": "static/tabbar/tab.png",
+				"selectedIconPath": "static/tabbar/tab-active.png"
+			},
+			{
+				"pagePath": "pages/add/add",
+				"text": "布置",
+				"iconPath": "static/tabbar/tab.png",
+				"selectedIconPath": "static/tabbar/tab-active.png"
+			},
+			{
+				"pagePath": "pages/message/message",
+				"text": "消息",
+				"iconPath": "static/tabbar/tab.png",
+				"selectedIconPath": "static/tabbar/tab-active.png"
+			},
+			{
+				"pagePath": "pages/profile/profile",
+				"text": "我的",
+				"iconPath": "static/tabbar/tab.png",
+				"selectedIconPath": "static/tabbar/tab-active.png"
+			}
+		]
 	},
 	"uniIdRouter": {}
 }

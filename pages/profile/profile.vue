@@ -1,79 +1,419 @@
 <template>
-	<view class="profile-container">
-		<view class="content">
-			<text>个人页面</text>
-			<button class="logout-btn" @click="logout">退出登录 / 切换账号</button>
-		</view>
-		<view class="tab-bar">
-			<view class="tab-item" :class="{ active: currentPage === 'home' }" @click="navigateTo('home')">
-				<text class="tab-icon iconfont">&#xe64f;</text>
-				<text class="tab-text">首页</text>
+	<view class="profile-page">
+		<scroll-view scroll-y class="main-scroll" :show-scrollbar="false">
+			<!-- 顶部资料区（仿「我」页：方角头像 + 昵称 + 副账号文案 + 右侧箭头） -->
+			<view class="profile-header" @click="onHeaderTap">
+				<view class="avatar-wrap">
+					<text class="avatar-text">{{ avatarChar }}</text>
+				</view>
+				<view class="header-main">
+					<text class="nick">{{ displayName }}</text>
+					<text class="account-line">{{ accountSubLine }}</text>
+				</view>
+				<text class="cell-arrow">›</text>
 			</view>
-			<view class="tab-item" :class="{ active: currentPage === 'project' }" @click="navigateTo('project')">
-				<text class="tab-icon iconfont">&#xe620;</text>
-				<text class="tab-text">项目</text>
-			</view>
-			<view class="tab-item center-item">
-				<view class="center-button" @click="navigateTo('add')">
-					<text class="center-icon iconfont"></text>
+
+			<view class="group-spacer" />
+
+			<!-- 单条：工作流（类似「服务」单独成组） -->
+			<view class="cell-group">
+				<view class="cell" @click="goPage('/pages/project/project')">
+					<view class="cell-icon bg-wf">
+						<text class="iconfont cell-glyph">&#xe620;</text>
+					</view>
+					<text class="cell-title">工作流</text>
+					<text class="cell-arrow">›</text>
 				</view>
 			</view>
-			<view class="tab-item" :class="{ active: currentPage === 'message' }" @click="navigateTo('message')">
-				<text class="tab-icon iconfont">&#xe87c;</text>
-				<text class="tab-text">消息</text>
+
+			<view class="group-spacer" />
+
+			<!-- 功能列表：仿多行菜单，仅主标题一行 -->
+			<view class="cell-group">
+				<view class="cell cell-border" @click="goPage('/pages/add/add')">
+					<view class="cell-icon bg-add">
+						<text class="iconfont cell-glyph">&#xe727;</text>
+					</view>
+					<text class="cell-title">布置任务</text>
+					<text class="cell-arrow">›</text>
+				</view>
+				<view class="cell cell-border" @click="goPage('/pages/message/message')">
+					<view class="cell-icon bg-msg">
+						<text class="iconfont cell-glyph">&#xe87c;</text>
+					</view>
+					<text class="cell-title">消息</text>
+					<text class="cell-arrow">›</text>
+				</view>
+				<view class="cell" @click="goPage('/pages/home/home')">
+					<view class="cell-icon bg-home">
+						<text class="iconfont cell-glyph">&#xe64f;</text>
+					</view>
+					<text class="cell-title">首页</text>
+					<text class="cell-arrow">›</text>
+				</view>
 			</view>
-			<view class="tab-item" :class="{ active: currentPage === 'profile' }" @click="navigateTo('profile')">
-				<text class="tab-icon iconfont">&#xe654;</text>
-				<text class="tab-text">个人</text>
+
+			<view class="group-spacer" />
+
+			<!-- 账号 -->
+			<view v-if="!loggedIn" class="cell-group">
+				<view class="cell cell-border" @click="goLogin">
+					<view class="cell-icon bg-account">
+						<text class="iconfont cell-glyph">&#xe654;</text>
+					</view>
+					<text class="cell-title">登录</text>
+					<text class="cell-arrow">›</text>
+				</view>
+				<view class="cell" @click="goRegister">
+					<view class="cell-icon bg-reg">
+						<text class="iconfont cell-glyph">&#xe727;</text>
+					</view>
+					<text class="cell-title">注册</text>
+					<text class="cell-arrow">›</text>
+				</view>
 			</view>
-		</view>
+
+			<view v-else class="cell-group">
+				<view class="cell cell-border" @click="goChangePassword">
+					<view class="cell-icon bg-pwd">
+						<text class="iconfont cell-glyph">&#xe78f;</text>
+					</view>
+					<text class="cell-title">修改密码</text>
+					<text class="cell-arrow">›</text>
+				</view>
+				<view class="cell" @click="logout">
+					<view class="cell-lead-gap" />
+					<text class="cell-title cell-danger">退出登录</text>
+					<text class="cell-arrow">›</text>
+				</view>
+			</view>
+
+			<view class="group-spacer" />
+
+			<!-- 关于 -->
+			<view class="cell-group">
+				<view class="cell cell-static">
+					<text class="cell-title">关于</text>
+					<text class="cell-extra">v1.0</text>
+				</view>
+				<view class="about-desc">
+					<text class="about-line">协作工作台 · 竞赛项目</text>
+					<text class="about-line sub">界面以实际接口文档为准</text>
+				</view>
+			</view>
+
+			<view class="scroll-pad" />
+		</scroll-view>
+		<AppTabBar current="profile" />
 	</view>
 </template>
 
 <script>
-	import { clearToken } from '@/utils/index'
+	import { getToken, getUserInfo, clearSession } from "@/utils/index";
+	import { switchMainTab } from "@/utils/tabNav";
+	import AppTabBar from "@/components/AppTabBar.vue";
 
 	export default {
+		components: { AppTabBar },
 		data() {
 			return {
-				currentPage: 'profile'
-			}
+				loggedIn: false,
+				user: null,
+			};
+		},
+		computed: {
+			displayName() {
+				if (!this.loggedIn) return "未登录";
+				const u = this.user || {};
+				const phone = u.phone || u.mobile || u.username || "";
+				if (phone && String(phone).length >= 7) {
+					const p = String(phone);
+					return `${p.slice(0, 3)}****${p.slice(-4)}`;
+				}
+				return u.nickname || u.name || "我的账号";
+			},
+			accountSubLine() {
+				if (!this.loggedIn) return "账号: 点击登录";
+				const u = this.user || {};
+				const phone = u.phone || u.mobile || u.username || "";
+				if (phone && String(phone).length >= 7) {
+					const p = String(phone);
+					const masked = `${p.slice(0, 3)}****${p.slice(-4)}`;
+					return `手机号: ${masked}`;
+				}
+				return "账号: 已登录";
+			},
+			avatarChar() {
+				const n = this.displayName;
+				if (!this.loggedIn) return "用";
+				return n && n.length ? n.slice(0, 1) : "用";
+			},
 		},
 		onLoad() {
-
+			uni.hideTabBar({ animation: false });
+		},
+		onShow() {
+			uni.hideTabBar({ animation: false });
+			this.refreshAuth();
 		},
 		methods: {
-			navigateTo(page) {
-				uni.redirectTo({
-					url: `/pages/${page}/${page}`
-				});
+			refreshAuth() {
+				const token = getToken();
+				this.loggedIn = !!token;
+				this.user = getUserInfo();
+			},
+			onHeaderTap() {
+				if (this.loggedIn) {
+					this.goChangePassword();
+				} else {
+					this.goLogin();
+				}
+			},
+			goPage(url) {
+				const tabKey = {
+					"/pages/home/home": "home",
+					"/pages/project/project": "project",
+					"/pages/add/add": "add",
+					"/pages/message/message": "message",
+				}[url];
+				if (tabKey) {
+					switchMainTab(tabKey);
+				}
+			},
+			goLogin() {
+				uni.navigateTo({ url: "/pages/login/login" });
+			},
+			goRegister() {
+				uni.navigateTo({ url: "/pages/register/register" });
+			},
+			goChangePassword() {
+				uni.navigateTo({ url: "/pages/profile/change-password" });
 			},
 			logout() {
 				uni.showModal({
-					title: '提示',
-					content: '确认退出当前账号吗？',
+					title: "退出登录",
+					content: "确定退出当前账号吗？",
 					success: (res) => {
 						if (!res.confirm) return;
-						clearToken();
-						uni.showToast({
-							title: '已退出登录',
-							icon: 'success'
-						});
-						setTimeout(() => {
-							uni.reLaunch({
-								url: '/pages/index/index'
-							});
-						}, 300);
-					}
+						clearSession();
+						this.refreshAuth();
+						uni.showToast({ title: "已退出", icon: "success" });
+					},
 				});
-			}
-		}
-	}
+			},
+		},
+	};
 </script>
+
+<style scoped>
+	.profile-page {
+		display: flex;
+		flex-direction: column;
+		height: 100vh;
+		background-color: #f1f5f9;
+		box-sizing: border-box;
+	}
+
+	.main-scroll {
+		flex: 1;
+		height: 0;
+		padding: 0;
+		box-sizing: border-box;
+	}
+
+	/* 顶部资料 */
+	.profile-header {
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		padding: 36rpx 28rpx 40rpx;
+		background: linear-gradient(135deg, #ffffff 0%, #eff6ff 100%);
+		border-bottom: 1rpx solid #e2e8f0;
+	}
+
+	.profile-header:active {
+		background: linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%);
+	}
+
+	.avatar-wrap {
+		width: 128rpx;
+		height: 128rpx;
+		border-radius: 16rpx;
+		background: linear-gradient(135deg, #2563eb, #7c3aed);
+		box-shadow: 0 8rpx 24rpx rgba(37, 99, 235, 0.28);
+		flex-shrink: 0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		overflow: hidden;
+	}
+
+	.avatar-text {
+		font-size: 48rpx;
+		font-weight: 700;
+		color: #fff;
+	}
+
+	.header-main {
+		flex: 1;
+		min-width: 0;
+		margin-left: 28rpx;
+		margin-right: 16rpx;
+	}
+
+	.nick {
+		display: block;
+		font-size: 40rpx;
+		font-weight: 600;
+		color: #0f172a;
+		line-height: 1.25;
+	}
+
+	.account-line {
+		display: block;
+		margin-top: 12rpx;
+		font-size: 26rpx;
+		color: #64748b;
+		line-height: 1.3;
+	}
+
+	/* 分组间隔 */
+	.group-spacer {
+		height: 16rpx;
+		background-color: #f1f5f9;
+	}
+
+	.cell-group {
+		background-color: #fff;
+		padding-left: 28rpx;
+	}
+
+	.cell {
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		min-height: 108rpx;
+		padding: 22rpx 28rpx 22rpx 0;
+		box-sizing: border-box;
+	}
+
+	.cell-border {
+		border-bottom: 1rpx solid #e2e8f0;
+	}
+
+	.cell:active {
+		background-color: #f8fafc;
+	}
+
+	.cell-static:active {
+		background-color: #fff;
+	}
+
+	.cell-icon {
+		width: 64rpx;
+		height: 64rpx;
+		border-radius: 12rpx;
+		flex-shrink: 0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		margin-right: 24rpx;
+	}
+
+	.cell-glyph {
+		font-size: 36rpx;
+		color: #fff;
+		line-height: 1;
+	}
+
+	/* 与全站蓝紫主色一致，仅用明度区分行 */
+	.bg-wf {
+		background: linear-gradient(145deg, #2563eb, #1d4ed8);
+	}
+	.bg-add {
+		background: linear-gradient(145deg, #4f46e5, #4338ca);
+	}
+	.bg-msg {
+		background: linear-gradient(145deg, #6366f1, #4f46e5);
+	}
+	.bg-home {
+		background: linear-gradient(145deg, #7c3aed, #6d28d9);
+	}
+	.bg-account {
+		background: linear-gradient(145deg, #3b82f6, #2563eb);
+	}
+	.bg-reg {
+		background: linear-gradient(145deg, #8b5cf6, #7c3aed);
+	}
+	.bg-pwd {
+		background: linear-gradient(145deg, #64748b, #475569);
+	}
+
+	/* 无图标行与左侧图标列对齐（与微信「退出」样式一致） */
+	.cell-lead-gap {
+		width: 88rpx;
+		flex-shrink: 0;
+		margin-right: 0;
+	}
+
+	.cell-title {
+		flex: 1;
+		font-size: 32rpx;
+		color: #1e293b;
+		font-weight: 400;
+	}
+
+	.cell-danger {
+		color: #dc2626;
+		font-weight: 500;
+	}
+
+	.cell-extra {
+		font-size: 28rpx;
+		color: #64748b;
+		margin-right: 8rpx;
+	}
+
+	.cell-arrow {
+		flex-shrink: 0;
+		font-size: 36rpx;
+		color: #cbd5e1;
+		font-weight: 300;
+		line-height: 1;
+		padding-left: 12rpx;
+	}
+
+	.cell-static {
+		border-bottom: 1rpx solid #e2e8f0;
+	}
+
+	.about-desc {
+		padding: 24rpx 28rpx 28rpx 0;
+	}
+
+	.about-line {
+		display: block;
+		font-size: 26rpx;
+		color: #64748b;
+		line-height: 1.5;
+	}
+
+	.about-line.sub {
+		margin-top: 8rpx;
+		font-size: 24rpx;
+		color: #94a3b8;
+	}
+
+	.scroll-pad {
+		height: 200rpx;
+		padding-bottom: env(safe-area-inset-bottom);
+		background-color: #f1f5f9;
+	}
+</style>
 
 <style>
 	@font-face {
-		font-family: 'iconfont';  /* Project id 5162264 */
+		font-family: 'iconfont';
 		src: url('../../static/download/font_5162264_g3oiz4ouy1i/iconfont.woff2') format('woff2'),
 			 url('../../static/download/font_5162264_g3oiz4ouy1i/iconfont.woff') format('woff'),
 			 url('../../static/download/font_5162264_g3oiz4ouy1i/iconfont.ttf') format('truetype');
@@ -82,91 +422,5 @@
 	.iconfont {
 		font-family: 'iconfont' !important;
 		font-size: 36rpx;
-	}
-
-	.profile-container {
-		display: flex;
-		flex-direction: column;
-		height: 100vh;
-	}
-
-	.content {
-			flex: 1;
-			display: flex;
-			flex-direction: column;
-			align-items: center;
-			justify-content: center;
-		}
-
-	.logout-btn {
-		margin-top: 40rpx;
-		width: 360rpx;
-		height: 80rpx;
-		line-height: 80rpx;
-		background-color: #ff4d4f;
-		color: #fff;
-		font-size: 28rpx;
-		border-radius: 10rpx;
-	}
-
-	.tab-bar {
-		display: flex;
-		align-items: center;
-		height: 100rpx;
-		background-color: #fff;
-		border-top: 1rpx solid #e8e8e8;
-		position: relative;
-	}
-
-	.tab-item {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		flex: 1;
-		height: 100%;
-	}
-
-	.tab-icon {
-		font-size: 36rpx;
-		margin-bottom: 8rpx;
-	}
-
-	.tab-text {
-		font-size: 20rpx;
-		color: #666;
-	}
-
-	.tab-item.active .tab-text {
-		color: #333;
-		font-weight: bold;
-	}
-
-	.center-item {
-		display: flex;
-		align-items: flex-start;
-		justify-content: center;
-		flex: 1;
-	}
-
-	.center-button {
-		width: 80rpx;
-		height: 80rpx;
-		border-radius: 50%;
-		background-color: #007aff;
-		color: #fff;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		margin-top: -40rpx;
-		box-shadow: 0 2rpx 8rpx rgba(0, 122, 255, 0.3);
-		position: absolute;
-		left: 50%;
-		transform: translateX(-50%);
-	}
-
-	.center-icon {
-		font-size: 40rpx;
-		color: #fff;
 	}
 </style>

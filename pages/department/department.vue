@@ -1,6 +1,20 @@
 <template>
 	<view class="shell">
-		<component v-if="department" :is="entry" :department="department" />
+		<!-- uni-app vite 不支持 <component :is>，改用分支部件 -->
+		<DeptEngineering v-if="department && department.id === 'engineering'" :department="department" />
+		<DeptDesign v-else-if="department && department.id === 'design'" :department="department" />
+		<DeptPaid v-else-if="department && department.id === 'paid'" :department="department" />
+		<DeptSales v-else-if="department && department.id === 'sales'" :department="department" />
+		<DeptMarketing v-else-if="department && department.id === 'marketing'" :department="department" />
+		<DeptProduct v-else-if="department && department.id === 'product'" :department="department" />
+		<DeptPm v-else-if="department && department.id === 'pm'" :department="department" />
+		<DeptQa v-else-if="department && department.id === 'qa'" :department="department" />
+		<DeptSupport v-else-if="department && department.id === 'support'" :department="department" />
+		<DeptSpatial v-else-if="department && department.id === 'spatial'" :department="department" />
+		<DeptSpecial v-else-if="department && department.id === 'special'" :department="department" />
+		<DeptFinance v-else-if="department && department.id === 'finance'" :department="department" />
+		<DeptAcademic v-else-if="department && department.id === 'academic'" :department="department" />
+		<DeptDefault v-else-if="department" :department="department" />
 		<view v-else class="empty-page"><text>未找到该部门</text></view>
 	</view>
 </template>
@@ -24,22 +38,6 @@
 	import DeptAcademic from "@/components/department/DeptAcademic.vue";
 	import DeptDefault from "@/components/department/DeptDefault.vue";
 
-	const ENTRY_BY_ID = {
-		engineering: DeptEngineering,
-		design: DeptDesign,
-		paid: DeptPaid,
-		sales: DeptSales,
-		marketing: DeptMarketing,
-		product: DeptProduct,
-		pm: DeptPm,
-		qa: DeptQa,
-		support: DeptSupport,
-		spatial: DeptSpatial,
-		special: DeptSpecial,
-		finance: DeptFinance,
-		academic: DeptAcademic,
-	};
-
 	export default {
 		name: "DepartmentEntry",
 		components: {
@@ -62,12 +60,6 @@
 			return {
 				department: null,
 			};
-		},
-		computed: {
-			entry() {
-				if (!this.department) return DeptDefault;
-				return ENTRY_BY_ID[this.department.id] || DeptDefault;
-			},
 		},
 		onLoad(options) {
 			const id = (options && options.id) || "";
