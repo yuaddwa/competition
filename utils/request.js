@@ -1,6 +1,14 @@
 import { getToken, buildQuery } from "./index";
 
-export const BASE_URL = "http://127.0.0.1:8081/";
+/** 默认与 vite.config.js 代理目标一致；小程序/App 等非 H5 仍为直连 */
+let _baseUrl = "http://127.0.0.1:8081/";
+// #ifdef H5
+if (import.meta.env.DEV) {
+	/* H5 开发：请求同源 /api…，由 Vite 转到后端，避免跨域 */
+	_baseUrl = "";
+}
+// #endif
+export const BASE_URL = _baseUrl;
 const TIMEOUT = 10000;
 
 /** 统一网络错误文案，便于全局排查 */
