@@ -23,14 +23,20 @@
 		{
 			"path": "pages/project/project",
 			"style": {
-				"navigationBarTitleText": "",
+				"navigationBarTitleText": "工作流",
 				"navigationBarBackButtonHidden": true
+			}
+		},
+		{
+			"path": "pages/workflow/workbench",
+			"style": {
+				"navigationBarTitleText": "工作台"
 			}
 		},
 		{
 			"path": "pages/add/add",
 			"style": {
-				"navigationBarTitleText": "",
+				"navigationBarTitleText": "布置任务",
 				"navigationBarBackButtonHidden": true
 			}
 		},

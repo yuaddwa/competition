@@ -1,6 +1,6 @@
 import { getToken, buildQuery } from "./index";
 
-const BASE_URL = "http://120.27.137.241/";
+export const BASE_URL = "http://120.27.137.241/";
 const TIMEOUT = 10000;
 
 function normalizeUrl(url = "") {
