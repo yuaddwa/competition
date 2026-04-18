@@ -41,6 +41,13 @@
 			}
 		},
 		{
+			"path": "pages/message/message",
+			"style": {
+				"navigationBarTitleText": "消息",
+				"navigationBarBackButtonHidden": true
+			}
+		},
+		{
 			"path": "pages/chat/chat",
 			"style": {
 				"navigationBarTitleText": "",
@@ -104,7 +111,7 @@
 				"selectedIconPath": "static/tabbar/tab-active.png"
 			},
 			{
-				"pagePath": "pages/chat/chat",
+				"pagePath": "pages/message/message",
 				"text": "消息",
 				"iconPath": "static/tabbar/tab.png",
 				"selectedIconPath": "static/tabbar/tab-active.png"
