@@ -37,3 +37,9 @@ export async function changePassword(payload) {
   const r = await request.post("/api/auth/change-password", payload, { needAuth: true });
   return unwrapData(r);
 }
+
+/** GET /api/auth/me — Swagger：当前用户 */
+export async function getCurrentUser() {
+  const r = await request.get("/api/auth/me", {}, { needAuth: true, showError: false });
+  return unwrapData(r);
+}

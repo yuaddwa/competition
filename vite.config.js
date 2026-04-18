@@ -2,27 +2,32 @@ import { defineConfig, loadEnv } from "vite";
 import uni from "@dcloudio/vite-plugin-uni";
 
 /**
- * H5 开发：浏览器请求发到当前页 origin（如 http://localhost:5173/api/...），
- * 由这里把前缀 /api 转发到真实后端；否则相对路径只会打到 Vite，易 404。
+ * H5 开发：浏览器发到当前页 origin，再由 proxy 转到后端。
+ * - 默认 VITE_API_STRIP_PREFIX 未开启：转发 /api → 后端（路径保持 /api/...）
+ * - 设为 1：与常见 Spring 一致，后端无 /api 包一层，转发 /auth、/workflows（见 .env.development）
  *
- * 后端地址：根目录 .env.development 里 VITE_PROXY_TARGET，或默认 8081。
+ * 后端地址：VITE_PROXY_TARGET（默认见 .env.development，与 Swagger 一致）
  */
 export default defineConfig(({ mode }) => {
 	const env = loadEnv(mode, process.cwd(), "");
-	const target = (env.VITE_PROXY_TARGET || "http://127.0.0.1:8081").replace(/\/+$/, "");
+	const target = (env.VITE_PROXY_TARGET || "http://120.27.137.241:8081").replace(/\/+$/, "");
+	/** 与 utils/request.js 一致：为 1 时前端请求 /auth、/workflows，不再带 /api */
+	const stripApi = env.VITE_API_STRIP_PREFIX === "1";
+
+	const proxy = stripApi
+		? {
+				"^/auth": { target, changeOrigin: true, secure: false },
+				"^/workflows": { target, changeOrigin: true, secure: false },
+		  }
+		: {
+				"^/api": { target, changeOrigin: true, secure: false },
+		  };
 
 	return {
 		plugins: [uni()],
 		server: {
 			host: true,
-			proxy: {
-				// 用前缀匹配，避免个别环境下 "/api" 键匹配不到子路径
-				"^/api": {
-					target,
-					changeOrigin: true,
-					secure: false,
-				},
-			},
+			proxy,
 		},
 	};
 });

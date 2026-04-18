@@ -2,12 +2,17 @@ import { getToken, buildQuery } from "./index";
 
 /**
  * 接口根地址：
- * - H5 + 开发：留空 → 请求为相对路径 `/api/...`，发到当前页面所在源（如 localhost:5173），
- *   由 vite.config.js 里 `^/api` 代理转到后端；若写死 8081 会绕过代理且易跨域。
- * - 小程序 / App / H5 生产包：直连后端（默认与 .env.development 里代理目标一致）。
+ * - H5 开发：空串 → 相对路径 /api/... 经 Vite 代理到 VITE_PROXY_TARGET（见 .env.development）
+ * - 其它：VITE_API_BASE_URL，未配置时与线上一致：http://120.27.137.241:8081/
+ * 仅当后端无 /api 前缀时设 VITE_API_STRIP_PREFIX=1（与 Swagger 中 /api/... 矛盾时不要开）
  */
 function resolveBaseUrl() {
-	let base = "http://127.0.0.1:8081/";
+	const fromEnv = import.meta.env.VITE_API_BASE_URL;
+	let base =
+		typeof fromEnv === "string" && fromEnv.trim() ? fromEnv.trim() : "http://120.27.137.241:8081/";
+	if (!base.endsWith("/")) {
+		base += "/";
+	}
 	// #ifdef H5
 	if (import.meta.env.DEV) {
 		base = "";
@@ -39,6 +44,15 @@ function normalizeUrl(url = "") {
   return url.startsWith("/") ? url : `/${url}`;
 }
 
+/** 后端若不带 /api 前缀（多为 /auth、/workflows），.env 设 VITE_API_STRIP_PREFIX=1 */
+function resolveRequestPath(url = "") {
+  let path = normalizeUrl(url);
+  if (import.meta.env.VITE_API_STRIP_PREFIX === "1") {
+    path = path.replace(/^\/api/, "") || "/";
+  }
+  return path;
+}
+
 function request(options = {}) {
   const {
     url = "",
@@ -52,7 +66,7 @@ function request(options = {}) {
   const token = getToken();
   const authHeader = needAuth && token ? { Authorization: `Bearer ${token}` } : {};
   const finalMethod = method.toUpperCase();
-  const path = normalizeUrl(url);
+  const path = resolveRequestPath(url);
 
   let requestUrl = `${BASE_URL.replace(/\/+$/, "")}${path}`;
   if (finalMethod === "GET" && data && Object.keys(data).length > 0) {
@@ -85,6 +99,9 @@ function request(options = {}) {
           message = "服务暂时不可用，请稍后重试";
         } else if (statusCode === 404) {
           message = "接口不存在或路径错误";
+          if (import.meta.env.DEV) {
+            console.warn("[request] 404", requestUrl, resData);
+          }
         }
         if (showError) {
           uni.showToast({ title: message, icon: "none", duration: 2600 });
