@@ -1,10 +1,15 @@
 import { getToken, buildQuery } from "./index";
 
+/** H5 是否走本地 Vite 代理（不要直连远程，避免跨域且易配错） */
+function isH5Development() {
+	// uni-app / Vite 下 DEV 有时为 false，用 MODE 更稳
+	return import.meta.env.MODE === "development" || import.meta.env.DEV === true;
+}
+
 /**
  * 接口根地址：
- * - H5 开发：空串 → 相对路径 /api/... 经 Vite 代理到 VITE_PROXY_TARGET（见 .env.development）
- * - 其它：VITE_API_BASE_URL，未配置时与线上一致：http://120.27.137.241:8081/
- * 仅当后端无 /api 前缀时设 VITE_API_STRIP_PREFIX=1（与 Swagger 中 /api/... 矛盾时不要开）
+ * - H5 开发：空串 → 最终用 location.origin + /api/... 走 Vite 代理
+ * - 其它：VITE_API_BASE_URL，默认 http://120.27.137.241:8081/
  */
 function resolveBaseUrl() {
 	const fromEnv = import.meta.env.VITE_API_BASE_URL;
@@ -14,7 +19,7 @@ function resolveBaseUrl() {
 		base += "/";
 	}
 	// #ifdef H5
-	if (import.meta.env.DEV) {
+	if (isH5Development()) {
 		base = "";
 	}
 	// #endif
@@ -68,15 +73,26 @@ function request(options = {}) {
   const finalMethod = method.toUpperCase();
   const path = resolveRequestPath(url);
 
-  let requestUrl = `${BASE_URL.replace(/\/+$/, "")}${path}`;
+  let queryStr = "";
   if (finalMethod === "GET" && data && Object.keys(data).length > 0) {
     const query = buildQuery(data);
     if (query) {
-      requestUrl = `${requestUrl}?${query}`;
+      queryStr = `?${query}`;
     }
   }
 
+  let requestUrl = `${BASE_URL.replace(/\/+$/, "")}${path}${queryStr}`;
+  // #ifdef H5
+  /* 相对路径 /api 在少数运行时下异常；开发环境拼成绝对地址，确保打到 Vite 再由 proxy 转到后端 */
+  if (isH5Development() && BASE_URL === "" && typeof window !== "undefined" && window.location?.origin) {
+    requestUrl = `${window.location.origin}${path}${queryStr}`;
+  }
+  // #endif
+
   return new Promise((resolve, reject) => {
+    if (import.meta.env.MODE === "development") {
+      console.log("[request]", finalMethod, requestUrl);
+    }
     uni.request({
       url: requestUrl,
       method: finalMethod,
@@ -97,11 +113,12 @@ function request(options = {}) {
         let message = (resData && (resData.msg || resData.message)) || "请求失败";
         if (statusCode >= 500) {
           message = "服务暂时不可用，请稍后重试";
-        } else if (statusCode === 404) {
-          message = "接口不存在或路径错误";
-          if (import.meta.env.DEV) {
-            console.warn("[request] 404", requestUrl, resData);
-          }
+        } else if (statusCode === 404 || Number(statusCode) === 404) {
+          message = "接口404：环境或路径与后端不一致";
+          console.warn("[request] 404", finalMethod, requestUrl, resData);
+          console.warn(
+            "[request] 他人电脑若只有你能用：① H5 必须用 npm run dev:h5 且存在 .env.development（见 .env.example）② 小程序真机需在公众平台配置 HTTPS 合法域名，纯 IP/HTTP 常被拦 ③ 云服务器安全组是否放行别人访问 8081",
+          );
         }
         if (showError) {
           uni.showToast({ title: message, icon: "none", duration: 2600 });
@@ -109,6 +126,7 @@ function request(options = {}) {
         reject({ statusCode, message, data: resData });
       },
       fail: (err) => {
+        console.warn("[request] fail", finalMethod, requestUrl, err);
         if (showError) {
           toastNetworkMessage(err);
         }

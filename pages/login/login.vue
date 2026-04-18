@@ -19,24 +19,24 @@
 				</view>
 			</view>
 
-			<button class="submit primary" type="primary" :loading="loading" @click="onLogin">登录</button>
+			<!-- 小程序里原生 button 偶发不触发；view + tap/click。点击后走 authApi.login → POST /api/auth/login -->
+			<view class="submit primary" :class="{ 'is-busy': loading }" hover-class="submit-hover" @tap.stop="onLogin" @click.stop="onLogin">
+				<text>{{ loading ? "登录中…" : "登录" }}</text>
+			</view>
 
 			<view class="foot">
-				<text class="link" @click="goRegister">还没有账号？注册</text>
+				<text class="link" @tap.stop="goRegister">还没有账号？注册</text>
 			</view>
 			</view>
 		</view>
-		<AppTabBar current="profile" />
 	</view>
 </template>
 
 <script>
 	import { setToken, setUserInfo } from "@/utils/index";
 	import * as authApi from "@/api/authApi";
-	import AppTabBar from "@/components/AppTabBar.vue";
 
 	export default {
-		components: { AppTabBar },
 		data() {
 			return {
 				phone: "",
@@ -47,6 +47,7 @@
 		},
 		methods: {
 			async onLogin() {
+				if (this.loading) return;
 				const phone = (this.phone || "").trim();
 				if (!phone) {
 					uni.showToast({ title: "请输入手机号", icon: "none" });
@@ -57,8 +58,12 @@
 					return;
 				}
 				this.loading = true;
+				uni.showLoading({ title: "登录中", mask: true });
 				try {
-					const { token, user } = await authApi.login({ phone, password });
+					const { token, user } = await authApi.login({
+						phone,
+						password: this.password,
+					});
 					if (!token) {
 						uni.showToast({ title: "登录成功但未返回 token", icon: "none" });
 						return;
@@ -67,16 +72,17 @@
 					setUserInfo(user || { phone });
 					uni.showToast({ title: "登录成功", icon: "success" });
 					setTimeout(() => {
-						uni.navigateBack({
-							delta: 1,
+						uni.switchTab({
+							url: "/pages/profile/profile",
 							fail: () => {
 								uni.reLaunch({ url: "/pages/profile/profile" });
 							},
 						});
 					}, 400);
-				} catch {
-					//
+				} catch (e) {
+					console.error("[login]", e);
 				} finally {
+					uni.hideLoading();
 					this.loading = false;
 				}
 			},
@@ -209,13 +215,19 @@
 		font-size: 32rpx;
 		font-weight: 700;
 		margin-top: 16rpx;
-		border: none;
-		background: linear-gradient(135deg, #2563eb, #4f46e5) !important;
+		text-align: center;
+		color: #fff;
+		background: linear-gradient(135deg, #2563eb, #4f46e5);
 		box-shadow: 0 16rpx 36rpx rgba(37, 99, 235, 0.35);
 	}
 
-	.submit::after {
-		border: none;
+	.submit.is-busy {
+		opacity: 0.75;
+		pointer-events: none;
+	}
+
+	.submit-hover {
+		opacity: 0.92;
 	}
 
 	.foot {

@@ -14,13 +14,22 @@ export default defineConfig(({ mode }) => {
 	/** 与 utils/request.js 一致：为 1 时前端请求 /auth、/workflows，不再带 /api */
 	const stripApi = env.VITE_API_STRIP_PREFIX === "1";
 
+	const logProxy = (proxy /* , _options */) => {
+		proxy.on("proxyReq", (proxyReq, req) => {
+			console.log("[vite-proxy]", req.method, req.url, "→", target);
+		});
+		proxy.on("error", (err) => {
+			console.error("[vite-proxy] error", err?.message || err);
+		});
+	};
+
 	const proxy = stripApi
 		? {
-				"^/auth": { target, changeOrigin: true, secure: false },
-				"^/workflows": { target, changeOrigin: true, secure: false },
+				"^/auth": { target, changeOrigin: true, secure: false, configure: logProxy },
+				"^/workflows": { target, changeOrigin: true, secure: false, configure: logProxy },
 		  }
 		: {
-				"^/api": { target, changeOrigin: true, secure: false },
+				"^/api": { target, changeOrigin: true, secure: false, configure: logProxy },
 		  };
 
 	return {
