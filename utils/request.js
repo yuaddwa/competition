@@ -22,8 +22,10 @@ function normalizeApiOrigin(raw) {
 
 /**
  * 接口根地址：
- * - H5 开发：默认空串 → location.origin + /api… 走 Vite 代理；若代理总 404，可在 .env 设 VITE_H5_DIRECT_API=1 直连后端（需后端开 CORS）
- * - 其它：VITE_API_BASE_URL，默认 http://120.27.137.241:8081/
+ * - H5 开发：默认直连 VITE_API_BASE_URL（浏览器直接请求云上 8081）。同事用 HBuilderX/未跑 vite 代理时，
+ *   若仍走「相对路径 → localhost:5173/api」会因未代理得到 404；默认直连可避免依赖本机代理。
+ * - 若需本地走代理（例如后端暂未开 CORS），在 .env 设 VITE_H5_USE_PROXY=1。
+ * - 小程序/App：同上基址逻辑（无 #ifdef H5 时代码由构建裁剪）。
  */
 function resolveBaseUrl() {
 	const fromEnv = import.meta.env.VITE_API_BASE_URL;
@@ -32,7 +34,7 @@ function resolveBaseUrl() {
 			? normalizeApiOrigin(fromEnv.trim())
 			: normalizeApiOrigin("http://120.27.137.241:8081");
 	// #ifdef H5
-	if (isH5Development() && import.meta.env.VITE_H5_DIRECT_API !== "1") {
+	if (isH5Development() && import.meta.env.VITE_H5_USE_PROXY === "1") {
 		base = "";
 	}
 	// #endif
