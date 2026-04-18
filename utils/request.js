@@ -19,9 +19,9 @@ function resolveBaseUrl() {
 		base += "/";
 	}
 	// #ifdef H5
-	if (isH5Development()) {
-		base = "";
-	}
+	//if (isH5Development()) {
+	//	base = "";
+	//}
 	// #endif
 	return base;
 }
