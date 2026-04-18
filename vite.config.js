@@ -8,9 +8,20 @@ import uni from "@dcloudio/vite-plugin-uni";
  *
  * 后端地址：VITE_PROXY_TARGET（默认见 .env.development，与 Swagger 一致）
  */
+function normalizeProxyTarget(raw) {
+	let t = (raw || "http://120.27.137.241:8081").replace(/\/+$/, "");
+	if (/\/api$/i.test(t)) {
+		console.warn(
+			"[vite-config] VITE_PROXY_TARGET 末尾不要带 /api（已自动去掉）。否则会转发成 …/api/api/… 导致 404",
+		);
+		t = t.replace(/\/api$/i, "");
+	}
+	return t;
+}
+
 export default defineConfig(({ mode }) => {
 	const env = loadEnv(mode, process.cwd(), "");
-	const target = (env.VITE_PROXY_TARGET || "http://120.27.137.241:8081").replace(/\/+$/, "");
+	const target = normalizeProxyTarget(env.VITE_PROXY_TARGET || "http://120.27.137.241:8081");
 	/** 与 utils/request.js 一致：为 1 时前端请求 /auth、/workflows，不再带 /api */
 	const stripApi = env.VITE_API_STRIP_PREFIX === "1";
 
@@ -23,13 +34,14 @@ export default defineConfig(({ mode }) => {
 		});
 	};
 
+	/* 使用 '/api' 前缀键（与 Vite 文档一致）；'^/api' 在个别版本/环境下匹配异常会导致仍打本地 → 404 */
 	const proxy = stripApi
 		? {
-				"^/auth": { target, changeOrigin: true, secure: false, configure: logProxy },
-				"^/workflows": { target, changeOrigin: true, secure: false, configure: logProxy },
+				"/auth": { target, changeOrigin: true, secure: false, configure: logProxy },
+				"/workflows": { target, changeOrigin: true, secure: false, configure: logProxy },
 		  }
 		: {
-				"^/api": { target, changeOrigin: true, secure: false, configure: logProxy },
+				"/api": { target, changeOrigin: true, secure: false, configure: logProxy },
 		  };
 
 	return {
