@@ -68,6 +68,7 @@
 
 <script>
 	import AppTabBar from "@/components/AppTabBar.vue";
+	import { groupMessagesByProject, loadMessages, loadChatMessages, markMessagesAsRead } from "@/utils/messageUtils";
 
 	export default {
 		components: { AppTabBar },
@@ -82,28 +83,7 @@
 		},
 		computed: {
 			groupedMessages() {
-				const grouped = {};
-				this.messages.forEach((msg) => {
-					if (!grouped[msg.projectName]) {
-						grouped[msg.projectName] = {
-							projectName: msg.projectName,
-							messages: [],
-							unread: 0,
-						};
-					}
-					grouped[msg.projectName].messages.push(msg);
-					if (!msg.read) {
-						grouped[msg.projectName].unread++;
-					}
-				});
-				const result = Object.values(grouped).map((group) => {
-					group.messages.sort((a, b) => new Date(b.time) - new Date(a.time));
-					group.latestMessage = group.messages[0];
-					return group;
-				});
-				return result.sort(
-					(a, b) => new Date(b.latestMessage.time) - new Date(a.latestMessage.time),
-				);
+				return groupMessagesByProject(this.messages);
 			},
 		},
 		onLoad(options) {
@@ -127,23 +107,7 @@
 		},
 		methods: {
 			bootstrapList() {
-				let stored = uni.getStorageSync("projectMessages") || [];
-				const firstLaunch = !uni.getStorageSync("hasLaunched");
-				if (firstLaunch) {
-					const bossMessage = {
-						id: "boss-" + Date.now(),
-						projectName: "老板",
-						title: "问候",
-						content: "有什么问题",
-						time: new Date().toISOString(),
-						url: "",
-						read: false,
-					};
-					stored.unshift(bossMessage);
-					uni.setStorageSync("projectMessages", stored);
-					uni.setStorageSync("hasLaunched", true);
-				}
-				this.messages = stored.sort((a, b) => new Date(b.time) - new Date(a.time));
+				this.messages = loadMessages();
 			},
 			openThread(projectName) {
 				this.projectName = projectName;
@@ -159,24 +123,10 @@
 				this.bootstrapList();
 			},
 			loadChatMessages() {
-				const allMessages = uni.getStorageSync("projectMessages") || [];
-				this.chatMessages = allMessages
-					.filter((msg) => msg.projectName === this.projectName)
-					.sort((a, b) => new Date(a.time) - new Date(b.time))
-					.map((msg) => ({
-						...msg,
-						isMine: msg.sender === "me",
-					}));
+				this.chatMessages = loadChatMessages(this.projectName);
 			},
 			markAsRead() {
-				const allMessages = uni.getStorageSync("projectMessages") || [];
-				const updatedMessages = allMessages.map((msg) => {
-					if (msg.projectName === this.projectName) {
-						return { ...msg, read: true };
-					}
-					return msg;
-				});
-				uni.setStorageSync("projectMessages", updatedMessages);
+				markMessagesAsRead(this.projectName);
 				this.bootstrapList();
 			},
 			sendMessage() {
