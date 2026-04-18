@@ -1,38 +1,8 @@
 <template>
 	<view class="message-page">
 		<view class="content">
-			<view v-if="loading" class="loading-row">
-				<text class="loading-t">加载工作流会话…</text>
-			</view>
-			<view v-else-if="useRemote && remoteRows.length === 0" class="empty-state">
-				<text class="empty-icon iconfont">&#xe87c;</text>
-				<text class="empty-text">暂无工作流沟通会话</text>
-				<text class="empty-hint">请先在「项目」创建工作流，并在工作台「沟通」中初始化线程</text>
-			</view>
-			<view v-else-if="useRemote" class="message-list">
-				<view
-					v-for="(row, index) in remoteRows"
-					:key="row.id + '-' + index"
-					class="message-item"
-					@click="openRemoteChat(row)"
-				>
-					<view class="avatar-wrapper">
-						<text class="avatar-icon iconfont icon-xiangmu"></text>
-					</view>
-					<view class="message-body">
-						<view class="message-header">
-							<view class="project-info">
-								<text class="message-project">{{ row.projectName }}</text>
-								<view v-if="!row.read" class="unread-badge">新</view>
-							</view>
-							<text class="message-time">{{ formatTime(row.time) }}</text>
-						</view>
-						<text class="message-content">{{ row.content }}</text>
-					</view>
-				</view>
-			</view>
-			<view v-else-if="useRemote === false && messages.length === 0" class="empty-state">
-				<text class="empty-icon iconfont">&#xe87c;</text>
+			<view v-if="messages.length === 0" class="empty-state">
+				<text class="empty-icon iconfont"></text>
 				<text class="empty-text">还没有消息哦</text>
 				<text class="empty-hint">登录后可同步工作流沟通会话</text>
 			</view>
@@ -61,6 +31,7 @@
 			</view>
 		</view>
 		<AppTabBar current="message" />
+		<AppTabBar current="message" />
 	</view>
 </template>
 
@@ -71,6 +42,9 @@
 	import { getToken } from "@/utils/index";
 
 	export default {
+		components: {
+			AppTabBar
+		},
 		components: {
 			AppTabBar
 		},
@@ -267,10 +241,20 @@
 		color: #333;
 	}
 
+	.message-project {
+		font-size: 28rpx;
+		font-weight: 600;
+		color: #333;
+	}
+
 	.unread-badge {
+		background-color: #ff4d4f;
 		background-color: #ff4d4f;
 		color: #fff;
 		font-size: 20rpx;
+		padding: 2rpx 12rpx;
+		border-radius: 12rpx;
+		min-width: 24rpx;
 		padding: 2rpx 12rpx;
 		border-radius: 12rpx;
 		min-width: 24rpx;
@@ -278,6 +262,7 @@
 	}
 
 	.message-time {
+		font-size: 20rpx;
 		font-size: 20rpx;
 		color: #999;
 	}
