@@ -10,42 +10,94 @@
 			</view>
 		</view>
 
+		<view class="msg-tab-strip">
+			<view
+				class="msg-tab-item"
+				:class="{ 'msg-tab-active': messageTab === 0 }"
+				@tap="messageTab = 0"
+			>
+				<text class="msg-tab-text">会话</text>
+				<view v-if="messageTab === 0" class="msg-tab-underline"></view>
+			</view>
+			<view
+				class="msg-tab-item"
+				:class="{ 'msg-tab-active': messageTab === 1 }"
+				@tap="messageTab = 1"
+			>
+				<text class="msg-tab-text">协作与部门</text>
+				<view v-if="messageTab === 1" class="msg-tab-underline"></view>
+			</view>
+		</view>
+
 		<scroll-view scroll-y class="feed-scroll" :refresher-enabled="true" :refresher-triggered="refreshing" @refresherrefresh="onRefresh">
-			<view class="tip-line">
-				<text class="tip-t">每日 21:00 各岗位提交日报 · 21:30 经理推送总览；点进会话为微信式聊天</text>
+			<view v-if="messageTab === 0" class="tip-line">
+				<text class="tip-t">经理总览、项目群与工作流会话</text>
+			</view>
+			<view v-if="messageTab === 1" class="tip-line">
+				<text class="tip-t">按部门浏览岗位角色，进入人格对话</text>
 			</view>
 
 			<view v-if="loading" class="wx-loading"><text>加载中...</text></view>
-			<view v-else-if="feedRows.length === 0" class="wx-empty">
-				<text class="wx-empty-t">暂无会话</text>
-				<text class="wx-empty-sub">点击右上角「＋」创建项目群或数字员工</text>
-			</view>
-			<view v-else>
-				<view
-					v-for="row in feedRows"
-					:key="row.id"
-					class="wx-cell"
-					hover-class="wx-cell-hover"
-					@click="onRowTap(row)"
-				>
-					<view class="wx-avatar" :style="{ background: avatarBg(row) }">
-						<text class="wx-avatar-t">{{ avatarLetter(row) }}</text>
+			<template v-else>
+				<template v-if="messageTab === 0">
+					<view v-if="feedRows.length === 0" class="wx-empty wx-empty-inline wx-empty-first">
+						<text class="wx-empty-t">暂无会话</text>
+						<text class="wx-empty-sub">点击右上角「＋」创建项目群或数字员工</text>
 					</view>
-					<view class="wx-cell-main">
-						<view class="wx-cell-top">
-							<view class="wx-title-wrap">
-								<text class="wx-title">{{ row.title }}</text>
-								<text v-if="row.badge" class="wx-tag">{{ row.badge }}</text>
+					<view v-else>
+						<view
+							v-for="row in feedRows"
+							:key="row.id"
+							class="wx-cell"
+							hover-class="wx-cell-hover"
+							@click="onRowTap(row)"
+						>
+							<view class="wx-avatar" :style="{ background: avatarBg(row) }">
+								<text class="wx-avatar-t">{{ avatarLetter(row) }}</text>
 							</view>
-							<text class="wx-time">{{ formatRowTime(row.time) }}</text>
-						</view>
-						<view class="wx-cell-bottom">
-							<text class="wx-sub">{{ row.subtitle }}</text>
-							<view v-if="row.unread > 0" class="wx-badge">{{ row.unread > 99 ? "99+" : row.unread }}</view>
+							<view class="wx-cell-main">
+								<view class="wx-cell-top">
+									<view class="wx-title-wrap">
+										<text class="wx-title">{{ row.title }}</text>
+										<text v-if="row.badge" class="wx-tag">{{ row.badge }}</text>
+									</view>
+									<text class="wx-time">{{ formatRowTime(row.time) }}</text>
+								</view>
+								<view class="wx-cell-bottom">
+									<text class="wx-sub">{{ row.subtitle }}</text>
+									<view v-if="row.unread > 0" class="wx-badge">{{ row.unread > 99 ? "99+" : row.unread }}</view>
+								</view>
+							</view>
 						</view>
 					</view>
-				</view>
-			</view>
+				</template>
+
+				<template v-if="messageTab === 1">
+					<view
+						v-for="block in departmentBlocks"
+						:key="block.slug"
+						class="dept-wrap"
+					>
+						<view
+							class="wx-cell wx-cell-dept"
+							hover-class="wx-cell-hover"
+							@tap="goDepartmentRoles(block)"
+						>
+							<image class="wx-dept-icon" :src="block.icon" mode="aspectFit" />
+							<view class="wx-cell-main">
+								<view class="wx-cell-top wx-cell-top-dept">
+									<view class="wx-title-wrap">
+										<text class="wx-title">{{ block.title }}</text>
+									</view>
+									<text class="wx-dept-count">{{ block.count }} 岗</text>
+								</view>
+								<text v-if="block.desc" class="wx-sub wx-sub-dept">{{ block.desc }}</text>
+							</view>
+							<text class="wx-chevron">›</text>
+						</view>
+					</view>
+				</template>
+			</template>
 			<view class="wx-pad"></view>
 		</scroll-view>
 
@@ -62,12 +114,15 @@
 		loadDigitalAgents,
 		MANAGER_ID,
 	} from "@/utils/virtualTeamStore";
+	import { loadUnifiedConversationList } from "@/utils/conversationInbox";
+	import { buildMessageDepartmentBlocks } from "@/utils/messageDepartmentConfig";
 
 	export default {
 		components: { AppTabBar },
 		data() {
 			return {
 				statusBarPx: 20,
+				departmentBlocks: [],
 				feedRows: [],
 				briefing: {
 					managerSummary: "",
@@ -77,6 +132,8 @@
 				},
 				refreshing: false,
 				loading: true,
+				/** 0 会话 · 1 协作与部门 */
+				messageTab: 0,
 			};
 		},
 		onLoad() {
@@ -90,15 +147,25 @@
 			this.loadList();
 		},
 		methods: {
+			rebuildDepartmentBlocks() {
+				this.departmentBlocks = buildMessageDepartmentBlocks();
+			},
+			goDepartmentRoles(block) {
+				if (!block || !block.slug) return;
+				const title = block.title || block.slug;
+				uni.navigateTo({
+					url: `/pages/message/department-roles?slug=${encodeURIComponent(block.slug)}&title=${encodeURIComponent(title)}`,
+				});
+			},
 			async loadList() {
 				this.loading = true;
 				try {
 					this.briefing = getDailyBriefing();
-					const feed = buildMessageFeedRows();
+					this.rebuildDepartmentBlocks();
+					const feed = buildMessageFeedRows().filter((r) => r.rowKind !== "daily_agent");
 					let mapped = [];
 					try {
-						const mod = await import("@/utils/conversationInbox");
-						const unified = await mod.loadUnifiedConversationList();
+						const unified = await loadUnifiedConversationList();
 						const extra = unified.filter((u) => u.convType === "workflow" || u.convType === "local");
 						mapped = extra.map((u) => ({
 							id: u.id,
@@ -117,7 +184,8 @@
 					this.feedRows = [...feed, ...mapped];
 				} catch (e) {
 					console.warn("[message] load", e);
-					this.feedRows = buildMessageFeedRows();
+					this.rebuildDepartmentBlocks();
+					this.feedRows = buildMessageFeedRows().filter((r) => r.rowKind !== "daily_agent");
 				} finally {
 					this.loading = false;
 					this.refreshing = false;
@@ -275,6 +343,49 @@
 		height: 0;
 	}
 
+	.msg-tab-strip {
+		flex-shrink: 0;
+		display: flex;
+		flex-direction: row;
+		background: #ededed;
+		border-bottom: 1rpx solid #d9d9d9;
+		padding: 0 48rpx;
+	}
+
+	.msg-tab-item {
+		flex: 1;
+		position: relative;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: flex-end;
+		padding: 20rpx 0 16rpx;
+		min-height: 72rpx;
+		box-sizing: border-box;
+	}
+
+	.msg-tab-text {
+		font-size: 30rpx;
+		color: #888;
+		line-height: 1.2;
+	}
+
+	.msg-tab-active .msg-tab-text {
+		color: #191919;
+		font-weight: 600;
+	}
+
+	.msg-tab-underline {
+		position: absolute;
+		bottom: 0;
+		left: 50%;
+		transform: translateX(-50%);
+		width: 56rpx;
+		height: 4rpx;
+		background: #07c160;
+		border-radius: 2rpx;
+	}
+
 	.tip-line {
 		padding: 16rpx 24rpx 12rpx;
 		background: #ededed;
@@ -428,5 +539,61 @@
 	.wx-pad {
 		height: 24rpx;
 		padding-bottom: env(safe-area-inset-bottom);
+	}
+
+	.dept-wrap {
+		background: #fff;
+		border-bottom: 1rpx solid #e5e5e5;
+	}
+
+	.wx-cell-dept {
+		align-items: center;
+		border-bottom: none;
+	}
+
+	.wx-dept-icon {
+		width: 96rpx;
+		height: 96rpx;
+		border-radius: 12rpx;
+		flex-shrink: 0;
+		margin-right: 24rpx;
+		background: #f5f5f5;
+	}
+
+	.wx-cell-top-dept {
+		margin-bottom: 4rpx;
+	}
+
+	.wx-sub-dept {
+		white-space: normal;
+		display: -webkit-box;
+		-webkit-box-orient: vertical;
+		-webkit-line-clamp: 2;
+		overflow: hidden;
+	}
+
+	.wx-dept-count {
+		font-size: 24rpx;
+		color: #576b95;
+		flex-shrink: 0;
+		margin-left: 12rpx;
+	}
+
+	.wx-chevron {
+		font-size: 36rpx;
+		color: #c7c7cc;
+		flex-shrink: 0;
+		padding-left: 8rpx;
+		line-height: 1;
+	}
+
+	.wx-empty-inline {
+		padding: 40rpx 40rpx 24rpx;
+		background: #fff;
+		border-bottom: 1rpx solid #e5e5e5;
+	}
+
+	.wx-empty-first {
+		border-top: 1rpx solid #e5e5e5;
 	}
 </style>

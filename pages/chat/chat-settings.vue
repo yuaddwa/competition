@@ -23,10 +23,15 @@
 			<text class="hero-desc">每日 21:30 推送总览 · 可与系统留痕沟通</text>
 		</view>
 
+		<view v-else-if="mode === 'virtual' && kind === 'persona'" class="hero">
+			<text class="hero-title">{{ pageTitle }}</text>
+			<text class="hero-desc">人格对话 · 本地演示（未接大模型）</text>
+		</view>
+
 		<view v-else-if="mode === 'remote'" class="hero">
 			<text class="hero-title">{{ pageTitle }}</text>
 			<text class="hero-desc">工作流沟通线程</text>
-			<text class="hero-meta mono">workflow：{{ workflowId }}</text>
+			<text class="hero-meta mono">工作流编号：{{ workflowId }}</text>
 		</view>
 
 		<view v-else class="hero">

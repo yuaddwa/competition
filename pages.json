@@ -52,6 +52,13 @@
 			}
 		},
 		{
+			"path": "pages/message/department-roles",
+			"style": {
+				"navigationBarTitleText": "岗位角色",
+				"navigationBarBackgroundColor": "#ededed"
+			}
+		},
+		{
 			"path": "pages/chat/chat",
 			"style": {
 				"navigationBarTitleText": "",
@@ -89,6 +96,12 @@
 			"path": "pages/profile/profile-info",
 			"style": {
 				"navigationBarTitleText": "个人资料"
+			}
+		},
+		{
+			"path": "pages/profile/model-settings",
+			"style": {
+				"navigationBarTitleText": "模型与 API"
 			}
 		},
 		{

@@ -5,7 +5,8 @@
 			<!-- 顶部资料区（仿「我」页：方角头像 + 昵称 + 副账号文案 + 右侧箭头） -->
 			<view class="profile-header" @click="onHeaderTap">
 				<view class="avatar-wrap">
-					<text class="avatar-text">{{ avatarChar }}</text>
+					<image v-if="avatarImg" class="avatar-img" :src="avatarImg" mode="aspectFill" />
+					<text v-else class="avatar-text">{{ avatarChar }}</text>
 				</view>
 				<view class="header-main">
 					<text class="nick">{{ displayName }}</text>
@@ -75,6 +76,13 @@
 			</view>
 
 			<view v-else class="cell-group">
+				<view class="cell cell-border" @click="goPage('/pages/profile/model-settings')">
+					<view class="cell-icon bg-pwd">
+						<text class="iconfont cell-glyph">&#xe727;</text>
+					</view>
+					<text class="cell-title">模型与 API</text>
+					<text class="cell-arrow">›</text>
+				</view>
 				<view class="cell cell-border" @click="goChangePassword">
 					<view class="cell-icon bg-pwd">
 						<text class="iconfont cell-glyph">&#xe78f;</text>
@@ -110,9 +118,10 @@
 </template>
 
 <script>
-	import { getToken, getUserInfo, clearSession } from "@/utils/index";
+	import { getToken, getUserInfo, setUserInfo, clearSession } from "@/utils/index";
 	import { switchMainTab } from "@/utils/tabNav";
 	import AppTabBar from "@/components/AppTabBar.vue";
+	import { getAuthProfile, mergeProfileIntoUser, resolveAvatarDisplayUrl } from "@/api/authApi";
 
 	export default {
 		components: { AppTabBar },
@@ -126,12 +135,14 @@
 			displayName() {
 				if (!this.loggedIn) return "未登录";
 				const u = this.user || {};
+				const nick = u.nickname != null ? String(u.nickname).trim() : "";
+				if (nick) return nick;
 				const phone = u.phone || u.mobile || u.username || "";
 				if (phone && String(phone).length >= 7) {
 					const p = String(phone);
 					return `${p.slice(0, 3)}****${p.slice(-4)}`;
 				}
-				return u.nickname || u.name || "我的账号";
+				return u.name || "我的账号";
 			},
 			accountSubLine() {
 				if (!this.loggedIn) return "账号: 点击登录";
@@ -149,6 +160,10 @@
 				if (!this.loggedIn) return "用";
 				return n && n.length ? n.slice(0, 1) : "用";
 			},
+			avatarImg() {
+				if (!this.loggedIn || !this.user) return "";
+				return resolveAvatarDisplayUrl(this.user.avatarUrl);
+			},
 		},
 		onLoad() {
 			uni.hideTabBar({ animation: false });
@@ -162,6 +177,15 @@
 				const token = getToken();
 				this.loggedIn = !!token;
 				this.user = getUserInfo();
+				if (!token) return;
+				getAuthProfile()
+					.then((profile) => {
+						if (!profile || typeof profile !== "object") return;
+						const merged = mergeProfileIntoUser(getUserInfo() || {}, profile);
+						setUserInfo(merged);
+						this.user = merged;
+					})
+					.catch(() => {});
 			},
 			onHeaderTap() {
 				if (this.loggedIn) {
@@ -179,7 +203,9 @@
 				}[url];
 				if (tabKey) {
 					switchMainTab(tabKey);
+					return;
 				}
+				uni.navigateTo({ url });
 			},
 			goLogin() {
 				uni.navigateTo({ url: "/pages/login/login" });
@@ -252,6 +278,12 @@
 		align-items: center;
 		justify-content: center;
 		overflow: hidden;
+	}
+
+	.avatar-img {
+		width: 128rpx;
+		height: 128rpx;
+		border-radius: 16rpx;
 	}
 
 	.avatar-text {

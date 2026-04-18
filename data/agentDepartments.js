@@ -410,5 +410,36 @@ export default [
       },
     ],
   },
+  {
+    id: "game-development",
+    name: "🎮 游戏开发",
+    desc: "引擎、玩法与工具链，从原型到上线。",
+    services: [
+      {
+        id: "game-gameplay",
+        name: "🕹️ 玩法脚本",
+        intro: "关卡逻辑、交互与数值节奏",
+        detail: "搭建可迭代的核心玩法循环。",
+        expertise: "玩法原型与脚本",
+        whenToUse: "玩法验证与关卡迭代",
+      },
+      {
+        id: "game-tech",
+        name: "⚙️ 客户端工程",
+        intro: "引擎集成、性能与多端发布",
+        detail: "保障帧率、资源与构建管线稳定。",
+        expertise: "引擎与性能优化",
+        whenToUse: "性能瓶颈与发布流水线",
+      },
+      {
+        id: "game-content",
+        name: "🎨 内容管线",
+        intro: "美术规范、资产与版本协同",
+        detail: "衔接美术输出与运行时资源。",
+        expertise: "资产与版本管理",
+        whenToUse: "美术接入与资源治理",
+      },
+    ],
+  },
 ];
 

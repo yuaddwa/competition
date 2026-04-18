@@ -78,6 +78,81 @@ function resolveRequestPath(url = "") {
   return path;
 }
 
+function buildRequestUrl(path) {
+  let requestUrl = `${BASE_URL.replace(/\/+$/, "")}${path}`;
+  // #ifdef H5
+  if (isH5Development() && BASE_URL === "" && typeof window !== "undefined" && window.location?.origin) {
+    requestUrl = `${window.location.origin}${path}`;
+  }
+  // #endif
+  return requestUrl;
+}
+
+/**
+ * multipart 上传（如头像）；字段名默认 file，与 Swagger 一致。
+ */
+export function uploadFile(options = {}) {
+  const {
+    url = "",
+    filePath = "",
+    name = "file",
+    needAuth = true,
+    showError = true,
+    formData = {},
+  } = options;
+  const token = getToken();
+  const path = resolveRequestPath(url);
+  const requestUrl = buildRequestUrl(path);
+  return new Promise((resolve, reject) => {
+    if (import.meta.env.MODE === "development") {
+      console.log("[uploadFile]", requestUrl);
+    }
+    uni.uploadFile({
+      url: requestUrl,
+      filePath,
+      name,
+      formData,
+      header: needAuth && token ? { Authorization: `Bearer ${token}` } : {},
+      success: (res) => {
+        const statusCode = res.statusCode;
+        let data = res.data;
+        try {
+          data = typeof res.data === "string" ? JSON.parse(res.data) : res.data;
+        } catch {
+          //
+        }
+        if (statusCode === 401 && needAuth) {
+          clearSession();
+          if (showError) {
+            uni.showToast({ title: "登录已失效，请重新登录", icon: "none", duration: 2200 });
+          }
+          reject({ statusCode: 401, message: "未授权", data });
+          setTimeout(() => {
+            uni.reLaunch({ url: "/pages/login/login" });
+          }, 400);
+          return;
+        }
+        if (statusCode >= 200 && statusCode < 300) {
+          resolve(data);
+          return;
+        }
+        const message = (data && (data.msg || data.message)) || "上传失败";
+        if (showError) {
+          uni.showToast({ title: `${message}(${statusCode})`, icon: "none", duration: 2600 });
+        }
+        reject({ statusCode, message, data });
+      },
+      fail: (err) => {
+        console.warn("[uploadFile] fail", requestUrl, err);
+        if (showError) {
+          toastNetworkMessage(err);
+        }
+        reject(err);
+      },
+    });
+  });
+}
+
 function request(options = {}) {
   const {
     url = "",
@@ -170,9 +245,6 @@ function request(options = {}) {
             );
           }
         }
-        if (statusCode >= 500 && !serverMsg) {
-          message = "服务暂时不可用，请稍后重试";
-        }
         if (showError) {
           const toastMsg = statusCode ? `${message}(${statusCode})` : message;
           uni.showToast({ title: toastMsg, icon: "none", duration: 2600 });
@@ -207,6 +279,9 @@ request.put = (url, data = {}, options = {}) =>
 
 request.delete = (url, data = {}, options = {}) =>
   request({ url, method: "DELETE", data, ...options });
+
+request.patch = (url, data = {}, options = {}) =>
+  request({ url, method: "PATCH", data, ...options });
 
 export default request;
 
