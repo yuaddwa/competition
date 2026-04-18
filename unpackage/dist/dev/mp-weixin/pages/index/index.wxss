@@ -1,85 +1,113 @@
 
-@font-face {
-		font-family: 'iconfont';  /* Project id 5162264 */
-		src: url('data:font/woff2;base64,d09GMgABAAAAAAOwAAsAAAAAB+AAAANjAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHFQGYACDBgqDNIMVATYCJAMMCwgABCAFhGcHORv0BsiemjwJsLAKpG5Ya0nAACECeLveebt7jsDu7keoIFbyXhm66eAKriB1KZoMrStQ89IpvqDdWZ9m5+XGBnc6fWOU6ock9MTXMbOmusqT9f/fO/6/IrwWAMw98IHlkz9Ye9lYhJ2OB8QNYxe0xEsEFPUTS2/k6OxiHas1C7FKx40BszmQZIY1K+kGHROulDRkBnlBtuvKRDgkQ7Q7GgeDz4e/BoQ8kUzMPGvCshRS5+jl4K//OP2fEr+TTlcDR0fIIEavjanDvGbjDPpRsBd9xSqhAUrMSgTRpDRTQ6Bkwyz+x4sIWTi9FugGBdFFsRwqgV//DChy/evIooC9uAUpjR6SyJRKtWs3ci/Ut9t2PzrjWOr4+uDsswv2vCi9udn7vOTyctYgtqXPr/amD6y+uJ4x+HCzunU+9GAjXT/p0A0vpuU364p7xgdzzffPPlmtrBnf4zDl2mzfjDCO/vnUYs9XOb7XeVO5njwR+sWZ7208+bA4nUPae8oM+aW942YMNpmwUxJxodpmwphxYyI/n9kfNtQ2zvaoCnKuXv3t7TW9Fs2T/Atztq/0myCRTKi3ab60PiqWtm1TeVp+Wil7fJMMYvDa7FS7+CjZkj55W3I+lhkigIlL3VPKpxrkGmAx61DdsqpdHEn4GnWYcpYf32+f/bwtzLLNRaVN7XP123WbrVcWHE2dOlHqIYrVDnU6V/sDHnUoFLqa1DPHxtejIL4Y8yN/I70xH6xbfs2XEvDDaPO5QJ7oZtaRv0Nj4LeJ5nREJpqLOKliOhMExGYzfB9yRUvFf8qGBp6Hixt2TiHI2146kZyWCcTyOmAJpQdklAyArLwKFPWUsr6kIQ19ISmgiwEAQT0LEKnjKsTqOcYSyg1kNPECWfX8QtG0UHu3ki5h8QgEGzAkQWMbYAm1irIlOCBaCOkmoQGV+UohElnoAfI+/fKRNKiCaIw5YjOtwJgCFFIrQSo9DwqCGmiQmoMEljAYayKlfZdVvUVCqJU6SRCoAQaRgEZtABZBTYXy0Dj7fYUgWhNBA9QRK9UjImYg4oCchKwDliZUdWq4kX1EzWgKGEYBKAiElYBUrocENagGaKqHcSACJsEM8GtEklooqqtQsrxY+XJboMjsH4coxCERL90CTZ2CCEJQi1BHBwA=') format('woff2'),
-			 url('data:font/woff;base64,d09GRgABAAAAAAU4AAsAAAAAB+AAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAABHU1VCAAABCAAAADsAAABUIIslek9TLzIAAAFEAAAARAAAAGA9pEvPY21hcAAAAYgAAABVAAABhnNj0+xnbHlmAAAB4AAAAW0AAAG0hV3x7mhlYWQAAANQAAAALQAAADYvKzV0aGhlYQAAA4AAAAAcAAAAJAfeA4RobXR4AAADnAAAAAwAAAAMDAAAAGxvY2EAAAOoAAAACAAAAAgAUgDabWF4cAAAA7AAAAAfAAAAIAESAGduYW1lAAAD0AAAAUAAAAJnEKM8sHBvc3QAAAUQAAAAJgAAADk6v5VkeJxjYGRgYOBiMGCwY2BycfMJYeDLSSzJY5BiYGGAAJA8MpsxJzM9kYEDxgPKsYBpDiBmg4gCACY7BUgAeJxjYGFhYJzAwMrAwNTJdIaBgaEfQjO+ZjBi5ACKMrAyM2AFAWmuKQwHnve/+M/c8L+BgYH5DgOQZGBEUcQEAJDRDfF4nO2QwQ2AMAwDLyn0gRiEBwPxYiXGpFsEN4UtsHSx4uRlYAaK2MUEdmJ0HUot88KS+ZQ/VW74fbWIgM8l062mu0bl15pzezfvbQ16sy0G+AOZLhOKAAAAeJwtkD1PwkAYx++5R0ogBYIUGsXU0oZCGsJLW2hMCOACLgwsBJ0cZGNDBwYGEucmrn4FExbi5OKm7nwAPoO7F582XHL/u+eel/x/x04YLfzgXyzJ8sxgDcaA6ygp6qme68QMq9IDp6CmAY00KBo4PfDqFNTBo4QGCmW2wd9nIEkBHwSyGK52/f7uN5R1c9JoTO5DaWqepnndUOAVamIvX8hiD7Vzsd5s1uGG7bGURByOtSRkLxZ5fMccy7E689kNuyOXV2BV4qEz06DTJbceViwjA5apY4sACmpcUi6h4PjQ8cBqk2HXUX3LJJK8osZDNHrAqJ242h5d8hFQZ+xct/q71XjgzxagB9LQ5nH+NFuIA4F2xnNEGyXk3yg0JLSU7JhVos1Oj20vyYRbKtNL2oUQeTlyu/PN+sy3oSYX4dZGfLTFPlWUl6MHmkQx/+GSeJZTNA6dLH1Z1ZxGPeKNuxmKyyU3maDsP2uTWYIAAAB4nGNgZGBgAOIJB+cxxvPbfGXgZmEAgWdsFZuQaRYGZmEgxcHABOIBAAJxB/EAAAB4nGNgZGBgbvjfwBDDwgACQJKRARUwAwBHCQJsBAAAAAQAAAAEAAAAAAAAAABSANp4nGNgZGBgYGaIZmBlAAEmIOYCQgaG/2A+AwAR8QF6AHichZE9bsJAEIWfwZAElChKpDRpVikoEsn8lEipUKCnoAez5ke211ovSNQ5TY6QE+QI6Whzikh52EMDRbza2W/evpkdyQDusIeH8rvnLtnDJbOSK7jAo3CV+pOwT34WrqGJnnCd+qtwAy94E26yY8YOnn/FrIV3YQ+3+BCu4AafwlXqX8I++Vu4hgf8CNep/wo3MPGuhZtoeeHA6qnTczXbqVVo0sik7niO9WITT+2pPNE2X5lUdYPOURrpVNtjm3y76DkXqciaRA15q+PYqMyatQ5dsHQu67fbkehBaBIMYKExhWOcQ2GGHeMKIQxSREV0Z/mY7gU2iFlp/3VP6LbIqR9yhS4CdM5cI7rSwnk6TY4tX+tRdXQrbsuahDSUWs1JYrLiDzzcramE1AMsi6oMfbS5ohN/UMyQ/AHYk29XeJxjYGKAAC4G7ICZkYmRmZGFgTm1MpUTiHWTc/KLUxkYAC5vBPEAAA==') format('woff'),
-			 url('data:font/ttf;base64,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') format('truetype');
-}
-.iconfont {
-		font-family: 'iconfont' !important;
-		font-size: 32rpx;
-}
+/* ⭐关键：整个页面居中 */
 .login-container {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		padding: 150rpx 40rpx 0;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	min-height: 100vh;
+	background-color: #333;
+	padding: 40rpx;
+	box-sizing: border-box;
 }
+
+/* 卡片 */
 .login-form {
-		width: 100%;
-		max-width: 500rpx;
+	width: 100%;
+	max-width: 500rpx;
+	background-color: #444;
+	padding: 40rpx;
+	border-radius: 20rpx;
+	box-shadow: 0 10rpx 30rpx rgba(0, 0, 0, 0.4);
 }
+
+/* logo */
+.logo-container {
+	display: flex;
+	justify-content: center;
+	margin-bottom: 20rpx;
+}
+.logo {
+	width: 180rpx;
+	height: 90rpx;
+}
+
+/* 标题 */
+.form-title {
+	font-size: 36rpx;
+	font-weight: bold;
+	color: #fff;
+	text-align: center;
+	margin-bottom: 30rpx;
+}
+
+/* 输入区域 */
 .input-group {
-		margin-bottom: 40rpx;
+	margin-bottom: 30rpx;
 }
 .input-label {
-		display: block;
-		font-size: 28rpx;
-		color: #333;
-		margin-bottom: 12rpx;
+	font-size: 26rpx;
+	color: #ccc;
+	margin-bottom: 10rpx;
+	display: block;
 }
 .input {
-		width: 100%;
-		height: 80rpx;
-		border: 1rpx solid #e8e8e8;
-		border-radius: 8rpx;
-		padding: 0 20rpx;
-		font-size: 30rpx;
-		background-color: #f8f8f8;
+	width: 100%;
+	height: 80rpx;
+	border: 1rpx solid #666;
+	border-radius: 10rpx;
+	padding: 0 20rpx;
+	font-size: 30rpx;
+	background-color: #555;
+	color: #fff;
+	box-sizing: border-box;
 }
-.placeholder {
-		color: #999;
+.input::-webkit-input-placeholder {
+	color: #999;
 }
+.input::placeholder {
+	color: #999;
+}
+
+/* 密码眼睛 */
+.input-wrapper {
+	position: relative;
+}
+.eye-icon {
+	width: 40rpx;
+	height: 40rpx;
+	position: absolute;
+	right: 20rpx;
+	top: 50%;
+	transform: translateY(-50%);
+}
+
+/* 登录按钮 */
 .login-btn {
-		width: 100%;
-		height: 80rpx;
-		background-color: #007aff;
-		color: #fff;
-		font-size: 32rpx;
-		border-radius: 8rpx;
-		margin-top: 20rpx;
-		margin-bottom: 30rpx;
+	width: 100%;
+	height: 80rpx;
+	background-color: #666;
+	color: #fff;
+	font-size: 32rpx;
+	border-radius: 10rpx;
+	margin-top: 10rpx;
 }
+
+/* 忘记密码 */
 .forgot-password {
-		text-align: right;
-		font-size: 26rpx;
-		color: #007aff;
-		margin-bottom: 30rpx;
+	text-align: right;
+	font-size: 24rpx;
+	color: #aaa;
+	margin-top: 15rpx;
 }
-.register-container {
-		display: flex;
-		justify-content: center;
-		align-items: center;
-		font-size: 26rpx;
-		color: #666;
+
+/* 注册区域 */
+.register-box {
+	margin-top: 30rpx;
+	text-align: center;
+	font-size: 26rpx;
+	color: #aaa;
 }
 .register-link {
-		color: #007aff;
-		margin-left: 10rpx;
-}
-.password-input-container {
-		position: relative;
-		display: flex;
-		align-items: center;
-		width: 100%;
-}
-.password-toggle {
-		position: absolute;
-		right: 20rpx;
-		font-size: 32rpx;
-		cursor: pointer;
-		z-index: 1;
-}
-.password-group .input {
-		padding-right: 60rpx;
+	margin-left: 10rpx;
+	color: #ccc;
 }

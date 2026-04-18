@@ -1,172 +1,196 @@
 <template>
 	<view class="login-container">
 		<view class="login-form">
+
+			<!-- Logo -->
+			<view class="logo-container">
+				<image src="../../picture/logo.png" class="logo" mode="aspectFit"></image>
+			</view>
+
+			<view class="form-title">用户登录</view>
+
+			<!-- 手机号 -->
 			<view class="input-group">
 				<text class="input-label">手机号</text>
-				<input type="number" class="input" v-model="phone" placeholder="请输入手机号" placeholder-class="placeholder" />
+				<input type="number" class="input" v-model="phone" placeholder="请输入手机号" />
 			</view>
-			<view class="input-group password-group">
+
+			<!-- 密码 -->
+			<view class="input-group">
 				<text class="input-label">密码</text>
-				<view class="password-input-container">
-					<input :type="showPassword ? 'text' : 'password'" class="input" v-model="password" placeholder="请输入密码" placeholder-class="placeholder" />
-					<view class="password-toggle" @click="togglePassword">
-						<text class="iconfont">{{ showPassword ? '\ue78f' : '\ue8ff' }}</text>
-					</view>
+				<view class="input-wrapper">
+					<input :type="showPassword ? 'text' : 'password'" class="input" v-model="password" placeholder="请输入密码" />
+					<image :src="showPassword ? '../../picture/eye.png' : '../../picture/闭眼睛.png'" class="eye-icon" @click="togglePassword"></image>
 				</view>
 			</view>
+
 			<button class="login-btn" @click="login">登录</button>
+
 			<view class="forgot-password" @click="forgotPassword">忘记密码</view>
-			<view class="register-container">
-				<text>还没有账号？？</text>
+
+			<view class="register-box">
+				<text>还没有账号？</text>
 				<text class="register-link" @click="register">立即注册</text>
 			</view>
+
 		</view>
 	</view>
 </template>
 
 <script>
-	export default {
-		data() {
-			return {
-				phone: '',
-				password: '',
-				showPassword: false
+export default {
+	data() {
+		return {
+			phone: '',
+			password: '',
+			showPassword: false
+		}
+	},
+	methods: {
+		login() {
+			if (!this.phone) {
+				uni.showToast({ title: '请输入手机号', icon: 'none' });
+				return;
 			}
-		},
-		onLoad() {
+			if (!this.password) {
+				uni.showToast({ title: '请输入密码', icon: 'none' });
+				return;
+			}
+			uni.showToast({ title: '登录成功', icon: 'success' });
 
+			uni.switchTab({
+				url: '/pages/home/home'
+			});
 		},
-		methods: {
-			login() {
-				if (!this.phone) {
-					uni.showToast({ title: '请输入手机号', icon: 'none' });
-					return;
-				}
-				if (!this.password) {
-					uni.showToast({ title: '请输入密码', icon: 'none' });
-					return;
-				}
-				// 这里可以添加登录接口调用
-				console.log('登录信息:', { phone: this.phone, password: this.password });
-				uni.showToast({ title: '登录成功', icon: 'success' });
-				uni.switchTab({
-					url: '/pages/home/home'
-				});
-			},
-			forgotPassword() {
-				// 这里可以跳转到忘记密码页面或调用忘记密码接口
-				console.log('忘记密码？');
-				uni.showToast({ title: '忘记密码功能开发中', icon: 'none' });
-			},
-			togglePassword() {
-				this.showPassword = !this.showPassword;
-			},
-			register() {
-				uni.navigateTo({
-					url: '/pages/register/register'
-				});
-			}
+		forgotPassword() {
+			uni.showToast({ title: '忘记密码功能开发中', icon: 'none' });
+		},
+		togglePassword() {
+			this.showPassword = !this.showPassword;
+		},
+		register() {
+			uni.navigateTo({
+				url: '/pages/register/register'
+			});
 		}
 	}
+}
 </script>
 
 <style>
-	@font-face {
-		font-family: 'iconfont';  /* Project id 5162264 */
-		src: url('/static/download/font_5162264_7wiwoqz0939/iconfont.woff2') format('woff2'),
-			 url('/static/download/font_5162264_7wiwoqz0939/iconfont.woff') format('woff'),
-			 url('/static/download/font_5162264_7wiwoqz0939/iconfont.ttf') format('truetype');
-	}
+/* ⭐关键：整个页面居中 */
+.login-container {
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	min-height: 100vh;
+	background-color: #333;
+	padding: 40rpx;
+	box-sizing: border-box;
+}
 
-	.iconfont {
-		font-family: 'iconfont' !important;
-		font-size: 32rpx;
-	}
+/* 卡片 */
+.login-form {
+	width: 100%;
+	max-width: 500rpx;
+	background-color: #444;
+	padding: 40rpx;
+	border-radius: 20rpx;
+	box-shadow: 0 10rpx 30rpx rgba(0, 0, 0, 0.4);
+}
 
-	.login-container {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		padding: 150rpx 40rpx 0;
-	}
+/* logo */
+.logo-container {
+	display: flex;
+	justify-content: center;
+	margin-bottom: 20rpx;
+}
 
-	.login-form {
-		width: 100%;
-		max-width: 500rpx;
-	}
+.logo {
+	width: 180rpx;
+	height: 90rpx;
+}
 
-	.input-group {
-		margin-bottom: 40rpx;
-	}
+/* 标题 */
+.form-title {
+	font-size: 36rpx;
+	font-weight: bold;
+	color: #fff;
+	text-align: center;
+	margin-bottom: 30rpx;
+}
 
-	.input-label {
-		display: block;
-		font-size: 28rpx;
-		color: #333;
-		margin-bottom: 12rpx;
-	}
+/* 输入区域 */
+.input-group {
+	margin-bottom: 30rpx;
+}
 
-	.input {
-		width: 100%;
-		height: 80rpx;
-		border: 1rpx solid #e8e8e8;
-		border-radius: 8rpx;
-		padding: 0 20rpx;
-		font-size: 30rpx;
-		background-color: #f8f8f8;
-	}
+.input-label {
+	font-size: 26rpx;
+	color: #ccc;
+	margin-bottom: 10rpx;
+	display: block;
+}
 
-	.placeholder {
-		color: #999;
-	}
+.input {
+	width: 100%;
+	height: 80rpx;
+	border: 1rpx solid #666;
+	border-radius: 10rpx;
+	padding: 0 20rpx;
+	font-size: 30rpx;
+	background-color: #555;
+	color: #fff;
+	box-sizing: border-box;
+}
 
-	.login-btn {
-		width: 100%;
-		height: 80rpx;
-		background-color: #007aff;
-		color: #fff;
-		font-size: 32rpx;
-		border-radius: 8rpx;
-		margin-top: 20rpx;
-		margin-bottom: 30rpx;
-	}
+.input::placeholder {
+	color: #999;
+}
 
-	.forgot-password {
-		text-align: right;
-		font-size: 26rpx;
-		color: #007aff;
-		margin-bottom: 30rpx;
-	}
+/* 密码眼睛 */
+.input-wrapper {
+	position: relative;
+}
 
-	.register-container {
-		display: flex;
-		justify-content: center;
-		align-items: center;
-		font-size: 26rpx;
-		color: #666;
-	}
+.eye-icon {
+	width: 40rpx;
+	height: 40rpx;
+	position: absolute;
+	right: 20rpx;
+	top: 50%;
+	transform: translateY(-50%);
+}
 
-	.register-link {
-		color: #007aff;
-		margin-left: 10rpx;
-	}
+/* 登录按钮 */
+.login-btn {
+	width: 100%;
+	height: 80rpx;
+	background-color: #666;
+	color: #fff;
+	font-size: 32rpx;
+	border-radius: 10rpx;
+	margin-top: 10rpx;
+}
 
-	.password-input-container {
-		position: relative;
-		display: flex;
-		align-items: center;
-		width: 100%;
-	}
+/* 忘记密码 */
+.forgot-password {
+	text-align: right;
+	font-size: 24rpx;
+	color: #aaa;
+	margin-top: 15rpx;
+}
 
-	.password-toggle {
-		position: absolute;
-		right: 20rpx;
-		font-size: 32rpx;
-		cursor: pointer;
-		z-index: 1;
-	}
+/* 注册区域 */
+.register-box {
+	margin-top: 30rpx;
+	text-align: center;
+	font-size: 26rpx;
+	color: #aaa;
+}
 
-	.password-group .input {
-		padding-right: 60rpx;
-	}
+.register-link {
+	margin-left: 10rpx;
+	color: #ccc;
+}
 </style>
