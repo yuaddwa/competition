@@ -81,3 +81,26 @@ export function markMessagesAsRead(projectName) {
 	})
 	uni.setStorageSync('projectMessages', updatedMessages)
 }
+
+/** 清空某个本地单聊（如「老板」）在 projectMessages 中的记录 */
+export function clearLocalProjectChat(projectName) {
+	if (!projectName) return
+	const allMessages = uni.getStorageSync('projectMessages') || []
+	const filtered = allMessages.filter((msg) => msg.projectName !== projectName)
+	uni.setStorageSync('projectMessages', filtered)
+}
+
+export function removeLocalProjectMessage(projectName, messageId) {
+	if (!projectName || !messageId) return
+	const allMessages = uni.getStorageSync('projectMessages') || []
+	const filtered = allMessages.filter((msg) => !(msg.projectName === projectName && msg.id === messageId))
+	uni.setStorageSync('projectMessages', filtered)
+}
+
+export function removeLocalProjectMessagesByIds(projectName, messageIds) {
+	if (!projectName || !messageIds || !messageIds.length) return
+	const set = new Set(messageIds)
+	const allMessages = uni.getStorageSync('projectMessages') || []
+	const filtered = allMessages.filter((msg) => !(msg.projectName === projectName && set.has(msg.id)))
+	uni.setStorageSync('projectMessages', filtered)
+}
