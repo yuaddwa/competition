@@ -165,7 +165,7 @@
 			},
 			onHeaderTap() {
 				if (this.loggedIn) {
-					this.goChangePassword();
+					this.goProfileInfo();
 				} else {
 					this.goLogin();
 				}
@@ -189,6 +189,9 @@
 			},
 			goChangePassword() {
 				uni.navigateTo({ url: "/pages/profile/change-password" });
+			},
+			goProfileInfo() {
+				uni.navigateTo({ url: "/pages/profile/profile-info" });
 			},
 			logout() {
 				uni.showModal({
