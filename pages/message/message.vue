@@ -1,7 +1,7 @@
 <template>
 	<view class="message-page">
 		<view class="content">
-			<view v-if="messages.length === 0" class="empty-state">
+			<view v-if="groupedMessages.length === 0" class="empty-state">
 				<text class="empty-icon iconfont">&#xe87c;</text>
 				<text class="empty-text">还没有消息哦</text>
 			</view>
@@ -13,8 +13,11 @@
 					@click="openChat(g.projectName)"
 				>
 					<view class="avatar-wrapper">
-						<text v-if="g.projectName === '老板'" class="avatar-icon iconfont icon-laoban"></text>
-						<text v-else class="avatar-icon iconfont icon-xiangmu"></text>
+						<image
+							class="avatar-image"
+							:src="getDepartmentAvatar(g.projectName)"
+							mode="aspectFit"
+						/>
 					</view>
 					<view class="message-body">
 						<view class="message-header">
@@ -24,7 +27,7 @@
 							</view>
 							<text class="message-time">{{ formatTime(g.latestMessage.time) }}</text>
 						</view>
-						<text class="message-content">{{ g.latestMessage.content }}</text>
+						<text class="message-content">{{ getMessagePreview(g) }}</text>
 					</view>
 				</view>
 			</view>
@@ -35,6 +38,7 @@
 
 <script>
 	import AppTabBar from "@/components/AppTabBar.vue";
+	import agentDepartments from "@/data/agentDepartments";
 	import { groupMessagesByProject, loadMessages } from "@/utils/messageUtils";
 
 	export default {
@@ -48,7 +52,35 @@
 		},
 		computed: {
 			groupedMessages() {
-				return groupMessagesByProject(this.messages);
+				const grouped = groupMessagesByProject(this.messages);
+				const byName = {};
+				grouped.forEach(item => {
+					byName[item.projectName] = item;
+				});
+
+				const departmentEntries = agentDepartments.map((dept, index) => {
+					const projectName = dept.name.replace(/^[^\s\u4e00-\u9fa5A-Za-z]+/, "").trim();
+					const existed = byName[projectName];
+					if (existed) return existed;
+					return {
+						projectName,
+						unread: 0,
+						latestMessage: {
+							content: "点击进入部门会话",
+							time: new Date(0).toISOString()
+						},
+						__order: index
+					};
+				});
+
+				return departmentEntries.sort((a, b) => {
+					const aTime = new Date(a.latestMessage.time).getTime();
+					const bTime = new Date(b.latestMessage.time).getTime();
+					if (aTime === bTime) {
+						return (a.__order || 0) - (b.__order || 0);
+					}
+					return bTime - aTime;
+				});
 			}
 		},
 		onLoad() {
@@ -63,6 +95,9 @@
 			},
 			formatTime(time) {
 				const date = new Date(time)
+				if (date.getFullYear() === 1970) {
+					return ''
+				}
 				const month = date.getMonth() + 1
 				const day = date.getDate()
 				const hour = date.getHours().toString().padStart(2, '0')
@@ -73,6 +108,30 @@
 				uni.navigateTo({
 					url: `/pages/chat/chat?projectName=${encodeURIComponent(projectName)}`
 				})
+			},
+			getMessagePreview(group) {
+				if (group.unread > 0) {
+					return `有 ${group.unread} 条新消息`
+				}
+				return '暂无新消息'
+			},
+			getDepartmentAvatar(projectName) {
+				const map = {
+					工程部: "/static/工程部的图标，一个扳手_.png",
+					设计部: "/static/设计部的图标，一支笔_.png",
+					付费媒体部: "/static/一群小人观看电视__.png",
+					销售部: "/static/一个小人把货物卖给另一个小人_.png",
+					市场部: "/static/一个天平_.png",
+					产品部: "/static/一个产品_.png",
+					项目管理部: "/static/许多的项目_.png",
+					测试部: "/static/一个小人对着电脑测试_.png",
+					支援部: "/static/一个医疗的符号_.png",
+					空间计算部: "/static/立体的正方形.png",
+					专业部门: "/static/一本书.png",
+					财务部: "/static/美金的图标.png",
+					学术部: "/static/一群小人观看电视__ (1).png"
+				};
+				return map[projectName] || "/static/logo.png";
 			}
 		}
 	}
@@ -144,17 +203,17 @@
 		width: 80rpx;
 		height: 80rpx;
 		border-radius: 50%;
-		background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+		background: #f0f2f7;
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		flex-shrink: 0;
+		overflow: hidden;
 	}
 
-	.avatar-icon {
-		font-family: 'iconfont' !important;
-		font-size: 40rpx;
-		color: #fff;
+	.avatar-image {
+		width: 56rpx;
+		height: 56rpx;
 	}
 
 	.message-body {

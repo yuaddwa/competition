@@ -1,3 +1,7 @@
 # Build output directory
 unpackage/
 
+# Local environment secrets
+.env.local
+.env.*.local
+
