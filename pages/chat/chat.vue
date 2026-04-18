@@ -2,11 +2,14 @@
 	<view class="chat-page">
 		<view class="chat-header">
 			<text class="back-button iconfont" @click="goBack">&#xe602;</text>
-			<text v-if="projectName === '老板'" class="avatar-icon iconfont icon-laoban"></text>
+			<text v-if="headerIsBoss" class="avatar-icon iconfont icon-laoban"></text>
 			<text v-else class="avatar-icon iconfont icon-xiangmu"></text>
-			<text class="chat-title">{{ projectName }}</text>
+			<text class="chat-title">{{ headerTitle }}</text>
 		</view>
-		<view class="chat-content" v-if="chatMessages.length > 0">
+		<view v-if="loading" class="chat-empty">
+			<text>加载中…</text>
+		</view>
+		<view class="chat-content" v-else-if="chatMessages.length > 0">
 			<view
 				v-for="msg in chatMessages"
 				:key="msg.id"
@@ -31,18 +34,74 @@
 
 <script>
 	import { loadChatMessages, markMessagesAsRead } from "@/utils/messageUtils";
+	import { markCommsThreadRead } from "@/utils/commsInbox";
+	import * as workflowApi from "@/api/workflowApi";
+	import { pickId } from "@/utils/apiHelpers";
+	import { getUserInfo } from "@/utils/index";
+
+	function messageBody(m) {
+		if (!m || typeof m !== "object") return "";
+		return m.body || m.content || m.text || "";
+	}
+
+	function messageTime(m) {
+		if (!m || typeof m !== "object") return "";
+		return m.createdAt || m.time || m.timestamp || "";
+	}
+
+	function remoteMessageIsMine(m, user) {
+		if (!m || !user) return false;
+		const phone = user.phone || user.mobile || user.username || "";
+		if (phone && (m.senderPhone === phone || m.fromPhone === phone || m.phone === phone)) return true;
+		const uid = user.id ?? user.userId;
+		if (uid != null && (m.fromUserId === uid || m.senderId === uid || m.userId === uid)) return true;
+		return false;
+	}
 
 	export default {
 		data() {
 			return {
 				projectName: "",
+				mode: "local",
+				workflowId: "",
+				threadId: "",
+				workflowTitle: "",
+				threadTitle: "",
 				inputText: "",
 				chatMessages: [],
+				loading: false,
+				sending: false,
 			};
 		},
+		computed: {
+			headerTitle() {
+				if (this.mode === "remote") {
+					const a = (this.workflowTitle || "").trim();
+					const b = (this.threadTitle || "").trim();
+					if (a && b) return `${a} · ${b}`;
+					return a || b || "工作流沟通";
+				}
+				return this.projectName || "聊天";
+			},
+			headerIsBoss() {
+				return this.mode === "local" && this.projectName === "老板";
+			},
+		},
 		onLoad(options) {
+			const wf = options && options.workflowId ? decodeURIComponent(options.workflowId) : "";
+			const th = options && options.threadId ? decodeURIComponent(options.threadId) : "";
+			if (wf && th) {
+				this.mode = "remote";
+				this.workflowId = wf;
+				this.threadId = th;
+				this.workflowTitle = options.workflowTitle ? decodeURIComponent(options.workflowTitle) : "";
+				this.threadTitle = options.threadTitle ? decodeURIComponent(options.threadTitle) : "";
+				this.loadRemoteMessages();
+				return;
+			}
 			const raw = options && options.projectName;
 			if (raw) {
+				this.mode = "local";
 				this.projectName = decodeURIComponent(raw);
 				this.loadChatMessages();
 				this.markAsRead();
@@ -58,9 +117,39 @@
 			markAsRead() {
 				markMessagesAsRead(this.projectName);
 			},
+			async loadRemoteMessages() {
+				this.loading = true;
+				try {
+					const list = await workflowApi.listMessages(this.workflowId, this.threadId);
+					const arr = Array.isArray(list) ? list : [];
+					const sorted = [...arr].sort((a, b) => {
+						const ta = new Date(messageTime(a) || 0).getTime();
+						const tb = new Date(messageTime(b) || 0).getTime();
+						return ta - tb;
+					});
+					const user = getUserInfo();
+					this.chatMessages = sorted.map((m) => ({
+						id: pickId(m) || m.messageId || `m-${messageTime(m)}`,
+						content: messageBody(m) || "（空）",
+						time: messageTime(m) || new Date().toISOString(),
+						isMine: remoteMessageIsMine(m, user),
+					}));
+					const last = sorted.length ? sorted[sorted.length - 1] : null;
+					const lastIso = last ? messageTime(last) : new Date().toISOString();
+					markCommsThreadRead(this.workflowId, this.threadId, lastIso);
+				} catch (e) {
+					console.warn("[chat] remote load", e);
+					this.chatMessages = [];
+				} finally {
+					this.loading = false;
+				}
+			},
 			sendMessage() {
 				if (!this.inputText.trim()) return;
-
+				if (this.mode === "remote") {
+					this.sendRemote();
+					return;
+				}
 				const newMessage = {
 					id: "msg-" + Date.now(),
 					projectName: this.projectName,
@@ -95,8 +184,26 @@
 					}, 1000);
 				}
 			},
+			async sendRemote() {
+				if (this.sending) return;
+				const body = this.inputText.trim();
+				this.sending = true;
+				try {
+					await workflowApi.sendMessage(this.workflowId, this.threadId, {
+						content: body,
+						body,
+					});
+					this.inputText = "";
+					await this.loadRemoteMessages();
+				} catch (e) {
+					console.warn("[chat] send", e);
+				} finally {
+					this.sending = false;
+				}
+			},
 			formatTime(time) {
 				const date = new Date(time);
+				if (Number.isNaN(date.getTime())) return "";
 				const hour = date.getHours().toString().padStart(2, "0");
 				const minute = date.getMinutes().toString().padStart(2, "0");
 				return `${hour}:${minute}`;
@@ -150,6 +257,9 @@
 		font-size: 28rpx;
 		font-weight: 600;
 		flex: 1;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 
 	.chat-content {
