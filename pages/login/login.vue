@@ -1,7 +1,8 @@
 <template>
 	<view class="auth-page">
 		<view class="auth-bg" />
-		<view class="auth-card">
+		<view class="auth-main">
+			<view class="auth-card">
 			<text class="brand">欢迎回来</text>
 			<text class="sub">使用手机号登录，开始使用工作台</text>
 
@@ -22,6 +23,7 @@
 
 			<view class="foot">
 				<text class="link" @click="goRegister">还没有账号？注册</text>
+			</view>
 			</view>
 		</view>
 		<AppTabBar current="profile" />
@@ -102,8 +104,14 @@
 	.auth-page {
 		min-height: 100vh;
 		position: relative;
-		padding: 48rpx 36rpx 0;
-		padding-bottom: calc(220rpx + env(safe-area-inset-bottom));
+		display: flex;
+		flex-direction: column;
+		box-sizing: border-box;
+	}
+
+	.auth-main {
+		flex: 1;
+		padding: 48rpx 36rpx 24rpx;
 		box-sizing: border-box;
 	}
 
