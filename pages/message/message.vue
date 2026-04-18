@@ -33,7 +33,6 @@
 			</view>
 		</view>
 		<AppTabBar current="message" />
-		<AppTabBar current="message" />
 	</view>
 </template>
 
@@ -44,10 +43,7 @@
 
 	export default {
 		components: {
-			AppTabBar
-		},
-		components: {
-			AppTabBar
+			AppTabBar,
 		},
 		data() {
 			return {
@@ -88,10 +84,12 @@
 			}
 		},
 		onLoad() {
-			this.loadMessagesData()
+			uni.hideTabBar({ animation: false });
+			this.loadMessagesData();
 		},
 		onShow() {
-			this.loadMessagesData()
+			uni.hideTabBar({ animation: false });
+			this.loadMessagesData();
 		},
 		methods: {
 			loadMessagesData() {
