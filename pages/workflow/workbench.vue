@@ -236,6 +236,7 @@
 	import agentDepartments from "@/data/agentDepartments";
 	import * as workflowApi from "@/api/workflowApi";
 	import { pickId } from "@/utils/apiHelpers";
+	import { subscribeWorkflowChannel } from "@/utils/realtime";
 
 	const STATUS_LABEL = {
 		NOT_STARTED: "未开始",
@@ -297,6 +298,7 @@
 				linkTaskIndex: 0,
 				linkLoading: false,
 				pollTimer: null,
+				realtimeUnsub: null,
 			};
 		},
 		computed: {
@@ -372,12 +374,15 @@
 			}
 			await this.bootstrapPage();
 			this.startPoll();
+			this.startRealtime();
 		},
 		onHide() {
 			this.stopPoll();
+			this.stopRealtime();
 		},
 		onUnload() {
 			this.stopPoll();
+			this.stopRealtime();
 		},
 		watch: {
 			threadKind() {
@@ -430,6 +435,23 @@
 				if (this.pollTimer) {
 					clearInterval(this.pollTimer);
 					this.pollTimer = null;
+				}
+			},
+			startRealtime() {
+				this.stopRealtime();
+				if (!this.workflowId) return;
+				this.realtimeUnsub = subscribeWorkflowChannel(this.workflowId, () => {
+					this.loadTasks();
+					this.loadEvents();
+					if (this.selectedThreadId) {
+						this.loadMessages();
+					}
+				});
+			},
+			stopRealtime() {
+				if (typeof this.realtimeUnsub === "function") {
+					this.realtimeUnsub();
+					this.realtimeUnsub = null;
 				}
 			},
 			async loadTasks() {

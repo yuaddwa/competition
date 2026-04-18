@@ -1,4 +1,4 @@
-import { getToken, buildQuery } from "./index";
+import { getToken, buildQuery, clearSession } from "./index";
 
 /** H5 是否走本地 Vite 代理（不要直连远程，避免跨域且易配错） */
 function isH5Development() {
@@ -127,6 +127,17 @@ function request(options = {}) {
       },
       success: (res) => {
         const { statusCode, data: resData } = res;
+        if (statusCode === 401 && needAuth) {
+          clearSession();
+          if (showError) {
+            uni.showToast({ title: "登录已失效，请重新登录", icon: "none", duration: 2200 });
+          }
+          reject({ statusCode: 401, message: "未授权", data: resData });
+          setTimeout(() => {
+            uni.reLaunch({ url: "/pages/login/login" });
+          }, 400);
+          return;
+        }
         if (statusCode >= 200 && statusCode < 300) {
           resolve(resData);
           return;
