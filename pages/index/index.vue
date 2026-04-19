@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 <template>
 	<view class="login-container">
 		<view class="login-form">
@@ -22,10 +23,16 @@
 			</view>
 		</view>
 	</view>
+=======
+<!-- 兼容旧入口：直接进入首页，无需登录 -->
+<template>
+	<view class="splash" />
+>>>>>>> origin/main
 </template>
 
 <script>
 	export default {
+<<<<<<< HEAD
 		data() {
 			return {
 				phone: '',
@@ -168,5 +175,19 @@
 
 	.password-group .input {
 		padding-right: 60rpx;
+=======
+		onLoad() {
+			uni.reLaunch({
+				url: "/pages/home/home",
+			});
+		},
+	};
+</script>
+
+<style scoped>
+	.splash {
+		min-height: 100vh;
+		background: #f8fafc;
+>>>>>>> origin/main
 	}
 </style>
