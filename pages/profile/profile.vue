@@ -76,9 +76,11 @@
 					<text class="cell-title">修改密码</text>
 					<text class="cell-arrow">›</text>
 				</view>
-				<view class="cell" @click="logout">
-					<view class="cell-lead-gap" />
-					<text class="cell-title cell-danger">退出登录</text>
+				<view class="cell" @click="goSettings">
+					<view class="cell-icon bg-settings">
+						<text class="iconfont cell-glyph">&#xe654;</text>
+					</view>
+					<text class="cell-title">设置</text>
 					<text class="cell-arrow">›</text>
 				</view>
 			</view>
@@ -104,7 +106,7 @@
 </template>
 
 <script>
-	import { getToken, getUserInfo, setUserInfo, clearSession } from "@/utils/index";
+	import { getToken, getUserInfo, setUserInfo } from "@/utils/index";
 	import { switchMainTab } from "@/utils/tabNav";
 	import AppTabBar from "@/components/AppTabBar.vue";
 	import { getAuthProfile, mergeProfileIntoUser, resolveAvatarDisplayUrl } from "@/clientApi/authApi";
@@ -202,20 +204,11 @@
 			goChangePassword() {
 				uni.navigateTo({ url: "/pages/profile/change-password" });
 			},
+			goSettings() {
+				uni.navigateTo({ url: "/pages/profile/settings" });
+			},
 			goProfileInfo() {
 				uni.navigateTo({ url: "/pages/profile/profile-info" });
-			},
-			logout() {
-				uni.showModal({
-					title: "退出登录",
-					content: "确定退出当前账号吗？",
-					success: (res) => {
-						if (!res.confirm) return;
-						clearSession();
-						this.refreshAuth();
-						uni.showToast({ title: "已退出", icon: "success" });
-					},
-				});
 			},
 		},
 	};
@@ -366,12 +359,8 @@
 	.bg-pwd {
 		background: linear-gradient(145deg, #64748b, #475569);
 	}
-
-	/* 无图标行与左侧图标列对齐（与微信「退出」样式一致） */
-	.cell-lead-gap {
-		width: 88rpx;
-		flex-shrink: 0;
-		margin-right: 0;
+	.bg-settings {
+		background: linear-gradient(145deg, #0ea5e9, #0284c7);
 	}
 
 	.cell-title {
@@ -379,11 +368,6 @@
 		font-size: 32rpx;
 		color: #1e293b;
 		font-weight: 400;
-	}
-
-	.cell-danger {
-		color: #dc2626;
-		font-weight: 500;
 	}
 
 	.cell-extra {
