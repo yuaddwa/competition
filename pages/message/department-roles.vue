@@ -2,6 +2,24 @@
 
 	<view class="page-root">
 
+		<view class="navbar-wrap" :style="{ paddingTop: statusBarPx + 'px' }">
+
+			<view class="navbar">
+
+				<view class="navbar-side navbar-side-left">
+
+					<NavBackClick />
+
+				</view>
+
+				<text class="navbar-title">{{ pageTitle }}</text>
+
+				<view class="navbar-side navbar-side-right" />
+
+			</view>
+
+		</view>
+
 		<scroll-view scroll-y class="scroll" :show-scrollbar="false">
 
 			<view v-if="rows.length === 0" class="empty">
@@ -68,6 +86,8 @@
 
 <script>
 
+	import NavBackClick from "@/components/NavBackClick.vue";
+
 	import {
 
 		listPersonasByCategorySlug,
@@ -82,6 +102,8 @@
 
 	export default {
 
+		components: { NavBackClick },
+
 		data() {
 
 			return {
@@ -90,11 +112,19 @@
 
 				rows: [],
 
+				statusBarPx: 20,
+
+				pageTitle: "岗位角色",
+
 			};
 
 		},
 
 		onLoad(options) {
+
+			const sys = uni.getSystemInfoSync();
+
+			this.statusBarPx = sys.statusBarHeight || 20;
 
 			this.slug = this.normalizeSlug(options.slug);
 
@@ -112,15 +142,7 @@
 
 			}
 
-			try {
-
-				uni.setNavigationBarTitle({ title: navTitle });
-
-			} catch {
-
-				//
-
-			}
+			this.pageTitle = navTitle;
 
 			this.reloadRows();
 
@@ -246,6 +268,8 @@
 
 	.page-root {
 
+		height: 100vh;
+
 		min-height: 100vh;
 
 		background: linear-gradient(180deg, #eff6ff 0%, #f1f5f9 22%, #f1f5f9 100%);
@@ -253,6 +277,90 @@
 		display: flex;
 
 		flex-direction: column;
+
+		box-sizing: border-box;
+
+	}
+
+	.navbar-wrap {
+
+		background: #ededed;
+
+		flex-shrink: 0;
+
+		border-bottom: 1rpx solid #d9d9d9;
+
+	}
+
+	.navbar {
+
+		height: 88rpx;
+
+		display: flex;
+
+		flex-direction: row;
+
+		align-items: center;
+
+		justify-content: space-between;
+
+		padding: 0 8rpx 0 12rpx;
+
+		box-sizing: border-box;
+
+	}
+
+	.navbar-side {
+
+		width: 88rpx;
+
+		min-height: 1px;
+
+		flex-shrink: 0;
+
+	}
+
+	.navbar-side-left {
+
+		width: auto;
+
+		min-width: 0;
+
+		display: flex;
+
+		align-items: center;
+
+		justify-content: flex-start;
+
+	}
+
+	.navbar-side-right {
+
+		width: 88rpx;
+
+	}
+
+	.navbar-title {
+
+		flex: 1;
+
+		min-width: 0;
+
+		text-align: center;
+
+		font-size: 34rpx;
+
+		font-weight: 600;
+
+		color: #111;
+
+		overflow: hidden;
+
+		text-overflow: ellipsis;
+
+		white-space: nowrap;
+
+		padding: 0 8rpx;
 
 	}
 

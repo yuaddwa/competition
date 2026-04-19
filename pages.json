@@ -55,7 +55,8 @@
 			"path": "pages/message/department-roles",
 			"style": {
 				"navigationBarTitleText": "岗位角色",
-				"navigationBarBackgroundColor": "#ededed"
+				"navigationBarBackgroundColor": "#ededed",
+				"navigationStyle": "custom"
 			}
 		},
 		{

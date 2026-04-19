@@ -2,7 +2,7 @@
 <view class="chat-page">
 <view class="chat-header-wrap" :style="{ paddingTop: statusBarPx + 'px' }">
 <view class="chat-header">
-<text class="back-button iconfont" @click="goBack">&#xe602;</text>
+<NavBackClick />
 <text v-if="headerIsBoss" class="avatar-icon iconfont icon-laoban"></text>
 <text v-else class="avatar-icon iconfont icon-xiangmu"></text>
 <text class="chat-title">{{ headerTitle }}</text>
@@ -100,6 +100,7 @@ import { getPersonaById } from "@/utils/agentPersonaCatalog";
 import { getLlmSettings } from "@/utils/llmSettings";
 import { chatCompletion } from "@/utils/openaiCompatible";
 import { extractAssistantText } from "@/utils/openaiResponse";
+import NavBackClick from "@/components/NavBackClick.vue";
 
 const RECALL_MS = 2 * 60 * 1000;
 
@@ -196,6 +197,7 @@ const UI_DESIGNER_EMPLOYEE_ID = "des-ui";
 const UI_DESIGNER_DEPARTMENT = "设计部";
 
 export default {
+components: { NavBackClick },
 data() {
 return {
 statusBarPx: 20,
@@ -299,9 +301,6 @@ this.markAsRead();
 methods: {
 safeScrollId(id) {
 return "sm-" + String(id == null ? "x" : id).replace(/[^a-zA-Z0-9_-]/g, "_");
-},
-goBack() {
-uni.navigateBack();
 },
 openSettings() {
 const q = [];
@@ -785,11 +784,6 @@ display: flex;
 align-items: center;
 padding: 8rpx 24rpx 12rpx;
 box-sizing: border-box;
-}
-
-.back-button {
-font-size: 32rpx;
-margin-right: 30rpx;
 }
 
 .avatar-icon {
