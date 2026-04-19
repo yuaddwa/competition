@@ -78,8 +78,12 @@ export async function register(payload) {
   return extractSession(r);
 }
 
-export async function changePassword(payload) {
-  const r = await request.post("/api/auth/change-password", payload, { needAuth: true });
+export async function changePassword(payload, requestOptions = {}) {
+  const r = await request.post("/api/auth/change-password", payload, {
+    needAuth: true,
+    showError: false,
+    ...requestOptions,
+  });
   return unwrapData(r);
 }
 

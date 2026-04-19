@@ -44,6 +44,30 @@
 			}
 		},
 		methods: {
+			handleChangePasswordError(err) {
+				const sc = err && Number(err.statusCode);
+				const data = err && err.data;
+				let bodyText = "";
+				if (typeof data === "string") {
+					bodyText = data;
+				} else if (data && typeof data === "object") {
+					bodyText = [data.message, data.msg, data.error].filter(Boolean).join(" ");
+				}
+				if (sc === 400) {
+					if (/相同|一致|same|identical|不能与|unchanged|未变更/i.test(bodyText)) {
+						uni.showToast({ title: "不能修改与当前一样的密码", icon: "none" });
+						return;
+					}
+					uni.showToast({ title: "当前密码错误", icon: "none" });
+					return;
+				}
+				const fallback =
+					bodyText || (err && err.message) || "修改失败，请稍后重试";
+				uni.showToast({
+					title: String(fallback).slice(0, 40),
+					icon: "none",
+				});
+			},
 			async submit() {
 				if (!this.oldPassword) {
 					uni.showToast({ title: "请输入当前密码", icon: "none" });
@@ -57,6 +81,10 @@
 					uni.showToast({ title: "两次新密码不一致", icon: "none" });
 					return;
 				}
+				if (this.newPassword === this.oldPassword) {
+					uni.showToast({ title: "不能修改与当前一样的密码", icon: "none" });
+					return;
+				}
 				this.loading = true;
 				try {
 					await authApi.changePassword({
@@ -67,8 +95,8 @@
 					setTimeout(() => {
 						uni.navigateBack({ delta: 1 });
 					}, 400);
-				} catch {
-					//
+				} catch (err) {
+					this.handleChangePasswordError(err);
 				} finally {
 					this.loading = false;
 				}

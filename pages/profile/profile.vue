@@ -30,27 +30,13 @@
 
 			<view class="group-spacer" />
 
-			<!-- 功能列表：仿多行菜单，仅主标题一行 -->
+			<!-- 功能列表（消息 / 首页已在底部 Tab，此处不再重复） -->
 			<view class="cell-group">
-				<view class="cell cell-border" @click="goPage('/pages/add/add')">
+				<view class="cell" @click="goPage('/pages/add/add')">
 					<view class="cell-icon bg-add">
 						<text class="iconfont cell-glyph">&#xe727;</text>
 					</view>
 					<text class="cell-title">布置任务</text>
-					<text class="cell-arrow">›</text>
-				</view>
-				<view class="cell cell-border" @click="goPage('/pages/chat/chat')">
-					<view class="cell-icon bg-msg">
-						<text class="iconfont cell-glyph">&#xe87c;</text>
-					</view>
-					<text class="cell-title">消息</text>
-					<text class="cell-arrow">›</text>
-				</view>
-				<view class="cell" @click="goPage('/pages/home/home')">
-					<view class="cell-icon bg-home">
-						<text class="iconfont cell-glyph">&#xe64f;</text>
-					</view>
-					<text class="cell-title">首页</text>
 					<text class="cell-arrow">›</text>
 				</view>
 			</view>
@@ -370,12 +356,6 @@
 	}
 	.bg-add {
 		background: linear-gradient(145deg, #4f46e5, #4338ca);
-	}
-	.bg-msg {
-		background: linear-gradient(145deg, #6366f1, #4f46e5);
-	}
-	.bg-home {
-		background: linear-gradient(145deg, #7c3aed, #6d28d9);
 	}
 	.bg-account {
 		background: linear-gradient(145deg, #3b82f6, #2563eb);
