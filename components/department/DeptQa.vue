@@ -2,18 +2,18 @@
 <template>
 	<scroll-view scroll-y class="page">
 		<view class="hero">
-			<text class="eyebrow">质量门禁</text>
+			<text class="eyebrow">{{ t('dept_qa_eyebrow') }}</text>
 			<text class="title">{{ cleanDeptLabel(translatedDepartment.name) }}</text>
 			<text class="desc">{{ translatedDepartment.desc }}</text>
 		</view>
 
 		<view class="card">
-			<text class="h">验证范围</text>
-			<textarea v-model="scope" class="ta" placeholder="链路、接口、浏览器矩阵、回归集名称…" />
+			<text class="h">{{ t('dept_qa_scope_h') }}</text>
+			<textarea v-model="scope" class="ta" :placeholder="t('dept_qa_scope_ph')" />
 		</view>
 
 		<view class="card">
-			<text class="h">关注严重级别（多选）</text>
+			<text class="h">{{ t('dept_qa_sev_h') }}</text>
 			<view class="sev">
 				<view v-for="s in severities" :key="s" class="sev-i" :class="{ on: sev.has(s) }" @click="flipSev(s)">
 					<text>{{ s }}</text>
@@ -22,14 +22,14 @@
 		</view>
 
 		<view class="card">
-			<text class="h">验证环境</text>
+			<text class="h">{{ t('dept_qa_env_h') }}</text>
 			<picker mode="selector" :range="envs" :value="envIdx" @change="e => (envIdx = +e.detail.value)">
 				<view class="pick">{{ envs[envIdx] }}</view>
 			</picker>
 		</view>
 
 		<view class="card">
-			<text class="h">测试编组</text>
+			<text class="h">{{ t('dept_qa_team_h') }}</text>
 			<view class="list">
 				<view v-for="x in translatedDepartment.services" :key="x.id" class="li" @click="tog(x.id)">
 					<text class="mark">{{ qa.has(x.id) ? '✓' : '' }}</text>
@@ -42,8 +42,8 @@
 		</view>
 
 		<view class="actions">
-			<button class="btn ghost" @click="reset">重置</button>
-			<button class="btn primary" type="primary" @click="submit">出具验证单</button>
+			<button class="btn ghost" @click="reset">{{ t('dept_qa_reset') }}</button>
+			<button class="btn primary" type="primary" @click="submit">{{ t('dept_qa_submit') }}</button>
 		</view>
 		<view class="pad" />
 	</scroll-view>
@@ -61,7 +61,6 @@
 				scope: "",
 				severities: ["P0", "P1", "P2", "P3"],
 				sev: new Set(["P0", "P1"]),
-				envs: ["开发", "预发 / Staging", "生产只读镜像", "生产（受控窗口）"],
 				envIdx: 1,
 				qa: new Set(),
 			};
@@ -69,6 +68,9 @@
 		computed: {
 			translatedDepartment() {
 				return translateDepartment(this.department, getLanguage());
+			},
+			envs() {
+				return [0, 1, 2, 3].map((i) => this.t(`dept_qa_env_${i}`));
 			},
 		},
 		methods: {

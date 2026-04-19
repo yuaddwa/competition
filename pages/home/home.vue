@@ -138,7 +138,7 @@
 			},
 			avatarLetter(msg) {
 				const lang = getLanguage();
-				const fallback = lang === "en" ? "?" : "员";
+				const fallback = t("profile_agent_char_fallback", lang);
 				const raw = (msg.senderName || "").trim() || fallback;
 				const shown = resolveHallSenderDisplay(raw);
 				return shown.slice(0, 1);

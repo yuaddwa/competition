@@ -2,39 +2,39 @@
 <template>
 	<scroll-view scroll-y class="page dark">
 		<view class="hero">
-			<text class="eyebrow">空间体验</text>
+			<text class="eyebrow">{{ t('dept_spa_eyebrow') }}</text>
 			<text class="title">{{ cleanDeptLabel(translatedDepartment.name) }}</text>
 			<text class="desc">{{ translatedDepartment.desc }}</text>
 		</view>
 
 		<view class="card">
-			<text class="h">目标帧体验（FPS 档位）</text>
+			<text class="h">{{ t('dept_spa_fps_h') }}</text>
 			<text class="big">{{ fps }}</text>
 			<slider :value="fps" min="72" max="120" step="8" show-value activeColor="#818cf8" @changing="e => (fps = +e.detail.value)" @change="e => (fps = +e.detail.value)" />
 		</view>
 
 		<view class="card">
-			<text class="h">场景复杂度</text>
+			<text class="h">{{ t('dept_spa_tier_h') }}</text>
 			<view class="lv">
 				<text v-for="l in levels" :key="l.key" class="lv-i" :class="{ on: tier === l.key }" @click="tier = l.key">{{ l.label }}</text>
 			</view>
 		</view>
 
 		<view class="card">
-			<text class="h">体验与性能目标</text>
-			<textarea v-model="goal" class="ta" placeholder="晕眩控制、手势时延、定位容差、多用户同步等" />
+			<text class="h">{{ t('dept_spa_goal_h') }}</text>
+			<textarea v-model="goal" class="ta" :placeholder="t('dept_spa_goal_ph')" />
 		</view>
 
 		<view class="card">
-			<text class="h">空间技术编组</text>
+			<text class="h">{{ t('dept_spa_team_h') }}</text>
 			<view class="chips">
 				<text v-for="s in translatedDepartment.services" :key="s.id" class="c" :class="{ on: set.has(s.id) }" @click="tog(s.id)">{{ cleanDeptLabel(s.name) }}</text>
 			</view>
 		</view>
 
 		<view class="actions">
-			<button class="btn ghost" @click="reset">清空</button>
-			<button class="btn primary" type="primary" @click="submit">生成空间交付单</button>
+			<button class="btn ghost" @click="reset">{{ t('dept_spa_reset') }}</button>
+			<button class="btn primary" type="primary" @click="submit">{{ t('dept_spa_submit') }}</button>
 		</view>
 		<view class="pad" />
 	</scroll-view>
@@ -50,11 +50,6 @@
 		data() {
 			return {
 				fps: 90,
-				levels: [
-					{ key: "low", label: "轻量" },
-					{ key: "mid", label: "中等" },
-					{ key: "high", label: "重度" },
-				],
 				tier: "mid",
 				goal: "",
 				set: new Set(),
@@ -63,6 +58,13 @@
 		computed: {
 			translatedDepartment() {
 				return translateDepartment(this.department, getLanguage());
+			},
+			levels() {
+				return [
+					{ key: "low", label: this.t("dept_spa_tier_low") },
+					{ key: "mid", label: this.t("dept_spa_tier_mid") },
+					{ key: "high", label: this.t("dept_spa_tier_high") },
+				];
 			},
 		},
 		methods: {

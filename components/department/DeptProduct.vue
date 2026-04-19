@@ -2,33 +2,33 @@
 <template>
 	<scroll-view scroll-y class="page">
 		<view class="hero">
-			<text class="eyebrow">产品与路线</text>
+			<text class="eyebrow">{{ t('dept_prd_eyebrow') }}</text>
 			<text class="title">{{ cleanDeptLabel(translatedDepartment.name) }}</text>
 			<text class="desc">{{ translatedDepartment.desc }}</text>
 		</view>
 
 		<view class="card">
-			<text class="h">当前时间盒</text>
+			<text class="h">{{ t('dept_prd_box_h') }}</text>
 			<picker mode="selector" :range="boxes" :value="boxIdx" @change="onBox">
 				<view class="pick">{{ boxes[boxIdx] }}</view>
 			</picker>
 		</view>
 
 		<view class="card">
-			<text class="h">正在验证的假设</text>
-			<textarea v-model="hypothesis" class="ta" placeholder="可衡量的用户行为或业务信号，例如：企业版权限模型的付费转化率" />
+			<text class="h">{{ t('dept_prd_hypo_h') }}</text>
+			<textarea v-model="hypothesis" class="ta" :placeholder="t('dept_prd_hypo_ph')" />
 		</view>
 
 		<view class="card row">
-			<text class="h flush">焦点模式</text>
+			<text class="h flush">{{ t('dept_prd_focus_h') }}</text>
 			<view class="modes">
-				<text class="mode" :class="{ on: mode === 'discovery' }" @click="mode = 'discovery'">发现</text>
-				<text class="mode" :class="{ on: mode === 'delivery' }" @click="mode = 'delivery'">交付</text>
+				<text class="mode" :class="{ on: mode === 'discovery' }" @click="mode = 'discovery'">{{ t('dept_prd_mode_discovery') }}</text>
+				<text class="mode" :class="{ on: mode === 'delivery' }" @click="mode = 'delivery'">{{ t('dept_prd_mode_delivery') }}</text>
 			</view>
 		</view>
 
 		<view class="card">
-			<text class="h">产品经理编组（多选）</text>
+			<text class="h">{{ t('dept_prd_team_h') }}</text>
 			<view class="tiles">
 				<view v-for="s in translatedDepartment.services" :key="s.id" class="tile" :class="{ on: set.has(s.id) }" @click="tog(s.id)">
 					<text>{{ cleanDeptLabel(s.name) }}</text>
@@ -37,8 +37,8 @@
 		</view>
 
 		<view class="actions">
-			<button class="btn ghost" @click="reset">清空</button>
-			<button class="btn primary" type="primary" @click="submit">生成路线评估</button>
+			<button class="btn ghost" @click="reset">{{ t('dept_prd_reset') }}</button>
+			<button class="btn primary" type="primary" @click="submit">{{ t('dept_prd_submit') }}</button>
 		</view>
 		<view class="pad" />
 	</scroll-view>
@@ -53,7 +53,6 @@
 		props: { department: { type: Object, required: true } },
 		data() {
 			return {
-				boxes: ["本周", "本月", "本季度", "下季度"],
 				boxIdx: 0,
 				hypothesis: "",
 				mode: "discovery",
@@ -63,6 +62,9 @@
 		computed: {
 			translatedDepartment() {
 				return translateDepartment(this.department, getLanguage());
+			},
+			boxes() {
+				return [0, 1, 2, 3].map((i) => this.t(`dept_prd_box_${i}`));
 			},
 		},
 		methods: {

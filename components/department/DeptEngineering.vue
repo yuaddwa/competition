@@ -2,40 +2,40 @@
 <template>
 	<scroll-view scroll-y class="page">
 		<view class="hero eng">
-			<text class="eyebrow">研发交付</text>
+			<text class="eyebrow">{{ t('dept_eng_eyebrow') }}</text>
 			<text class="title">{{ cleanDeptLabel(translatedDepartment.name) }}</text>
 			<text class="desc">{{ translatedDepartment.desc }}</text>
 		</view>
 
 		<view class="card">
-			<text class="h">本迭代目标</text>
-			<textarea v-model="sprintGoal" class="ta" placeholder="要交付的范围、口径与截止时间" />
+			<text class="h">{{ t('dept_eng_sprint_h') }}</text>
+			<textarea v-model="sprintGoal" class="ta" :placeholder="t('dept_eng_sprint_ph')" />
 		</view>
 
 		<view class="card">
-			<text class="h">技术债快记</text>
+			<text class="h">{{ t('dept_eng_debt_h') }}</text>
 			<view class="td-row">
-				<input v-model="debtDraft" class="inp" placeholder="简述一项技术债…" @confirm="addDebt" />
-				<button class="mini" size="mini" type="primary" @click="addDebt">追加</button>
+				<input v-model="debtDraft" class="inp" :placeholder="t('dept_eng_debt_ph')" @confirm="addDebt" />
+				<button class="mini" size="mini" type="primary" @click="addDebt">{{ t('dept_eng_debt_add') }}</button>
 			</view>
 			<view v-for="(d, i) in techDebts" :key="i" class="td-item">
 				<text class="td-dot">•</text>
 				<text class="td-text">{{ d }}</text>
-				<text class="td-del" @click="techDebts.splice(i, 1)">删</text>
+				<text class="td-del" @click="techDebts.splice(i, 1)">{{ t('dept_eng_debt_del') }}</text>
 			</view>
-			<text v-if="!techDebts.length" class="muted">暂无记录，迭代评审时可一并过一遍。</text>
+			<text v-if="!techDebts.length" class="muted">{{ t('dept_eng_debt_empty') }}</text>
 		</view>
 
 		<view class="card">
-			<text class="h">计划发布窗口</text>
+			<text class="h">{{ t('dept_eng_release_h') }}</text>
 			<picker mode="selector" :range="releaseSlots" :value="releaseIdx" @change="onRelease">
 				<view class="pick-line">{{ releaseSlots[releaseIdx] }}</view>
 			</picker>
 		</view>
 
 		<view class="card">
-			<text class="h">编入交付小队</text>
-			<text class="sub">点选成员（可多选）</text>
+			<text class="h">{{ t('dept_eng_squad_h') }}</text>
+			<text class="sub">{{ t('dept_eng_squad_sub') }}</text>
 			<view class="chip-grid">
 				<view
 					v-for="s in translatedDepartment.services"
@@ -50,8 +50,8 @@
 		</view>
 
 		<view class="actions">
-			<button class="btn ghost" @click="reset">清空</button>
-			<button class="btn primary" type="primary" @click="submit">生成迭代单</button>
+			<button class="btn ghost" @click="reset">{{ t('dept_eng_reset') }}</button>
+			<button class="btn primary" type="primary" @click="submit">{{ t('dept_eng_submit') }}</button>
 		</view>
 		<view class="pad" />
 	</scroll-view>
@@ -71,7 +71,6 @@
 				sprintGoal: "",
 				debtDraft: "",
 				techDebts: [],
-				releaseSlots: ["本周四晚窗口", "周五午间窗口", "下周一灰度", "待定 / 跟随版本火车"],
 				releaseIdx: 0,
 				squad: new Set(),
 			};
@@ -79,6 +78,9 @@
 		computed: {
 			translatedDepartment() {
 				return translateDepartment(this.department, getLanguage());
+			},
+			releaseSlots() {
+				return [0, 1, 2, 3].map((i) => this.t(`dept_eng_release_slot_${i}`));
 			},
 		},
 		methods: {
@@ -90,9 +92,9 @@
 				this.releaseIdx = Number(e.detail.value);
 			},
 			addDebt() {
-				const t = (this.debtDraft || "").trim();
-				if (!t) return;
-				this.techDebts.push(t);
+				const line = (this.debtDraft || "").trim();
+				if (!line) return;
+				this.techDebts.push(line);
 				this.debtDraft = "";
 			},
 			toggle(id) {

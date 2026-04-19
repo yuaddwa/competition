@@ -113,10 +113,27 @@ export function translateVirtualLastMsgPreview(text) {
   if (s === "暂无消息") return t("chat_no_messages", lang);
   if (s === "群已创建，开始协作吧") return t("vt_group_created_toast", lang);
   if (s === "已就绪，随时听候安排") return t("vt_agent_ready_hint", lang);
+  if (s === t("vt_demo_group_last_preview", "zh") || s === t("vt_demo_group_last_preview", "en")) {
+    return t("vt_demo_group_last_preview", lang);
+  }
+  if (s === t("vt_demo_agent1_last_preview", "zh") || s === t("vt_demo_agent1_last_preview", "en")) {
+    return t("vt_demo_agent1_last_preview", lang);
+  }
+  if (s === t("vt_demo_agent2_last_preview", "zh") || s === t("vt_demo_agent2_last_preview", "en")) {
+    return t("vt_demo_agent2_last_preview", lang);
+  }
+  if (s === t("vt_demo_agent3_last_preview", "zh") || s === t("vt_demo_agent3_last_preview", "en")) {
+    return t("vt_demo_agent3_last_preview", lang);
+  }
   const meZh = "我：";
+  const meEn = "Me: ";
   if (s.startsWith(meZh)) {
     const me = t("vt_preview_me_prefix", lang);
     return me + s.slice(meZh.length);
+  }
+  if (s.startsWith(meEn)) {
+    const me = t("vt_preview_me_prefix", lang);
+    return me + s.slice(meEn.length);
   }
   return text;
 }
@@ -231,14 +248,14 @@ export function addProjectGroup(payload = {}) {
   const id = `g_${Date.now()}`;
   const row = {
     id,
-    name: (name || "未命名项目群").trim(),
+    name: (name || t("vt_unnamed_group", getLanguage())).trim(),
     desc: (desc || "").trim(),
     clientName: (clientName || "").trim(),
     deliverable: (deliverable || "").trim(),
     deadline: (deadline || "").trim(),
     notifyTime: (notifyTime || "21:00").trim(),
     createdAt: nowIso(),
-    lastMsg: "群已创建，开始协作吧",
+    lastMsg: t("vt_group_created_toast", getLanguage()),
     lastTime: nowIso(),
     unread: 0,
   };
@@ -247,31 +264,48 @@ export function addProjectGroup(payload = {}) {
   return row;
 }
 
+function normalizeAgentGender(g) {
+  const s = String(g || "").trim();
+  const legacy = { 保密: "unspecified", 男: "male", 女: "female" };
+  if (legacy[s]) return legacy[s];
+  if (["unspecified", "male", "female"].includes(s)) return s;
+  return "unspecified";
+}
+
+function normalizeAgentReplyStyle(r) {
+  const s = String(r || "").trim();
+  const legacy = { 简洁: "brief", 详细: "detailed", 先说结论再展开: "bluf_first" };
+  if (legacy[s]) return legacy[s];
+  if (["brief", "detailed", "bluf_first"].includes(s)) return s;
+  return "detailed";
+}
+
 export function addDigitalAgent(payload = {}) {
+  const lang = getLanguage();
   const {
     name,
-    role = "成员",
-    gender = "保密",
+    role,
+    gender,
     personality = "",
     hobbies = "",
     experience = "",
-    replyStyle = "详细",
+    replyStyle,
     remark = "",
   } = payload;
   const list = loadDigitalAgents();
   const id = `a_${Date.now()}`;
   const row = {
     id,
-    name: (name || "数字员工").trim(),
-    role: (role || "成员").trim(),
-    gender: (gender || "保密").trim(),
+    name: (name || t("vt_default_agent_name", lang)).trim(),
+    role: (role || t("vt_member_default", lang)).trim(),
+    gender: normalizeAgentGender(gender),
     personality: (personality || "").trim(),
     hobbies: (hobbies || "").trim(),
     experience: (experience || "").trim(),
-    replyStyle: (replyStyle || "详细").trim(),
+    replyStyle: normalizeAgentReplyStyle(replyStyle),
     remark: (remark || "").trim(),
     createdAt: nowIso(),
-    lastMsg: "已就绪，随时听候安排",
+    lastMsg: t("vt_agent_ready_hint", lang),
     lastTime: nowIso(),
     unread: 0,
   };
@@ -371,12 +405,13 @@ export function loadHQChatMessages() {
 
 export function appendHQMessage({ content, isMine = false, senderName = "", isManager = false }) {
   const list = loadVirtualChatMessages(HQ_KIND, HQ_ID);
+  const lang = getLanguage();
   const msg = {
     id: `hq_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
     content,
     time: nowIso(),
     isMine,
-    senderName: senderName || (isMine ? "我" : ""),
+    senderName: senderName || (isMine ? t("home_sender_me", lang) : ""),
     isManager: !!isManager,
   };
   list.push(msg);
@@ -389,11 +424,11 @@ export function ensureHallWelcome() {
   seedIfNeeded();
   const list = loadHQChatMessages();
   if (list.length > 0) return;
+  const lang = getLanguage();
   appendHQMessage({
-    content:
-      "欢迎加入【公司全员群】。每日 21:00 各数字员工在此提交日报，21:30 经理推送总览。您可随时 @ 员工安排工作。",
+    content: t("hall_welcome_body", lang),
     isMine: false,
-    senderName: t("sender_system_name", getLanguage()),
+    senderName: t("sender_system_name", lang),
   });
 }
 
@@ -404,18 +439,19 @@ export function ensureHallDailyDigest() {
   const last = uni.getStorageSync(K_HALL_DIGEST_DAY);
   if (last === today) return;
 
+  const lang = getLanguage();
   const b = getDailyBriefing();
   appendHQMessage({
-    content: "—— 今日 21:00 日报开始 ——",
+    content: t("hall_digest_start", lang),
     isMine: false,
-    senderName: t("sender_system_name", getLanguage()),
+    senderName: t("sender_system_name", lang),
   });
 
   const agents = loadDigitalAgents();
   for (const line of b.employeeLines) {
     const agent = agents.find((x) => x.id === line.id);
     appendHQMessage({
-      content: `【日报】${line.summary}`,
+      content: `${t("hall_daily_prefix", lang)}${line.summary}`,
       isMine: false,
       senderName: agent ? formatAgentNavTitle(agent) : formatAgentNavTitle({ id: line.id, name: line.name, role: line.role }),
     });
@@ -424,7 +460,7 @@ export function ensureHallDailyDigest() {
   appendHQMessage({
     content: b.managerSummary,
     isMine: false,
-    senderName: t("manager_overview_title", getLanguage()),
+    senderName: t("manager_overview_title", lang),
     isManager: true,
   });
 
@@ -437,15 +473,19 @@ export function ensureAgentChatSeed(agentId) {
   if (uni.getStorageSync(`${K_AGENT_CLEARED}${agentId}`)) return;
   const list = loadVirtualChatMessages("agent", agentId);
   if (list.length > 0) return;
+  const lang = getLanguage();
   const agents = loadDigitalAgents();
   const a = agents.find((x) => x.id === agentId);
-  const name = a ? a.name : "员工";
-  const role = a ? a.role : "";
+  const name = a ? displayAgentName(a) : t("vt_default_agent_name", lang);
+  const role = a ? displayAgentRole(a) : "";
   const line = getDailyBriefing().employeeLines.find((x) => x.id === agentId);
-  const summary = line ? line.summary : `【${role || "岗位"}】已就绪，听候安排。`;
+  const roleDisp = role || t("agent_seed_role_fallback", lang);
+  const summary = line
+    ? line.summary
+    : t("agent_seed_ready_line", lang, { role: roleDisp });
 
   appendVirtualChat("agent", agentId, {
-    content: `你好，我是${name}（${role}）。下面是我的今日日报摘要。\n${summary}`,
+    content: t("agent_chat_seed_body", lang, { name, role: roleDisp, summary }),
     isMine: false,
     senderName: name,
   });
@@ -540,17 +580,19 @@ export function saveVirtualChatMessages(kind, id, messages) {
 }
 
 function recomputeVirtualChatLastPreview(kind, id) {
+  const lang = getLanguage();
   const list = loadVirtualChatMessages(kind, id);
   const last = list[list.length - 1];
   if (!last) {
-    if (kind === "group") touchGroupLastMsg(id, "暂无消息");
-    if (kind === "agent") touchAgentLastMsg(id, "暂无消息");
+    const stub = t("chat_no_messages", lang);
+    if (kind === "group") touchGroupLastMsg(id, stub);
+    if (kind === "agent") touchAgentLastMsg(id, stub);
     return;
   }
   const preview = last.isMine
-    ? `我：${last.content}`
+    ? `${t("vt_preview_me_prefix", lang)}${last.content}`
     : last.senderName
-      ? `${last.senderName}：${last.content}`
+      ? `${last.senderName}: ${last.content}`
       : last.content;
   if (kind === "group") touchGroupLastMsg(id, preview);
   if (kind === "agent") touchAgentLastMsg(id, preview);
@@ -583,7 +625,12 @@ export function appendVirtualChat(kind, id, { content, isMine = true, senderName
   list.push(msg);
   saveVirtualChatMessages(kind, id, list);
   if (kind === "agent" && isMine) clearAgentChatClearedFlag(id);
-  const preview = isMine ? `我：${content}` : senderName ? `${senderName}：${content}` : content;
+  const lang = getLanguage();
+  const preview = isMine
+    ? `${t("vt_preview_me_prefix", lang)}${content}`
+    : senderName
+      ? `${senderName}: ${content}`
+      : content;
   if (kind === "group") touchGroupLastMsg(id, preview);
   if (kind === "agent") touchAgentLastMsg(id, preview);
   return msg;

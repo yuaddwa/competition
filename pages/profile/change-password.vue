@@ -117,6 +117,7 @@
 		min-height: 100vh;
 		background: #f1f5f9;
 		padding: 28rpx;
+		padding-bottom: calc(28rpx + env(safe-area-inset-bottom));
 		box-sizing: border-box;
 	}
 
@@ -125,7 +126,7 @@
 		border-radius: 24rpx;
 		padding: 36rpx;
 		box-shadow: 0 12rpx 36rpx rgba(15, 23, 42, 0.06);
-		border: 1rpx solid #e2e8f0;
+		border: none;
 	}
 
 	.h {

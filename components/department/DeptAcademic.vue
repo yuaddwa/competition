@@ -2,26 +2,26 @@
 <template>
 	<scroll-view scroll-y class="page">
 		<view class="hero">
-			<text class="eyebrow">叙事与世界观</text>
+			<text class="eyebrow">{{ t('dept_aca_eyebrow') }}</text>
 			<text class="title">{{ cleanDeptLabel(translatedDepartment.name) }}</text>
 			<text class="desc">{{ translatedDepartment.desc }}</text>
 		</view>
 
 		<view class="card">
-			<text class="h">学科视角</text>
+			<text class="h">{{ t('dept_aca_disc_h') }}</text>
 			<view class="disc">
 				<text v-for="d in disciplines" :key="d.key" class="d" :class="{ on: disc === d.key }" @click="disc = d.key">{{ d.label }}</text>
 			</view>
-			<text class="hint">视角决定提问方式；下方学者列表与数据一致，用于强调当前论证主线。</text>
+			<text class="hint">{{ t('dept_aca_disc_hint') }}</text>
 		</view>
 
 		<view class="card">
-			<text class="h">论证 / 设定任务</text>
-			<textarea v-model="task" class="ta" placeholder="要澄清的矛盾、需要考证的史实或人物动机线索" />
+			<text class="h">{{ t('dept_aca_task_h') }}</text>
+			<textarea v-model="task" class="ta" :placeholder="t('dept_aca_task_ph')" />
 		</view>
 
 		<view class="card">
-			<text class="h">首席学者（单选）</text>
+			<text class="h">{{ t('dept_aca_lead_h') }}</text>
 			<view class="sch">
 				<view v-for="s in translatedDepartment.services" :key="s.id" class="sch-i" :class="{ on: lead === s.id }" @click="lead = s.id">
 					<text class="sn">{{ cleanDeptLabel(s.name) }}</text>
@@ -31,8 +31,8 @@
 		</view>
 
 		<view class="actions">
-			<button class="btn ghost" @click="reset">重置</button>
-			<button class="btn primary" type="primary" @click="submit">生成学术任务书</button>
+			<button class="btn ghost" @click="reset">{{ t('dept_aca_reset') }}</button>
+			<button class="btn primary" type="primary" @click="submit">{{ t('dept_aca_submit') }}</button>
 		</view>
 		<view class="pad" />
 	</scroll-view>
@@ -47,11 +47,6 @@
 		props: { department: { type: Object, required: true } },
 		data() {
 			return {
-				disciplines: [
-					{ key: "anthro", label: "人类学" },
-					{ key: "hist", label: "历史" },
-					{ key: "psych", label: "心理" },
-				],
 				disc: "anthro",
 				task: "",
 				lead: "",
@@ -60,6 +55,13 @@
 		computed: {
 			translatedDepartment() {
 				return translateDepartment(this.department, getLanguage());
+			},
+			disciplines() {
+				return [
+					{ key: "anthro", label: this.t("dept_aca_disc_anthro") },
+					{ key: "hist", label: this.t("dept_aca_disc_hist") },
+					{ key: "psych", label: this.t("dept_aca_disc_psych") },
+				];
 			},
 		},
 		methods: {

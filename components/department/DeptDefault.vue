@@ -99,7 +99,8 @@
 		background: #fff;
 		border-radius: 18rpx;
 		margin-bottom: 18rpx;
-		border: 1rpx solid #e2e8f0;
+		border: none;
+		box-shadow: 0 8rpx 26rpx rgba(15, 23, 42, 0.06);
 	}
 	.title {
 		display: block;
@@ -119,7 +120,8 @@
 		padding: 22rpx;
 		border-radius: 18rpx;
 		margin-bottom: 18rpx;
-		border: 1rpx solid #e2e8f0;
+		border: none;
+		box-shadow: 0 8rpx 26rpx rgba(15, 23, 42, 0.06);
 	}
 	.h {
 		font-size: 28rpx;

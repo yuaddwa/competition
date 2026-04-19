@@ -22,7 +22,7 @@
 <script>
 	import agentDepartments from "@/data/agentDepartments";
 	import { cleanDeptLabel } from "@/utils/deptUi";
-	import { t, getLanguage } from "@/utils/lang";
+	import { t, getLanguage, translateDepartment } from "@/utils/lang";
 
 	import DeptEngineering from "@/components/department/DeptEngineering.vue";
 	import DeptDesign from "@/components/department/DeptDesign.vue";
@@ -66,19 +66,23 @@
 			t(key, params = {}) {
 				return t(key, getLanguage(), params);
 			},
+			syncDeptNavTitle() {
+				if (!this.department) return;
+				try {
+					const loc = translateDepartment(this.department, getLanguage());
+					uni.setNavigationBarTitle({ title: cleanDeptLabel(loc.name) });
+				} catch {
+					//
+				}
+			},
 		},
 		onLoad(options) {
 			const id = (options && options.id) || "";
 			this.department = agentDepartments.find((item) => item.id === id) || null;
-			if (this.department) {
-				try {
-					uni.setNavigationBarTitle({
-						title: cleanDeptLabel(this.department.name),
-					});
-				} catch {
-					//
-				}
-			}
+			this.syncDeptNavTitle();
+		},
+		onShow() {
+			this.syncDeptNavTitle();
 		},
 	};
 </script>

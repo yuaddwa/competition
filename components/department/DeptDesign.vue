@@ -2,22 +2,22 @@
 <template>
 	<scroll-view scroll-y class="page">
 		<view class="hero">
-			<text class="eyebrow">体验与视觉</text>
+			<text class="eyebrow">{{ t('dept_des_eyebrow') }}</text>
 			<text class="title">{{ cleanDeptLabel(translatedDepartment.name) }}</text>
 			<text class="desc">{{ translatedDepartment.desc }}</text>
 		</view>
 
 		<view class="card">
-			<text class="h">课题轨道</text>
+			<text class="h">{{ t('dept_des_track_h') }}</text>
 			<view class="seg">
-				<view v-for="t in tracks" :key="t.key" class="seg-i" :class="{ on: track === t.key }" @click="track = t.key">
-					<text>{{ t.label }}</text>
+				<view v-for="tr in tracks" :key="tr.key" class="seg-i" :class="{ on: track === tr.key }" @click="track = tr.key">
+					<text>{{ tr.label }}</text>
 				</view>
 			</view>
 		</view>
 
 		<view class="card">
-			<text class="h">本轮交付物</text>
+			<text class="h">{{ t('dept_des_deliver_h') }}</text>
 			<view v-for="item in deliverables" :key="item.key" class="check-row" @click="toggleDel(item.key)">
 				<text class="box">{{ delSet.has(item.key) ? "☑" : "☐" }}</text>
 				<text class="check-l">{{ item.label }}</text>
@@ -25,17 +25,17 @@
 		</view>
 
 		<view class="card row-between">
-			<text class="h flush">无障碍审计</text>
+			<text class="h flush">{{ t('dept_des_a11y_h') }}</text>
 			<switch :checked="a11y" color="#7c3aed" @change="a11y = $event.detail.value" />
 		</view>
 
 		<view class="card">
-			<text class="h">备注 / 约束</text>
-			<textarea v-model="notes" class="ta" placeholder="品牌边界、像素规则、交互动效上限等" />
+			<text class="h">{{ t('dept_des_notes_h') }}</text>
+			<textarea v-model="notes" class="ta" :placeholder="t('dept_des_notes_ph')" />
 		</view>
 
 		<view class="card">
-			<text class="h">席位（选角色）</text>
+			<text class="h">{{ t('dept_des_seat_h') }}</text>
 			<view class="seat-list">
 				<view
 					v-for="s in translatedDepartment.services"
@@ -51,8 +51,8 @@
 		</view>
 
 		<view class="actions">
-			<button class="btn ghost" @click="reset">重置</button>
-			<button class="btn primary" type="primary" @click="submit">生成设计工单</button>
+			<button class="btn ghost" @click="reset">{{ t('dept_des_reset') }}</button>
+			<button class="btn primary" type="primary" @click="submit">{{ t('dept_des_submit') }}</button>
 		</view>
 		<view class="pad" />
 	</scroll-view>
@@ -68,16 +68,6 @@
 		data() {
 			return {
 				track: "ui",
-				tracks: [
-					{ key: "ui", label: "界面" },
-					{ key: "ux", label: "用研" },
-					{ key: "system", label: "系统" },
-				],
-				deliverables: [
-					{ key: "hifi", label: "高保真关键页面" },
-					{ key: "empty", label: "空状态 / 错误态" },
-					{ key: "ds", label: "组件库增量" },
-				],
 				delSet: new Set(["hifi"]),
 				a11y: false,
 				notes: "",
@@ -87,6 +77,20 @@
 		computed: {
 			translatedDepartment() {
 				return translateDepartment(this.department, getLanguage());
+			},
+			tracks() {
+				return [
+					{ key: "ui", label: this.t("dept_des_track_ui") },
+					{ key: "ux", label: this.t("dept_des_track_ux") },
+					{ key: "system", label: this.t("dept_des_track_system") },
+				];
+			},
+			deliverables() {
+				return [
+					{ key: "hifi", label: this.t("dept_des_del_hifi") },
+					{ key: "empty", label: this.t("dept_des_del_empty") },
+					{ key: "ds", label: this.t("dept_des_del_ds") },
+				];
 			},
 		},
 		methods: {

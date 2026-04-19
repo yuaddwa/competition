@@ -2,20 +2,20 @@
 <template>
 	<scroll-view scroll-y class="page">
 		<view class="hero">
-			<text class="eyebrow">投放与效果</text>
+			<text class="eyebrow">{{ t('dept_paid_eyebrow') }}</text>
 			<text class="title">{{ cleanDeptLabel(translatedDepartment.name) }}</text>
 			<text class="desc">{{ translatedDepartment.desc }}</text>
 		</view>
 
 		<view class="card">
-			<text class="h">预算节拍（自评）</text>
+			<text class="h">{{ t('dept_paid_pace_h') }}</text>
 			<text class="pct">{{ pacing }}%</text>
 			<slider :value="pacing" min="0" max="100" activeColor="#ea580c" @changing="onPace" @change="onPace" show-value />
-			<text class="hint">用于对齐「是否该加码/收量」，不接真实账户也可先填主观节奏。</text>
+			<text class="hint">{{ t('dept_paid_pace_hint') }}</text>
 		</view>
 
 		<view class="card">
-			<text class="h">启用渠道</text>
+			<text class="h">{{ t('dept_paid_channels_h') }}</text>
 			<view class="ch-row">
 				<view v-for="c in channels" :key="c.key" class="ch" :class="{ on: chOn.has(c.key) }" @click="flipCh(c.key)">
 					<text>{{ c.label }}</text>
@@ -24,12 +24,12 @@
 		</view>
 
 		<view class="card">
-			<text class="h">投放目标 / KPI</text>
-			<textarea v-model="kpi" class="ta" placeholder="例如：CPA ↓12%，再营销列表扩充至 5 万设备" />
+			<text class="h">{{ t('dept_paid_kpi_h') }}</text>
+			<textarea v-model="kpi" class="ta" :placeholder="t('dept_paid_kpi_ph')" />
 		</view>
 
 		<view class="card">
-			<text class="h">协同角色</text>
+			<text class="h">{{ t('dept_paid_roles_h') }}</text>
 			<view class="list">
 				<view v-for="s in translatedDepartment.services" :key="s.id" class="li" @click="toggle(s.id)">
 					<text class="tick">{{ roster.has(s.id) ? "✓" : "" }}</text>
@@ -42,8 +42,8 @@
 		</view>
 
 		<view class="actions">
-			<button class="btn ghost" @click="reset">重置</button>
-			<button class="btn primary" type="primary" @click="submit">生成投放动作单</button>
+			<button class="btn ghost" @click="reset">{{ t('dept_paid_reset') }}</button>
+			<button class="btn primary" type="primary" @click="submit">{{ t('dept_paid_submit') }}</button>
 		</view>
 		<view class="pad" />
 	</scroll-view>
@@ -59,11 +59,6 @@
 		data() {
 			return {
 				pacing: 42,
-				channels: [
-					{ key: "search", label: "搜索" },
-					{ key: "social", label: "信息流" },
-					{ key: "shop", label: "电商" },
-				],
 				chOn: new Set(["search"]),
 				kpi: "",
 				roster: new Set(),
@@ -72,6 +67,13 @@
 		computed: {
 			translatedDepartment() {
 				return translateDepartment(this.department, getLanguage());
+			},
+			channels() {
+				return [
+					{ key: "search", label: this.t("dept_paid_ch_search") },
+					{ key: "social", label: this.t("dept_paid_ch_social") },
+					{ key: "shop", label: this.t("dept_paid_ch_shop") },
+				];
 			},
 		},
 		methods: {

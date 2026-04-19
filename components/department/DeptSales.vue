@@ -2,13 +2,13 @@
 <template>
 	<scroll-view scroll-y class="page">
 		<view class="hero">
-			<text class="eyebrow">商机管道</text>
+			<text class="eyebrow">{{ t('dept_sal_eyebrow') }}</text>
 			<text class="title">{{ cleanDeptLabel(translatedDepartment.name) }}</text>
 			<text class="desc">{{ translatedDepartment.desc }}</text>
 		</view>
 
 		<view class="card">
-			<text class="h">当前阶段</text>
+			<text class="h">{{ t('dept_sal_stage_h') }}</text>
 			<view class="pipe">
 				<view
 					v-for="p in stages"
@@ -24,17 +24,17 @@
 		</view>
 
 		<view class="card">
-			<text class="h">机会名称</text>
-			<input v-model="dealName" class="inp" placeholder="例如：某集团年度框架谈判" />
+			<text class="h">{{ t('dept_sal_deal_h') }}</text>
+			<input v-model="dealName" class="inp" :placeholder="t('dept_sal_deal_ph')" />
 		</view>
 
 		<view class="card">
-			<text class="h">下一步 / 阻挡点</text>
-			<textarea v-model="nextStep" class="ta" placeholder="要写清下一步会议、材料、或竞品动态" />
+			<text class="h">{{ t('dept_sal_next_h') }}</text>
+			<textarea v-model="nextStep" class="ta" :placeholder="t('dept_sal_next_ph')" />
 		</view>
 
 		<view class="card">
-			<text class="h">请哪类销售能力介入</text>
+			<text class="h">{{ t('dept_sal_skill_h') }}</text>
 			<view class="radio-list">
 				<view v-for="s in translatedDepartment.services" :key="s.id" class="radio" @click="pick = s.id">
 					<text class="r">{{ pick === s.id ? "◉" : "○" }}</text>
@@ -47,8 +47,8 @@
 		</view>
 
 		<view class="actions">
-			<button class="btn ghost" @click="reset">清空</button>
-			<button class="btn primary" type="primary" @click="submit">同步赢单草稿</button>
+			<button class="btn ghost" @click="reset">{{ t('dept_sal_reset') }}</button>
+			<button class="btn primary" type="primary" @click="submit">{{ t('dept_sal_submit') }}</button>
 		</view>
 		<view class="pad" />
 	</scroll-view>
@@ -63,12 +63,6 @@
 		props: { department: { type: Object, required: true } },
 		data() {
 			return {
-				stages: [
-					{ key: "disc", label: "发现" },
-					{ key: "qual", label: "验证" },
-					{ key: "prop", label: "方案" },
-					{ key: "close", label: "收尾" },
-				],
 				stage: "qual",
 				dealName: "",
 				nextStep: "",
@@ -78,6 +72,14 @@
 		computed: {
 			translatedDepartment() {
 				return translateDepartment(this.department, getLanguage());
+			},
+			stages() {
+				return [
+					{ key: "disc", label: this.t("dept_sal_stage_disc") },
+					{ key: "qual", label: this.t("dept_sal_stage_qual") },
+					{ key: "prop", label: this.t("dept_sal_stage_prop") },
+					{ key: "close", label: this.t("dept_sal_stage_close") },
+				];
 			},
 		},
 		methods: {

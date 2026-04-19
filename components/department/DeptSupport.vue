@@ -2,20 +2,20 @@
 <template>
 	<scroll-view scroll-y class="page">
 		<view class="hero">
-			<text class="eyebrow">客户与内部支援</text>
+			<text class="eyebrow">{{ t('dept_sup_eyebrow') }}</text>
 			<text class="title">{{ cleanDeptLabel(translatedDepartment.name) }}</text>
 			<text class="desc">{{ translatedDepartment.desc }}</text>
 		</view>
 
 		<view class="card">
-			<text class="h">工单类型</text>
-			<picker mode="selector" :range="types" :value="typeIdx" @change="onType">
-				<view class="pick">{{ types[typeIdx] }}</view>
+			<text class="h">{{ t('dept_sup_type_h') }}</text>
+			<picker mode="selector" :range="typeLabels" :value="typeIdx" @change="onType">
+				<view class="pick">{{ typeLabels[typeIdx] }}</view>
 			</picker>
 		</view>
 
 		<view class="card">
-			<text class="h">响应 SLA</text>
+			<text class="h">{{ t('dept_sup_sla_h') }}</text>
 			<view class="sla">
 				<view v-for="s in slaOpts" :key="s.key" class="sla-i" :class="{ on: sla === s.key }" @click="sla = s.key">
 					<text class="sk">{{ s.label }}</text>
@@ -25,12 +25,12 @@
 		</view>
 
 		<view class="card">
-			<text class="h">诉求摘要</text>
-			<textarea v-model="body" class="ta" placeholder="现象、影响面、已尝试操作、期望恢复时间" />
+			<text class="h">{{ t('dept_sup_body_h') }}</text>
+			<textarea v-model="body" class="ta" :placeholder="t('dept_sup_body_ph')" />
 		</view>
 
 		<view class="card">
-			<text class="h">指派能力</text>
+			<text class="h">{{ t('dept_sup_assign_h') }}</text>
 			<view class="tabs">
 				<view v-for="x in translatedDepartment.services" :key="x.id" class="tab" :class="{ on: assign === x.id }" @click="assign = x.id">
 					<text>{{ cleanDeptLabel(x.name) }}</text>
@@ -39,8 +39,8 @@
 		</view>
 
 		<view class="actions">
-			<button class="btn ghost" @click="reset">重置</button>
-			<button class="btn primary" type="primary" @click="submit">创建支援单</button>
+			<button class="btn ghost" @click="reset">{{ t('dept_sup_reset') }}</button>
+			<button class="btn primary" type="primary" @click="submit">{{ t('dept_sup_submit') }}</button>
 		</view>
 		<view class="pad" />
 	</scroll-view>
@@ -55,12 +55,7 @@
 		props: { department: { type: Object, required: true } },
 		data() {
 			return {
-				types: ["功能咨询", "故障 / 不可用", "账单与合规", "数据与报表"],
 				typeIdx: 0,
-				slaOpts: [
-					{ key: "std", label: "标准", desc: "工作日队列" },
-					{ key: "urgent", label: "紧急", desc: "升级与值班" },
-				],
 				sla: "std",
 				body: "",
 				assign: "",
@@ -69,6 +64,15 @@
 		computed: {
 			translatedDepartment() {
 				return translateDepartment(this.department, getLanguage());
+			},
+			typeLabels() {
+				return [0, 1, 2, 3].map((i) => this.t(`dept_sup_type_${i}`));
+			},
+			slaOpts() {
+				return [
+					{ key: "std", label: this.t("dept_sup_sla_std_l"), desc: this.t("dept_sup_sla_std_d") },
+					{ key: "urgent", label: this.t("dept_sup_sla_urg_l"), desc: this.t("dept_sup_sla_urg_d") },
+				];
 			},
 		},
 		methods: {

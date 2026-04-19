@@ -2,33 +2,33 @@
 <template>
 	<scroll-view scroll-y class="page">
 		<view class="hero">
-			<text class="eyebrow">增长与传播</text>
+			<text class="eyebrow">{{ t('dept_mkt_eyebrow') }}</text>
 			<text class="title">{{ cleanDeptLabel(translatedDepartment.name) }}</text>
 			<text class="desc">{{ translatedDepartment.desc }}</text>
 		</view>
 
 		<view class="card">
-			<text class="h">战役代号 / 主题</text>
-			<input v-model="campaign" class="inp" placeholder="例如：新品上市 · 第二波认知" />
+			<text class="h">{{ t('dept_mkt_campaign_h') }}</text>
+			<input v-model="campaign" class="inp" :placeholder="t('dept_mkt_campaign_ph')" />
 		</view>
 
 		<view class="card">
-			<text class="h">渠道矩阵（触达）</text>
+			<text class="h">{{ t('dept_mkt_matrix_h') }}</text>
 			<view class="matrix">
 				<view v-for="m in matrix" :key="m.key" class="cell" :class="{ on: mx.has(m.key) }" @click="flip(m.key)">
 					<text class="mk">{{ m.label }}</text>
-					<text class="mv">{{ mx.has(m.key) ? "主推" : "待定" }}</text>
+					<text class="mv">{{ mx.has(m.key) ? t('dept_mkt_mv_on') : t('dept_mkt_mv_off') }}</text>
 				</view>
 			</view>
 		</view>
 
 		<view class="card">
-			<text class="h">核心信息与素材诉求</text>
-			<textarea v-model="brief" class="ta" placeholder="一句话主张、三条证据、要的素材规格" />
+			<text class="h">{{ t('dept_mkt_brief_h') }}</text>
+			<textarea v-model="brief" class="ta" :placeholder="t('dept_mkt_brief_ph')" />
 		</view>
 
 		<view class="card">
-			<text class="h">编组（可多选）</text>
+			<text class="h">{{ t('dept_mkt_team_h') }}</text>
 			<view class="tags">
 				<text
 					v-for="s in translatedDepartment.services"
@@ -41,8 +41,8 @@
 		</view>
 
 		<view class="actions">
-			<button class="btn ghost" @click="reset">重置</button>
-			<button class="btn primary" type="primary" @click="submit">生成战役简报</button>
+			<button class="btn ghost" @click="reset">{{ t('dept_mkt_reset') }}</button>
+			<button class="btn primary" type="primary" @click="submit">{{ t('dept_mkt_submit') }}</button>
 		</view>
 		<view class="pad" />
 	</scroll-view>
@@ -58,12 +58,6 @@
 		data() {
 			return {
 				campaign: "",
-				matrix: [
-					{ key: "douyin", label: "短视频" },
-					{ key: "wx", label: "微信生态" },
-					{ key: "seo", label: "搜索/SEO" },
-					{ key: "kol", label: "达人" },
-				],
 				mx: new Set(["douyin"]),
 				brief: "",
 				bag: new Set(),
@@ -72,6 +66,14 @@
 		computed: {
 			translatedDepartment() {
 				return translateDepartment(this.department, getLanguage());
+			},
+			matrix() {
+				return [
+					{ key: "douyin", label: this.t("dept_mkt_mx_douyin") },
+					{ key: "wx", label: this.t("dept_mkt_mx_wx") },
+					{ key: "seo", label: this.t("dept_mkt_mx_seo") },
+					{ key: "kol", label: this.t("dept_mkt_mx_kol") },
+				];
 			},
 		},
 		methods: {

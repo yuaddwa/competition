@@ -9,9 +9,12 @@
 					<text class="page-title">{{ t('workflow') }}</text>
 					<text class="page-sub">{{ t('project_subtitle') }}</text>
 				</view>
-				<view class="stat-chip">
-					<text class="stat-num">{{ workflows.length }}</text>
-					<text class="stat-lab">{{ t('count_unit') }}</text>
+				<view class="hero-right">
+					<view class="stat-chip">
+						<text class="stat-num">{{ workflows.length }}</text>
+						<text class="stat-lab">{{ t('count_unit') }}</text>
+					</view>
+					<text v-if="workflows.length > 0" class="hero-new" @click.stop="openCreate">＋ {{ t('create_workflow') }}</text>
 				</view>
 			</view>
 
@@ -47,10 +50,6 @@
 
 			<view class="bottom-spacer" />
 		</scroll-view>
-		</view>
-
-		<view class="fab-row">
-			<button class="fab-btn" type="primary" @click="openCreate">＋ {{ t('create_workflow') }}</button>
 		</view>
 	</view>
 
@@ -221,7 +220,7 @@
 
 	.scroll {
 		height: 100%;
-		padding: 24rpx 28rpx 200rpx;
+		padding: 24rpx 28rpx 120rpx;
 		box-sizing: border-box;
 	}
 
@@ -237,6 +236,24 @@
 		border-radius: 24rpx;
 		border: 1rpx solid #e0e7ff;
 		box-shadow: 0 16rpx 40rpx rgba(37, 99, 235, 0.08);
+	}
+
+	.hero-right {
+		flex-shrink: 0;
+		display: flex;
+		flex-direction: column;
+		align-items: flex-end;
+		gap: 16rpx;
+	}
+
+	.hero-new {
+		font-size: 24rpx;
+		font-weight: 700;
+		color: #2563eb;
+		padding: 10rpx 20rpx;
+		border-radius: 999rpx;
+		background: rgba(37, 99, 235, 0.1);
+		border: 1rpx solid #bfdbfe;
 	}
 
 	.hero-left {
@@ -394,8 +411,8 @@
 		border-radius: 20rpx;
 		padding: 0;
 		margin-bottom: 16rpx;
-		border: 1rpx solid #e2e8f0;
-		box-shadow: 0 8rpx 24rpx rgba(15, 23, 42, 0.05);
+		border: none;
+		box-shadow: 0 8rpx 28rpx rgba(15, 23, 42, 0.06);
 		overflow: hidden;
 	}
 
@@ -461,32 +478,6 @@
 
 	.bottom-spacer {
 		height: 40rpx;
-	}
-
-	.fab-row {
-		position: fixed;
-		left: 0;
-		right: 0;
-		/* 底栏在文档流内约 100rpx + 安全区，留出悬浮按钮空间 */
-		bottom: calc(108rpx + env(safe-area-inset-bottom));
-		padding: 0 28rpx;
-		z-index: 90;
-	}
-
-	.fab-btn {
-		width: 100%;
-		height: 92rpx;
-		line-height: 92rpx;
-		border-radius: 46rpx;
-		font-size: 30rpx;
-		font-weight: 700;
-		background: linear-gradient(135deg, #2563eb, #4f46e5) !important;
-		border: none;
-		box-shadow: 0 12rpx 36rpx rgba(37, 99, 235, 0.35);
-	}
-
-	.fab-btn::after {
-		border: none;
 	}
 
 	.mask {

@@ -2,20 +2,20 @@
 <template>
 	<scroll-view scroll-y class="page">
 		<view class="hero">
-			<text class="eyebrow">财务纪律</text>
+			<text class="eyebrow">{{ t('dept_fin_eyebrow') }}</text>
 			<text class="title">{{ cleanDeptLabel(translatedDepartment.name) }}</text>
 			<text class="desc">{{ translatedDepartment.desc }}</text>
 		</view>
 
 		<view class="card">
-			<text class="h">会计期间</text>
+			<text class="h">{{ t('dept_fin_period_h') }}</text>
 			<picker mode="date" fields="month" :value="period" @change="onPeriod">
-				<view class="pick">{{ period || "选择年月" }}</view>
+				<view class="pick">{{ period || t('dept_fin_period_ph') }}</view>
 			</picker>
 		</view>
 
 		<view class="card">
-			<text class="h">本次作业类型</text>
+			<text class="h">{{ t('dept_fin_job_h') }}</text>
 			<view class="tabs">
 				<view v-for="j in jobs" :key="j.key" class="tab" :class="{ on: job === j.key }" @click="job = j.key">
 					<text class="jk">{{ j.label }}</text>
@@ -25,12 +25,12 @@
 		</view>
 
 		<view class="card">
-			<text class="h">诉求说明</text>
-			<textarea v-model="ask" class="ta" placeholder="需出具的报表、波动归因、税务假设或内控关注点" />
+			<text class="h">{{ t('dept_fin_ask_h') }}</text>
+			<textarea v-model="ask" class="ta" :placeholder="t('dept_fin_ask_ph')" />
 		</view>
 
 		<view class="card">
-			<text class="h">财务职能参与</text>
+			<text class="h">{{ t('dept_fin_role_h') }}</text>
 			<view class="list">
 				<view v-for="s in translatedDepartment.services" :key="s.id" class="li" @click="pick = s.id">
 					<text class="dot">{{ pick === s.id ? "●" : "○" }}</text>
@@ -43,8 +43,8 @@
 		</view>
 
 		<view class="actions">
-			<button class="btn ghost" @click="reset">重置</button>
-			<button class="btn primary" type="primary" @click="submit">发起财务作业</button>
+			<button class="btn ghost" @click="reset">{{ t('dept_fin_reset') }}</button>
+			<button class="btn primary" type="primary" @click="submit">{{ t('dept_fin_submit') }}</button>
 		</view>
 		<view class="pad" />
 	</scroll-view>
@@ -63,11 +63,6 @@
 			const m = String(d.getMonth() + 1).padStart(2, "0");
 			return {
 				period: `${y}-${m}`,
-				jobs: [
-					{ key: "close", label: "月结", hint: "结账与报表" },
-					{ key: "fpa", label: "预测", hint: "滚动预测/经营分析" },
-					{ key: "tax", label: "税务", hint: "筹划与合规" },
-				],
 				job: "close",
 				ask: "",
 				pick: "",
@@ -76,6 +71,13 @@
 		computed: {
 			translatedDepartment() {
 				return translateDepartment(this.department, getLanguage());
+			},
+			jobs() {
+				return [
+					{ key: "close", label: this.t("dept_fin_job_close_l"), hint: this.t("dept_fin_job_close_h") },
+					{ key: "fpa", label: this.t("dept_fin_job_fpa_l"), hint: this.t("dept_fin_job_fpa_h") },
+					{ key: "tax", label: this.t("dept_fin_job_tax_l"), hint: this.t("dept_fin_job_tax_h") },
+				];
 			},
 		},
 		methods: {

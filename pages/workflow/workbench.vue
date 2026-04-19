@@ -6,8 +6,8 @@
 		</view>
 
 		<view class="seg">
-			<view v-for="t in mainTabs" :key="t.key" class="seg-item" :class="{ on: mainTab === t.key }" @click="mainTab = t.key">
-				<text class="seg-text">{{ t.label }}</text>
+			<view v-for="tab in mainTabs" :key="tab.key" class="seg-item" :class="{ on: mainTab === tab.key }" @click="mainTab = tab.key">
+				<text class="seg-text">{{ tab.label }}</text>
 			</view>
 		</view>
 
@@ -237,7 +237,7 @@
 	import * as workflowApi from "@/clientApi/workflowApi";
 	import { pickId } from "@/utils/apiHelpers";
 	import { subscribeWorkflowChannel } from "@/utils/realtime";
-	import { t, getLanguage } from "@/utils/lang";
+	import { t, getLanguage, translateDepartment } from "@/utils/lang";
 
 	const STATUS_LABEL = {
 		NOT_STARTED: "not_started",
@@ -266,7 +266,6 @@
 				sendingMsg: false,
 				graph: null,
 				events: [],
-				deptOptions: [],
 				msgFromDeptIndex: 0,
 				msgToDeptIndex: 0,
 				msgFromTaskIndex: 0,
@@ -302,6 +301,13 @@
 					return this.meta.title || this.meta.name;
 				}
 				return this.t("workbench");
+			},
+			deptOptions() {
+				const lang = getLanguage();
+				return agentDepartments.map((d) => {
+					const td = translateDepartment(d, lang);
+					return { id: d.id, label: cleanLabel(td.name) };
+				});
 			},
 			deptLabels() {
 				return this.deptOptions.map((d) => d.label);
@@ -362,11 +368,7 @@
 		},
 		onLoad(options) {
 			this.workflowId = options.id ? decodeURIComponent(options.id) : "";
-			this.deptOptions = agentDepartments.map((d) => ({
-				id: d.id,
-				label: cleanLabel(d.name),
-			}));
-			if (this.deptOptions.length > 1) {
+			if (agentDepartments.length > 1) {
 				this.cmdTargetIdx = 1;
 			}
 		},
@@ -1049,13 +1051,14 @@
 		padding: 12rpx 18rpx;
 		border-radius: 999rpx;
 		background: #fff;
-		border: 1rpx solid #e2e8f0;
+		border: none;
+		box-shadow: 0 2rpx 10rpx rgba(15, 23, 42, 0.06);
 		margin-right: 12rpx;
 	}
 
 	.thread-chip.active {
-		border-color: #2563eb;
 		background: #eff6ff;
+		box-shadow: 0 0 0 2rpx rgba(37, 99, 235, 0.35), 0 2rpx 10rpx rgba(15, 23, 42, 0.06);
 	}
 
 	.thread-chip-t {
@@ -1071,7 +1074,8 @@
 		border-radius: 16rpx;
 		padding: 16rpx;
 		margin-bottom: 12rpx;
-		border: 1rpx solid #e8ecf3;
+		border: none;
+		box-shadow: 0 4rpx 16rpx rgba(15, 23, 42, 0.06);
 	}
 
 	.msg-meta {

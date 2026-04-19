@@ -40,32 +40,33 @@
 			<view v-if="loading" class="wx-loading"><text>{{ t('loading') }}</text></view>
 			<template v-else>
 				<template v-if="messageTab === 0">
-					<view v-if="feedRows.length === 0" class="wx-empty wx-empty-inline wx-empty-first">
-						<text class="wx-empty-t">{{ t('no_conversation') }}</text>
-						<text class="wx-empty-sub">{{ t('create_group_agent') }}</text>
+					<view v-if="feedRows.length === 0" class="msg-empty-card">
+						<text class="msg-empty-emoji">💬</text>
+						<text class="msg-empty-t">{{ t('no_conversation') }}</text>
+						<text class="msg-empty-sub">{{ t('create_group_agent') }}</text>
 					</view>
-					<view v-else>
+					<view v-else class="msg-list">
 						<view
 							v-for="row in feedRows"
 							:key="row.id"
-							class="wx-cell"
-							hover-class="wx-cell-hover"
+							class="msg-row-card"
+							hover-class="msg-row-card-hover"
 							@click="onRowTap(row)"
 						>
-							<view class="wx-avatar" :style="{ background: avatarBg(row) }">
-								<text class="wx-avatar-t">{{ avatarLetter(row) }}</text>
+							<view class="msg-avatar" :style="{ background: avatarBg(row) }">
+								<text class="msg-avatar-t">{{ avatarLetter(row) }}</text>
 							</view>
-							<view class="wx-cell-main">
-								<view class="wx-cell-top">
-									<view class="wx-title-wrap">
-										<text class="wx-title">{{ row.title }}</text>
-										<text v-if="row.badge" class="wx-tag">{{ row.badge }}</text>
+							<view class="msg-body">
+								<view class="msg-row-top">
+									<view class="msg-title-wrap">
+										<text class="msg-title">{{ row.title }}</text>
+										<text v-if="row.badge" class="msg-pill">{{ row.badge }}</text>
 									</view>
-									<text class="wx-time">{{ formatRowTime(row.time) }}</text>
+									<text class="msg-time">{{ formatRowTime(row.time) }}</text>
 								</view>
-								<view class="wx-cell-bottom">
-									<text class="wx-sub">{{ row.subtitle }}</text>
-									<view v-if="row.unread > 0" class="wx-badge">{{ row.unread > 99 ? "99+" : row.unread }}</view>
+								<view class="msg-row-bottom">
+									<text class="msg-preview">{{ row.subtitle }}</text>
+									<view v-if="row.unread > 0" class="msg-unread">{{ row.unread > 99 ? "99+" : row.unread }}</view>
 								</view>
 							</view>
 						</view>
@@ -73,27 +74,25 @@
 				</template>
 
 				<template v-if="messageTab === 1">
-					<view
-						v-for="block in departmentBlocks"
-						:key="block.slug"
-						class="dept-wrap"
-					>
+					<view class="msg-list">
 						<view
-							class="wx-cell wx-cell-dept"
-							hover-class="wx-cell-hover"
+							v-for="block in departmentBlocks"
+							:key="block.slug"
+							class="msg-row-card msg-row-dept"
+							hover-class="msg-row-card-hover"
 							@tap="goDepartmentRoles(block)"
 						>
-							<image class="wx-dept-icon" :src="block.icon" mode="aspectFit" />
-							<view class="wx-cell-main">
-								<view class="wx-cell-top wx-cell-top-dept">
-									<view class="wx-title-wrap">
-										<text class="wx-title">{{ block.title }}</text>
+							<image class="msg-dept-icon" :src="block.icon" mode="aspectFit" />
+							<view class="msg-body">
+								<view class="msg-row-top">
+									<view class="msg-title-wrap">
+										<text class="msg-title">{{ block.title }}</text>
 									</view>
-									<text class="wx-dept-count">{{ block.count }}{{ t('role_count_suffix') }}</text>
+									<text class="msg-dept-count">{{ block.count }}{{ t('role_count_suffix') }}</text>
 								</view>
-								<text v-if="block.desc" class="wx-sub wx-sub-dept">{{ block.desc }}</text>
+								<text v-if="block.desc" class="msg-preview msg-preview-multi">{{ block.desc }}</text>
 							</view>
-							<text class="wx-chevron">›</text>
+							<text class="msg-chevron">›</text>
 						</view>
 					</view>
 				</template>
@@ -219,7 +218,14 @@
 				});
 			},
 			avatarBg(row) {
-				const colors = ["#07c160", "#10aeff", "#576b95", "#fa9d3b", "#1485ee", "#9a6bff"];
+				const colors = [
+					"linear-gradient(145deg, #2563eb, #1d4ed8)",
+					"linear-gradient(145deg, #7c3aed, #6d28d9)",
+					"linear-gradient(145deg, #059669, #047857)",
+					"linear-gradient(145deg, #d97706, #b45309)",
+					"linear-gradient(145deg, #db2777, #be185d)",
+					"linear-gradient(145deg, #0891b2, #0e7490)",
+				];
 				const s = row.id || row.title || "";
 				let h = 0;
 				for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
@@ -303,12 +309,12 @@
 		height: 100vh;
 		display: flex;
 		flex-direction: column;
-		background: #ededed;
+		background: #f1f5f9;
 		box-sizing: border-box;
 	}
 
 	.navbar-wrap {
-		background: #ededed;
+		background: #ffffff;
 		flex-shrink: 0;
 	}
 
@@ -319,7 +325,7 @@
 		align-items: center;
 		justify-content: space-between;
 		padding: 0 8rpx 0 24rpx;
-		border-bottom: 1rpx solid #d9d9d9;
+		border-bottom: 1rpx solid #e2e8f0;
 	}
 
 	.navbar-side {
@@ -338,14 +344,14 @@
 		flex: 1;
 		text-align: center;
 		font-size: 34rpx;
-		font-weight: 600;
-		color: #000;
+		font-weight: 700;
+		color: #0f172a;
 	}
 
 	.navbar-plus {
-		font-size: 44rpx;
-		font-weight: 300;
-		color: #191919;
+		font-size: 40rpx;
+		font-weight: 400;
+		color: #2563eb;
 		line-height: 1;
 	}
 
@@ -358,9 +364,9 @@
 		flex-shrink: 0;
 		display: flex;
 		flex-direction: row;
-		background: #ededed;
-		border-bottom: 1rpx solid #d9d9d9;
-		padding: 0 48rpx;
+		background: #ffffff;
+		border-bottom: 1rpx solid #e2e8f0;
+		padding: 0 40rpx;
 	}
 
 	.msg-tab-item {
@@ -370,20 +376,20 @@
 		flex-direction: column;
 		align-items: center;
 		justify-content: flex-end;
-		padding: 20rpx 0 16rpx;
-		min-height: 72rpx;
+		padding: 22rpx 0 18rpx;
+		min-height: 76rpx;
 		box-sizing: border-box;
 	}
 
 	.msg-tab-text {
 		font-size: 30rpx;
-		color: #888;
+		color: #64748b;
 		line-height: 1.2;
 	}
 
 	.msg-tab-active .msg-tab-text {
-		color: #191919;
-		font-weight: 600;
+		color: #0f172a;
+		font-weight: 700;
 	}
 
 	.msg-tab-underline {
@@ -391,131 +397,170 @@
 		bottom: 0;
 		left: 50%;
 		transform: translateX(-50%);
-		width: 56rpx;
-		height: 4rpx;
-		background: #07c160;
-		border-radius: 2rpx;
+		width: 48rpx;
+		height: 6rpx;
+		background: linear-gradient(90deg, #2563eb, #7c3aed);
+		border-radius: 3rpx;
 	}
 
 	.tip-line {
-		padding: 16rpx 24rpx 12rpx;
-		background: #ededed;
+		padding: 20rpx 28rpx 16rpx;
+		background: transparent;
 	}
 
 	.tip-t {
-		font-size: 22rpx;
-		color: #888;
+		font-size: 24rpx;
+		color: #64748b;
 		line-height: 1.45;
 	}
 
 	.wx-loading {
-		padding: 60rpx;
+		padding: 80rpx;
 		text-align: center;
-		color: #888;
+		color: #64748b;
 		font-size: 28rpx;
 	}
 
-	.wx-empty {
-		padding: 80rpx 40rpx;
+	.msg-empty-card {
+		margin: 8rpx 24rpx 24rpx;
+		padding: 56rpx 32rpx;
 		text-align: center;
+		background: #fff;
+		border-radius: 24rpx;
+		border: none;
+		box-shadow: 0 12rpx 36rpx rgba(15, 23, 42, 0.06);
 	}
 
-	.wx-empty-t {
+	.msg-empty-emoji {
 		display: block;
-		font-size: 28rpx;
-		color: #888;
+		font-size: 64rpx;
+		margin-bottom: 16rpx;
 	}
 
-	.wx-empty-sub {
+	.msg-empty-t {
 		display: block;
-		margin-top: 16rpx;
+		font-size: 30rpx;
+		font-weight: 700;
+		color: #0f172a;
+	}
+
+	.msg-empty-sub {
+		display: block;
+		margin-top: 12rpx;
 		font-size: 24rpx;
-		color: #b2b2b2;
+		color: #94a3b8;
 		line-height: 1.5;
 	}
 
-	.wx-cell {
+	.msg-list {
+		padding: 8rpx 24rpx 24rpx;
+	}
+
+	.msg-row-card {
 		display: flex;
 		flex-direction: row;
 		align-items: stretch;
-		padding: 20rpx 24rpx;
+		padding: 24rpx 22rpx;
+		margin-bottom: 16rpx;
 		background: #fff;
-		border-bottom: 1rpx solid #e5e5e5;
+		border-radius: 20rpx;
+		border: none;
+		box-shadow: 0 8rpx 28rpx rgba(15, 23, 42, 0.06);
 	}
 
-	.wx-cell-hover {
-		background: #f0f0f0 !important;
+	.msg-row-card-hover {
+		background: #f8fafc !important;
 	}
 
-	.wx-avatar {
+	.msg-row-dept {
+		align-items: center;
+	}
+
+	.msg-avatar {
 		width: 96rpx;
 		height: 96rpx;
-		border-radius: 12rpx;
+		border-radius: 20rpx;
 		flex-shrink: 0;
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		margin-right: 24rpx;
+		margin-right: 22rpx;
+		box-shadow: 0 6rpx 18rpx rgba(37, 99, 235, 0.2);
 	}
 
-	.wx-avatar-t {
+	.msg-avatar-t {
 		font-size: 34rpx;
-		font-weight: 600;
+		font-weight: 700;
 		color: #fff;
 	}
 
-	.wx-cell-main {
+	.msg-dept-icon {
+		width: 96rpx;
+		height: 96rpx;
+		border-radius: 20rpx;
+		flex-shrink: 0;
+		margin-right: 22rpx;
+		background: #f1f5f9;
+		border: none;
+	}
+
+	.msg-body {
 		flex: 1;
 		min-width: 0;
 		display: flex;
 		flex-direction: column;
-		justify-content: space-between;
+		justify-content: center;
 		padding: 4rpx 0;
 	}
 
-	.wx-cell-top {
+	.msg-row-top {
 		display: flex;
 		flex-direction: row;
 		justify-content: space-between;
-		align-items: center;
-		margin-bottom: 8rpx;
+		align-items: flex-start;
+		margin-bottom: 10rpx;
 	}
 
-	.wx-title-wrap {
+	.msg-title-wrap {
 		flex: 1;
 		min-width: 0;
 		display: flex;
 		flex-direction: row;
 		align-items: center;
-		gap: 12rpx;
-		padding-right: 16rpx;
+		flex-wrap: wrap;
+		gap: 10rpx;
+		padding-right: 12rpx;
 	}
 
-	.wx-title {
+	.msg-title {
 		font-size: 32rpx;
-		color: #191919;
-		font-weight: 500;
+		color: #0f172a;
+		font-weight: 600;
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
+		max-width: 100%;
 	}
 
-	.wx-tag {
+	.msg-pill {
 		font-size: 20rpx;
-		color: #fff;
-		background: #fa5151;
-		padding: 2rpx 10rpx;
-		border-radius: 6rpx;
+		font-weight: 600;
+		color: #b45309;
+		background: #fffbeb;
+		padding: 4rpx 12rpx;
+		border-radius: 8rpx;
+		border: 1rpx solid #fde68a;
 		flex-shrink: 0;
 	}
 
-	.wx-time {
+	.msg-time {
 		font-size: 22rpx;
-		color: #b2b2b2;
+		color: #94a3b8;
 		flex-shrink: 0;
+		padding-top: 4rpx;
 	}
 
-	.wx-cell-bottom {
+	.msg-row-bottom {
 		display: flex;
 		flex-direction: row;
 		align-items: center;
@@ -523,9 +568,9 @@
 		gap: 16rpx;
 	}
 
-	.wx-sub {
+	.msg-preview {
 		font-size: 26rpx;
-		color: #999;
+		color: #64748b;
 		flex: 1;
 		min-width: 0;
 		overflow: hidden;
@@ -533,78 +578,46 @@
 		white-space: nowrap;
 	}
 
-	.wx-badge {
-		min-width: 32rpx;
-		height: 32rpx;
-		padding: 0 8rpx;
-		background: #fa5151;
+	.msg-preview-multi {
+		white-space: normal;
+		display: -webkit-box;
+		-webkit-box-orient: vertical;
+		-webkit-line-clamp: 2;
+		line-height: 1.45;
+	}
+
+	.msg-unread {
+		min-width: 36rpx;
+		height: 36rpx;
+		padding: 0 10rpx;
+		background: linear-gradient(135deg, #ef4444, #dc2626);
 		color: #fff;
-		font-size: 20rpx;
-		border-radius: 16rpx;
+		font-size: 22rpx;
+		font-weight: 700;
+		border-radius: 18rpx;
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		flex-shrink: 0;
 	}
 
+	.msg-dept-count {
+		font-size: 24rpx;
+		font-weight: 600;
+		color: #2563eb;
+		flex-shrink: 0;
+	}
+
+	.msg-chevron {
+		font-size: 34rpx;
+		color: #cbd5e1;
+		flex-shrink: 0;
+		padding-left: 8rpx;
+		align-self: center;
+	}
+
 	.wx-pad {
 		height: 24rpx;
 		padding-bottom: env(safe-area-inset-bottom);
-	}
-
-	.dept-wrap {
-		background: #fff;
-		border-bottom: 1rpx solid #e5e5e5;
-	}
-
-	.wx-cell-dept {
-		align-items: center;
-		border-bottom: none;
-	}
-
-	.wx-dept-icon {
-		width: 96rpx;
-		height: 96rpx;
-		border-radius: 12rpx;
-		flex-shrink: 0;
-		margin-right: 24rpx;
-		background: #f5f5f5;
-	}
-
-	.wx-cell-top-dept {
-		margin-bottom: 4rpx;
-	}
-
-	.wx-sub-dept {
-		white-space: normal;
-		display: -webkit-box;
-		-webkit-box-orient: vertical;
-		-webkit-line-clamp: 2;
-		overflow: hidden;
-	}
-
-	.wx-dept-count {
-		font-size: 24rpx;
-		color: #576b95;
-		flex-shrink: 0;
-		margin-left: 12rpx;
-	}
-
-	.wx-chevron {
-		font-size: 36rpx;
-		color: #c7c7cc;
-		flex-shrink: 0;
-		padding-left: 8rpx;
-		line-height: 1;
-	}
-
-	.wx-empty-inline {
-		padding: 40rpx 40rpx 24rpx;
-		background: #fff;
-		border-bottom: 1rpx solid #e5e5e5;
-	}
-
-	.wx-empty-first {
-		border-top: 1rpx solid #e5e5e5;
 	}
 </style>

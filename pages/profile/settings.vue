@@ -2,7 +2,7 @@
 	<view class="page">
 		<view class="hint">{{ t('settings_section_account') }}</view>
 		<view class="cell-group">
-			<view class="cell cell-border" @click="switchAccount">
+			<view class="cell" @click="switchAccount">
 				<view class="cell-icon bg-switch">
 					<text class="iconfont cell-glyph">&#xe654;</text>
 				</view>
@@ -18,56 +18,56 @@
 			</view>
 		</view>
 
-		<view class="hint">偏好设置</view>
+		<view class="hint">{{ t('settings_section_preferences') }}</view>
 		<view class="cell-group">
-			<view class="cell cell-border" @click="showLanguagePicker">
+			<view class="cell" @click="showLanguagePicker">
 				<view class="cell-icon bg-lang">
 					<text class="cell-glyph-text">🌐</text>
 				</view>
-				<text class="cell-title">语言</text>
-				<text class="cell-value">{{ currentLanguage }}</text>
+				<text class="cell-title">{{ t('language') }}</text>
+				<text class="cell-value">{{ languageRowLabel }}</text>
 				<text class="cell-arrow">›</text>
 			</view>
-			<view class="cell cell-border" @click="showFontSizePicker">
+			<view class="cell" @click="showFontSizePicker">
 				<view class="cell-icon bg-font">
 					<text class="cell-glyph-text">Aa</text>
 				</view>
-				<text class="cell-title">字体大小</text>
-				<text class="cell-value">{{ currentFontSize }}</text>
+				<text class="cell-title">{{ t('settings_font_size') }}</text>
+				<text class="cell-value">{{ fontSizeRowLabel }}</text>
 				<text class="cell-arrow">›</text>
 			</view>
 			<view class="cell" @click="toggleDarkMode">
 				<view class="cell-icon bg-dark">
 					<text class="cell-glyph-text">{{ isDarkMode ? '🌙' : '☀️' }}</text>
 				</view>
-				<text class="cell-title">深色模式</text>
+				<text class="cell-title">{{ t('settings_dark_mode') }}</text>
 				<view class="toggle-switch" :class="{ on: isDarkMode }" @click.stop="toggleDarkMode">
 					<view class="toggle-knob" />
 				</view>
 			</view>
 		</view>
 
-		<view class="hint">隐私设置</view>
+		<view class="hint">{{ t('settings_section_privacy') }}</view>
 		<view class="cell-group">
-			<view class="cell cell-border" @click="toggleReadReceipt">
+			<view class="cell" @click="toggleReadReceipt">
 				<view class="cell-icon bg-privacy">
 					<text class="cell-glyph-text">✓</text>
 				</view>
 				<view class="cell-text-wrap">
-					<text class="cell-title">消息已读回执</text>
-					<text class="cell-sub">关闭后对方不会看到你是否阅读消息</text>
+					<text class="cell-title">{{ t('settings_read_receipt') }}</text>
+					<text class="cell-sub">{{ t('settings_read_receipt_sub') }}</text>
 				</view>
 				<view class="toggle-switch" :class="{ on: readReceipt }" @click.stop="toggleReadReceipt">
 					<view class="toggle-knob" />
 				</view>
 			</view>
-			<view class="cell cell-border" @click="toggleOnlineStatus">
+			<view class="cell" @click="toggleOnlineStatus">
 				<view class="cell-icon bg-online">
 					<text class="cell-glyph-text">●</text>
 				</view>
 				<view class="cell-text-wrap">
-					<text class="cell-title">在线状态</text>
-					<text class="cell-sub">显示你的在线或离线状态</text>
+					<text class="cell-title">{{ t('settings_online_status') }}</text>
+					<text class="cell-sub">{{ t('settings_online_status_sub') }}</text>
 				</view>
 				<view class="toggle-switch" :class="{ on: onlineStatus }" @click.stop="toggleOnlineStatus">
 					<view class="toggle-knob" />
@@ -77,27 +77,27 @@
 				<view class="cell-icon bg-policy">
 					<text class="cell-glyph-text">📜</text>
 				</view>
-				<text class="cell-title">隐私政策</text>
+				<text class="cell-title">{{ t('settings_privacy_policy') }}</text>
 				<text class="cell-arrow">›</text>
 			</view>
 		</view>
 
-		<view class="hint">通用设置</view>
+		<view class="hint">{{ t('settings_section_general') }}</view>
 		<view class="cell-group">
-			<view class="cell cell-border" @click="exportData">
+			<view class="cell" @click="exportData">
 				<view class="cell-icon bg-export">
 					<text class="cell-glyph-text">📤</text>
 				</view>
-				<text class="cell-title">数据导出</text>
+				<text class="cell-title">{{ t('settings_export_data') }}</text>
 				<text class="cell-arrow">›</text>
 			</view>
-			<view class="cell cell-border" @click="checkUpdate">
+			<view class="cell" @click="checkUpdate">
 				<view class="cell-icon bg-update">
 					<text class="cell-glyph-text">🔄</text>
 				</view>
 				<view class="cell-text-wrap">
-					<text class="cell-title">检查更新</text>
-					<text class="cell-sub">当前版本 v1.0.0</text>
+					<text class="cell-title">{{ t('settings_check_update') }}</text>
+					<text class="cell-sub">{{ versionSubLine }}</text>
 				</view>
 				<text class="cell-arrow">›</text>
 			</view>
@@ -106,23 +106,24 @@
 					<text class="cell-glyph-text">🗑️</text>
 				</view>
 				<view class="cell-text-wrap">
-					<text class="cell-title">清理缓存</text>
-					<text class="cell-sub">当前缓存：{{ cacheSize }}</text>
+					<text class="cell-title">{{ t('settings_clear_cache') }}</text>
+					<text class="cell-sub">{{ cacheSubLine }}</text>
 				</view>
 				<text class="cell-arrow">›</text>
 			</view>
 		</view>
 
-		<text class="sub-hint">切换账号将前往登录页以使用其他账号登录；退出账号将清除本机登录状态并返回「我的」。</text>
+		<text class="sub-hint">{{ t('settings_switch_logout_hint') }}</text>
 	</view>
 </template>
 
 <script>
-	import { getToken, clearSession } from "@/utils/index";
-	import { LANGUAGES, getLanguage, setLanguage, t } from "@/utils/lang";
+	import { clearSession } from "@/utils/index";
+	import { LANG_STORAGE_KEY, getLanguage, setLanguage, t as translate } from "@/utils/lang";
 
-	const LANG_OPTIONS = ["简体中文", "繁体中文", "English", "日本語"];
-	const FONT_OPTIONS = ["小", "中", "大", "特大"];
+	/* 语言包仅 zh / en；切换时必须写入 app_language。字号存 xs/sm/md/xl，兼容旧版中文存盘 */
+	const FONT_SIZE_KEYS = ["xs", "sm", "md", "xl"];
+	const LEGACY_FONT_ZH_TO_KEY = { 小: "xs", 中: "sm", 大: "md", 特大: "xl" };
 
 	export default {
 		data() {
@@ -130,24 +131,75 @@
 				readReceipt: true,
 				onlineStatus: true,
 				isDarkMode: false,
-				currentLanguage: "简体中文",
-				currentFontSize: "中",
+				currentFontSize: "sm",
 				cacheSize: "0 KB",
 			};
+		},
+		computed: {
+			languageRowLabel() {
+				return getLanguage() === "en" ? this.t("language_name_en") : this.t("language_name_zh");
+			},
+			fontSizeRowLabel() {
+				return this.fontSizeToLabel(this.currentFontSize);
+			},
+			versionSubLine() {
+				return this.t("settings_version_sub", { ver: "v1.0.0" });
+			},
+			cacheSubLine() {
+				return this.t("settings_clear_cache_sub", { size: this.cacheSize });
+			},
 		},
 		onLoad() {
 			this.loadSettings();
 			this.calculateCacheSize();
 		},
+		onShow() {
+			try {
+				uni.setNavigationBarTitle({ title: translate("settings", getLanguage()) });
+			} catch (e) {
+				//
+			}
+		},
 		methods: {
+			fontSizeToLabel(size) {
+				const m = { xs: "font_size_xs", sm: "font_size_sm", md: "font_size_md", xl: "font_size_xl" };
+				return this.t(m[size] || "font_size_sm");
+			},
+			normalizeFontSizeKey(raw) {
+				if (!raw) return "sm";
+				if (LEGACY_FONT_ZH_TO_KEY[raw]) return LEGACY_FONT_ZH_TO_KEY[raw];
+				return FONT_SIZE_KEYS.includes(raw) ? raw : "sm";
+			},
+			t(key, params = {}) {
+				return translate(key, getLanguage(), params);
+			},
 			loadSettings() {
 				try {
-					const settings = uni.getStorageSync("userSettings") || {};
+					let settings = uni.getStorageSync("userSettings") || {};
+					if (typeof settings === "string") {
+						try {
+							settings = JSON.parse(settings || "{}");
+						} catch {
+							settings = {};
+						}
+					}
 					this.readReceipt = settings.readReceipt !== false;
 					this.onlineStatus = settings.onlineStatus !== false;
 					this.isDarkMode = settings.isDarkMode || false;
-					this.currentLanguage = settings.language || "简体中文";
-					this.currentFontSize = settings.fontSize || "中";
+					this.currentFontSize = this.normalizeFontSizeKey(settings.fontSize);
+
+					const legacyLabelToCode = {
+						"简体中文": "zh",
+						"繁体中文": "zh",
+						English: "en",
+						"日本語": "en",
+					};
+					const rawApp = uni.getStorageSync(LANG_STORAGE_KEY);
+					const hasAppLang = rawApp === "zh" || rawApp === "en";
+					const fromSettings = settings.language;
+					if (!hasAppLang && fromSettings && legacyLabelToCode[fromSettings]) {
+						setLanguage(legacyLabelToCode[fromSettings]);
+					}
 				} catch {
 					//
 				}
@@ -162,15 +214,15 @@
 						this.cacheSize = (size / 1024).toFixed(2) + " MB";
 					}
 				} catch {
-					this.cacheSize = "未知";
+					this.cacheSize = this.t("cache_size_unknown");
 				}
 			},
 			clearCache() {
 				uni.showModal({
-					title: "清理缓存",
-					content: `确定要清理缓存吗？当前缓存大小：${this.cacheSize}`,
-					confirmText: "清理",
-					cancelText: "取消",
+					title: this.t("modal_clear_cache_title"),
+					content: this.t("modal_clear_cache_body", { size: this.cacheSize }),
+					confirmText: this.t("action_clear_cache"),
+					cancelText: this.t("cancel"),
 					success: (res) => {
 						if (!res.confirm) return;
 						try {
@@ -189,57 +241,58 @@
 							}
 							this.loadSettings();
 							this.calculateCacheSize();
-							uni.showToast({ title: "清理成功", icon: "success" });
+							uni.showToast({ title: this.t("toast_clear_cache_ok"), icon: "success" });
 						} catch {
-							uni.showToast({ title: "清理失败", icon: "none" });
+							uni.showToast({ title: this.t("toast_clear_cache_fail"), icon: "none" });
 						}
 					},
 				});
 			},
 			exportData() {
 				uni.showModal({
-					title: "数据导出",
-					content: "确定要导出所有数据吗？包含您的数字员工、项目群、工作流等信息。",
-					confirmText: "导出",
-					cancelText: "取消",
+					title: this.t("modal_export_data_title"),
+					content: this.t("modal_export_data_body"),
+					confirmText: this.t("action_copy_json"),
+					cancelText: this.t("cancel"),
 					success: (res) => {
 						if (!res.confirm) return;
 						try {
+							const d = new Date();
+							const ymd = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
+							const labelBase = translate("export_data_json_label", getLanguage());
 							const exportData = {
-								exportTime: new Date().toLocaleString(),
+								exportTime: d.toISOString(),
+								exportLabel: `${labelBase}_${ymd}`,
 								userSettings: uni.getStorageSync("userSettings"),
 								agents: uni.getStorageSync("digitalAgents"),
 								groups: uni.getStorageSync("projectGroups"),
 								workflows: uni.getStorageSync("workflows"),
 							};
-							const fileName = `一人公司数据_${new Date().format('YYYYMMDD')}.json`;
 							const content = JSON.stringify(exportData, null, 2);
-							const base64 = uni.arrayBufferToBase64(uni.stringToBuffer(content));
-							const savedFile = plus.io.convertLocalFileSystemURL('_doc/' + fileName);
-							uni.saveFile({
-								tempFilePath: 'data:application/json;base64,' + base64,
-								success: (saveRes) => {
-									uni.showToast({ title: "已保存到: " + saveRes.savedFilePath, icon: "none", duration: 3000 });
+							uni.setClipboardData({
+								data: content,
+								success: () => {
+									uni.showToast({ title: this.t("toast_clipboard_ok"), icon: "success" });
 								},
 								fail: () => {
-									uni.showToast({ title: "导出功能暂不可用", icon: "none" });
-								}
+									uni.showToast({ title: this.t("toast_clipboard_fail"), icon: "none" });
+								},
 							});
 						} catch (e) {
-							uni.showToast({ title: "导出失败", icon: "none" });
+							uni.showToast({ title: this.t("toast_export_fail"), icon: "none" });
 						}
 					},
 				});
 			},
 			checkUpdate() {
-				uni.showLoading({ title: "检查中..." });
+				uni.showLoading({ title: this.t("loading_check_update") });
 				setTimeout(() => {
 					uni.hideLoading();
 					uni.showModal({
-						title: "检查更新",
-						content: "当前已是最新版本 (v1.0.0)",
+						title: this.t("modal_check_update_title"),
+						content: this.t("modal_check_update_body", { ver: "v1.0.0" }),
 						showCancel: false,
-						confirmText: "我知道了",
+						confirmText: this.t("action_got_it"),
 					});
 				}, 1000);
 			},
@@ -249,7 +302,7 @@
 						readReceipt: this.readReceipt,
 						onlineStatus: this.onlineStatus,
 						isDarkMode: this.isDarkMode,
-						language: this.currentLanguage,
+						language: getLanguage() === "en" ? "English" : "简体中文",
 						fontSize: this.currentFontSize,
 					};
 					uni.setStorageSync("userSettings", JSON.stringify(settings));
@@ -258,27 +311,38 @@
 				}
 			},
 			showLanguagePicker() {
-				const idx = LANG_OPTIONS.indexOf(this.currentLanguage);
+				const itemList = [this.t("language_name_zh"), this.t("language_name_en")];
 				uni.showActionSheet({
-					itemList: LANG_OPTIONS,
+					itemList,
 					success: (res) => {
-						if (res.tapIndex >= 0) {
-							this.currentLanguage = LANG_OPTIONS[res.tapIndex];
-							this.saveSettings();
-							uni.showToast({ title: `已设置为${this.currentLanguage}`, icon: "none" });
+						if (res.tapIndex < 0) return;
+						setLanguage(res.tapIndex === 1 ? "en" : "zh");
+						this.saveSettings();
+						try {
+							uni.setNavigationBarTitle({ title: translate("settings", getLanguage()) });
+						} catch (e) {
+							//
 						}
+						this.$forceUpdate();
+						uni.showToast({
+							title: res.tapIndex === 1 ? this.t("toast_language_en") : this.t("toast_language_zh"),
+							icon: "none",
+						});
 					},
 				});
 			},
 			showFontSizePicker() {
-				const idx = FONT_OPTIONS.indexOf(this.currentFontSize);
+				const itemList = FONT_SIZE_KEYS.map((s) => this.fontSizeToLabel(s));
 				uni.showActionSheet({
-					itemList: FONT_OPTIONS,
+					itemList,
 					success: (res) => {
 						if (res.tapIndex >= 0) {
-							this.currentFontSize = FONT_OPTIONS[res.tapIndex];
+							this.currentFontSize = FONT_SIZE_KEYS[res.tapIndex];
 							this.saveSettings();
-							uni.showToast({ title: `字体已调整为${this.currentFontSize}`, icon: "none" });
+							uni.showToast({
+								title: this.t("toast_font_changed", { size: this.fontSizeToLabel(this.currentFontSize) }),
+								icon: "none",
+							});
 						}
 					},
 				});
@@ -288,7 +352,7 @@
 				this.saveSettings();
 				this.applyDarkMode(this.isDarkMode);
 				uni.showToast({
-					title: this.isDarkMode ? "已开启深色模式" : "已关闭深色模式",
+					title: this.isDarkMode ? this.t("toast_dark_on") : this.t("toast_dark_off"),
 					icon: "none",
 				});
 			},
@@ -314,7 +378,7 @@
 				this.readReceipt = !this.readReceipt;
 				this.saveSettings();
 				uni.showToast({
-					title: this.readReceipt ? "已开启已读回执" : "已关闭已读回执",
+					title: this.readReceipt ? this.t("toast_read_receipt_on") : this.t("toast_read_receipt_off"),
 					icon: "none",
 				});
 			},
@@ -322,24 +386,24 @@
 				this.onlineStatus = !this.onlineStatus;
 				this.saveSettings();
 				uni.showToast({
-					title: this.onlineStatus ? "已显示在线状态" : "已隐藏在线状态",
+					title: this.onlineStatus ? this.t("toast_online_on") : this.t("toast_online_off"),
 					icon: "none",
 				});
 			},
 			showPrivacyPolicy() {
 				uni.showModal({
-					title: "隐私政策",
-					content: "我们尊重并保护您的个人隐私。您的数据将仅用于改善服务体验，不会被未经授权的第三方访问。",
+					title: this.t("modal_privacy_policy_title"),
+					content: this.t("modal_privacy_policy_body"),
 					showCancel: false,
-					confirmText: "我知道了",
+					confirmText: this.t("action_got_it"),
 				});
 			},
 			switchAccount() {
 				uni.showModal({
-					title: t("switch_account", getLanguage()),
-					content: t("switch_account_modal_body", getLanguage()),
-					confirmText: t("go_to_login", getLanguage()),
-					cancelText: t("cancel", getLanguage()),
+					title: translate("switch_account", getLanguage()),
+					content: translate("switch_account_modal_body", getLanguage()),
+					confirmText: translate("go_to_login", getLanguage()),
+					cancelText: translate("cancel", getLanguage()),
 					success: (res) => {
 						if (!res.confirm) return;
 						clearSession();
@@ -349,41 +413,20 @@
 			},
 			logoutAccount() {
 				uni.showModal({
-					title: t("logout", getLanguage()),
-					content: t("logout_confirm_body", getLanguage()),
-					confirmText: t("logout_action", getLanguage()),
-					cancelText: t("cancel", getLanguage()),
+					title: translate("logout", getLanguage()),
+					content: translate("logout_confirm_body", getLanguage()),
+					confirmText: translate("logout_action", getLanguage()),
+					cancelText: translate("cancel", getLanguage()),
 					success: (res) => {
 						if (!res.confirm) return;
 						clearSession();
-						uni.showToast({ title: t("logged_out", getLanguage()), icon: "success" });
+						uni.showToast({ title: translate("logged_out", getLanguage()), icon: "success" });
 						setTimeout(() => {
 							uni.navigateBack({ delta: 1 });
 						}, 400);
 					},
 				});
 			},
-			openLanguageSelect() {
-				const languageOptions = Object.values(this.languages).map(lang => ({
-					text: lang.name,
-					value: lang.code
-				}));
-				
-				uni.showActionSheet({
-					itemList: languageOptions.map(opt => opt.text),
-					success: (res) => {
-						const selectedLang = languageOptions[res.tapIndex].value;
-						if (selectedLang !== this.currentLanguage) {
-							setLanguage(selectedLang);
-							uni.showToast({ title: t("language_switched", getLanguage()), icon: "success" });
-							// 刷新页面以应用语言变化
-							setTimeout(() => {
-								uni.reLaunch({ url: "/pages/profile/profile" });
-							}, 500);
-						}
-					}
-				});
-			}
 		},
 	};
 </script>
@@ -419,12 +462,13 @@
 	}
 
 	.cell-group {
-		background: #fff;
-		border-radius: 24rpx;
-		overflow: hidden;
-		border: 1rpx solid #e2e8f0;
-		box-shadow: 0 12rpx 36rpx rgba(15, 23, 42, 0.06);
-		padding-left: 28rpx;
+		display: flex;
+		flex-direction: column;
+		gap: 16rpx;
+		background: transparent;
+		border: none;
+		box-shadow: none;
+		padding: 0;
 	}
 
 	.cell {
@@ -432,12 +476,12 @@
 		flex-direction: row;
 		align-items: center;
 		min-height: 108rpx;
-		padding: 22rpx 28rpx 22rpx 0;
+		padding: 24rpx 28rpx;
 		box-sizing: border-box;
-	}
-
-	.cell-border {
-		border-bottom: 1rpx solid #e2e8f0;
+		background: #fff;
+		border-radius: 22rpx;
+		border: none;
+		box-shadow: 0 8rpx 26rpx rgba(15, 23, 42, 0.06);
 	}
 
 	.cell:active {

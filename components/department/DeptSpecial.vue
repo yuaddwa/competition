@@ -2,33 +2,33 @@
 <template>
 	<scroll-view scroll-y class="page">
 		<view class="hero">
-			<text class="eyebrow">跨域编排</text>
+			<text class="eyebrow">{{ t('dept_spe_eyebrow') }}</text>
 			<text class="title">{{ cleanDeptLabel(translatedDepartment.name) }}</text>
 			<text class="desc">{{ translatedDepartment.desc }}</text>
 		</view>
 
 		<view class="card">
-			<text class="h">任务综述</text>
-			<textarea v-model="brief" class="ta" placeholder="涉及哪些系统、代理、合规边界，期望的最终产物形态" />
+			<text class="h">{{ t('dept_spe_brief_h') }}</text>
+			<textarea v-model="brief" class="ta" :placeholder="t('dept_spe_brief_ph')" />
 		</view>
 
 		<view class="card row-between">
-			<text class="h flush">启用 MCP 工具扩展</text>
+			<text class="h flush">{{ t('dept_spe_mcp_h') }}</text>
 			<switch :checked="mcp" color="#ca8a04" @change="mcp = $event.detail.value" />
 		</view>
 
 		<view class="card">
-			<text class="h">编排步骤（有序）</text>
+			<text class="h">{{ t('dept_spe_steps_h') }}</text>
 			<view v-for="(st, i) in steps" :key="i" class="st-row">
 				<text class="sn">{{ i + 1 }}</text>
-				<input v-model="steps[i]" class="inp" placeholder="步骤说明" />
+				<input v-model="steps[i]" class="inp" :placeholder="t('dept_spe_step_ph')" />
 				<text class="rm" @click="steps.splice(i, 1)">−</text>
 			</view>
-			<button class="add" size="mini" type="default" @click="steps.push('')">＋ 步骤</button>
+			<button class="add" size="mini" type="default" @click="steps.push('')">{{ t('dept_spe_step_add') }}</button>
 		</view>
 
 		<view class="card">
-			<text class="h">专家池（多选）</text>
+			<text class="h">{{ t('dept_spe_pool_h') }}</text>
 			<view class="pool">
 				<view v-for="s in translatedDepartment.services" :key="s.id" class="p" :class="{ on: pool.has(s.id) }" @click="flip(s.id)">
 					<text>{{ cleanDeptLabel(s.name) }}</text>
@@ -37,8 +37,8 @@
 		</view>
 
 		<view class="actions">
-			<button class="btn ghost" @click="reset">重置</button>
-			<button class="btn primary" type="primary" @click="submit">生成编排方案</button>
+			<button class="btn ghost" @click="reset">{{ t('dept_spe_reset') }}</button>
+			<button class="btn primary" type="primary" @click="submit">{{ t('dept_spe_submit') }}</button>
 		</view>
 		<view class="pad" />
 	</scroll-view>

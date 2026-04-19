@@ -19,53 +19,62 @@
 							<text class="account-line">{{ accountSubLine }}</text>
 						</view>
 					</view>
-					<text class="cell-arrow">›</text>
+					<text class="header-arrow">›</text>
 				</view>
-			</view>
 
-			<view class="team-overview">
-				<view class="team-stat-card" @click="showAgentList">
-					<view class="team-stat-icon bg-agents">
-						<text class="team-stat-icon-text">🤖</text>
+				<view class="team-overview">
+					<view class="stat-card" hover-class="stat-card-hover" @click="showAgentList">
+						<view class="stat-card-top">
+							<view class="stat-ico bg-agents">
+								<text class="stat-ico-emoji">🤖</text>
+							</view>
+							<text class="team-stat-num">{{ agentCount }}</text>
+						</view>
+						<text class="team-stat-label">{{ t('digital_employee_fallback') }}</text>
 					</view>
-					<view class="team-stat-info">
-						<text class="team-stat-num">{{ agentCount }}</text>
-						<text class="team-stat-label">数字员工</text>
+					<view class="stat-card" hover-class="stat-card-hover" @click="goCreateGroup">
+						<view class="stat-card-top">
+							<view class="stat-ico bg-groups">
+								<text class="stat-ico-emoji">👥</text>
+							</view>
+							<text class="team-stat-num">{{ groupCount }}</text>
+						</view>
+						<text class="team-stat-label">{{ t('project_group_fallback') }}</text>
 					</view>
-					<text class="team-stat-arrow">›</text>
-				</view>
-				<view class="team-stat-card" @click="goCreateGroup">
-					<view class="team-stat-icon bg-groups">
-						<text class="team-stat-icon-text">👥</text>
+					<view class="stat-card" hover-class="stat-card-hover" @click="goProject">
+						<view class="stat-card-top">
+							<view class="stat-ico bg-workflows">
+								<text class="stat-ico-emoji">📋</text>
+							</view>
+							<text class="team-stat-num">{{ workflowCount }}</text>
+						</view>
+						<text class="team-stat-label">{{ t('workflow') }}</text>
 					</view>
-					<view class="team-stat-info">
-						<text class="team-stat-num">{{ groupCount }}</text>
-						<text class="team-stat-label">项目群</text>
-					</view>
-					<text class="team-stat-arrow">›</text>
-				</view>
-				<view class="team-stat-card" @click="goProject">
-					<view class="team-stat-icon bg-workflows">
-						<text class="team-stat-icon-text">📋</text>
-					</view>
-					<view class="team-stat-info">
-						<text class="team-stat-num">{{ workflowCount }}</text>
-						<text class="team-stat-label">工作流</text>
-					</view>
-					<text class="team-stat-arrow">›</text>
 				</view>
 			</view>
 
 			<view class="group-spacer" />
 
 			<view class="quick-actions">
-				<view class="quick-action-item" @click="goCreateAgent">
-					<text class="quick-action-icon">⚡</text>
-					<text class="quick-action-text">招聘新员工</text>
+				<view class="quick-tile" hover-class="quick-tile-hover" @click="goCreateAgent">
+					<view class="quick-tile-ico quick-ico-hire">
+						<text class="quick-tile-emoji">⚡</text>
+					</view>
+					<view class="quick-tile-texts">
+						<text class="quick-tile-title">{{ t('profile_quick_hire_title') }}</text>
+						<text class="quick-tile-sub">{{ t('profile_quick_hire_sub') }}</text>
+					</view>
+					<text class="quick-tile-arrow">›</text>
 				</view>
-				<view class="quick-action-item" @click="goCreateGroup">
-					<text class="quick-action-icon">🚀</text>
-					<text class="quick-action-text">创建项目群</text>
+				<view class="quick-tile" hover-class="quick-tile-hover" @click="goCreateGroup">
+					<view class="quick-tile-ico quick-ico-group">
+						<text class="quick-tile-emoji">🚀</text>
+					</view>
+					<view class="quick-tile-texts">
+						<text class="quick-tile-title">{{ t('profile_quick_group_title') }}</text>
+						<text class="quick-tile-sub">{{ t('profile_quick_group_sub') }}</text>
+					</view>
+					<text class="quick-tile-arrow">›</text>
 				</view>
 			</view>
 
@@ -76,97 +85,92 @@
 					<view class="cell-icon bg-report">
 						<text class="cell-glyph-text">📊</text>
 					</view>
-					<text class="cell-title">工作日报</text>
-					<text class="cell-sub">查看团队今日工作</text>
-					<text class="cell-arrow">›</text>
-				</view>
-				<text class="cell-title">{{ t('workflow') }}</text>
-				<text class="cell-arrow">›</text>
-			</view>
-			</view>
-
-			<view class="group-spacer" />
-
-			<view class="cell-group">
-				<view class="cell cell-border" @click="goPage('/pages/add/add')">
-					<view class="cell-icon bg-add">
-						<text class="iconfont cell-glyph">&#xe727;</text>
+					<view class="cell-text-wrap">
+						<text class="cell-title">{{ t('profile_daily_report') }}</text>
+						<text class="cell-sub">{{ t('profile_daily_report_sub') }}</text>
 					</view>
-					<text class="cell-title">下发任务</text>
-					<text class="cell-sub">指派工作给AI团队</text>
 					<text class="cell-arrow">›</text>
 				</view>
-			</view>
-
-			<view class="group-spacer" />
-
-			<view class="cell-group">
 				<view class="cell" @click="goPage('/pages/project/project')">
 					<view class="cell-icon bg-wf">
 						<text class="iconfont cell-glyph">&#xe620;</text>
 					</view>
-					<text class="cell-title">工作流</text>
-					<text class="cell-sub">管理协作流水线</text>
+					<view class="cell-text-wrap">
+						<text class="cell-title">{{ t('workflow') }}</text>
+						<text class="cell-sub">{{ t('profile_workflow_sub') }}</text>
+					</view>
 					<text class="cell-arrow">›</text>
 				</view>
-				<text class="cell-title">{{ t('add') }}</text>
-				<text class="cell-arrow">›</text>
 			</view>
+
+			<view class="group-spacer" />
+
+			<view class="cell-group">
+				<view class="cell" @click="goPage('/pages/add/add')">
+					<view class="cell-icon bg-add">
+						<text class="iconfont cell-glyph">&#xe727;</text>
+					</view>
+					<view class="cell-text-wrap">
+						<text class="cell-title">{{ t('profile_assign_task') }}</text>
+						<text class="cell-sub">{{ t('profile_assign_task_sub') }}</text>
+					</view>
+					<text class="cell-arrow">›</text>
+				</view>
 			</view>
 
 			<view class="group-spacer" />
 
 			<view v-if="!loggedIn" class="cell-group">
-				<view class="cell cell-border" @click="goLogin">
-				<view class="cell-icon bg-account">
-					<text class="iconfont cell-glyph">&#xe654;</text>
+				<view class="cell" @click="goLogin">
+					<view class="cell-icon bg-account">
+						<text class="iconfont cell-glyph">&#xe654;</text>
+					</view>
+					<text class="cell-title">{{ t('login') }}</text>
+					<text class="cell-arrow">›</text>
 				</view>
-				<text class="cell-title">{{ t('login') }}</text>
-				<text class="cell-arrow">›</text>
-			</view>
-			<view class="cell" @click="goRegister">
-				<view class="cell-icon bg-reg">
-					<text class="iconfont cell-glyph">&#xe727;</text>
+				<view class="cell" @click="goRegister">
+					<view class="cell-icon bg-reg">
+						<text class="iconfont cell-glyph">&#xe727;</text>
+					</view>
+					<text class="cell-title">{{ t('register') }}</text>
+					<text class="cell-arrow">›</text>
 				</view>
-				<text class="cell-title">{{ t('register') }}</text>
-				<text class="cell-arrow">›</text>
-			</view>
 			</view>
 
 			<view v-else class="cell-group">
-				<view class="cell cell-border" @click="goPage('/pages/profile/model-settings')">
-				<view class="cell-icon bg-pwd">
-					<text class="iconfont cell-glyph">&#xe727;</text>
+				<view class="cell" @click="goPage('/pages/profile/model-settings')">
+					<view class="cell-icon bg-model">
+						<text class="cell-glyph-text cell-glyph-emoji">⚙</text>
+					</view>
+					<text class="cell-title">{{ t('model_api') }}</text>
+					<text class="cell-arrow">›</text>
 				</view>
-				<text class="cell-title">{{ t('model_api') }}</text>
-				<text class="cell-arrow">›</text>
-			</view>
-			<view class="cell cell-border" @click="goChangePassword">
-				<view class="cell-icon bg-pwd">
-					<text class="iconfont cell-glyph">&#xe78f;</text>
+				<view class="cell" @click="goChangePassword">
+					<view class="cell-icon bg-pwd">
+						<text class="iconfont cell-glyph">&#xe78f;</text>
+					</view>
+					<text class="cell-title">{{ t('change_password') }}</text>
+					<text class="cell-arrow">›</text>
 				</view>
-				<text class="cell-title">{{ t('change_password') }}</text>
-				<text class="cell-arrow">›</text>
-			</view>
-			<view class="cell" @click="goSettings">
-				<view class="cell-icon bg-settings">
-					<text class="iconfont cell-glyph">&#xe654;</text>
+				<view class="cell" @click="goSettings">
+					<view class="cell-icon bg-settings">
+						<text class="iconfont cell-glyph">&#xe654;</text>
+					</view>
+					<text class="cell-title">{{ t('settings') }}</text>
+					<text class="cell-arrow">›</text>
 				</view>
-				<text class="cell-title">{{ t('settings') }}</text>
-				<text class="cell-arrow">›</text>
-			</view>
 			</view>
 
 			<view class="group-spacer" />
 
 			<view class="cell-group">
-				<view class="cell cell-static">
+				<view class="cell cell-static cell-about-row">
 					<text class="cell-title">{{ t('about') }}</text>
 					<text class="cell-extra">{{ t('version') }}</text>
 				</view>
 				<view class="about-desc">
-					<text class="about-line">一人公司 · AI驱动</text>
-					<text class="about-line sub">你当老板，AI当员工</text>
+					<text class="about-line">{{ t('profile_about_tagline') }}</text>
+					<text class="about-line sub">{{ t('profile_about_sub') }}</text>
 				</view>
 			</view>
 
@@ -177,17 +181,17 @@
 		<view v-if="showAgentPopup" class="mask" @click="closeAgentPopup">
 			<view class="agent-popup" @click.stop>
 				<view class="popup-header">
-					<text class="popup-title">我的团队</text>
+					<text class="popup-title">{{ t('profile_popup_my_team') }}</text>
 					<view class="popup-header-right">
-						<text class="popup-count">{{ agentList.length }} 位员工</text>
+						<text class="popup-count">{{ t('profile_team_count', { count: agentList.length }) }}</text>
 						<text class="popup-close" @click="closeAgentPopup">×</text>
 					</view>
 				</view>
 				<scroll-view scroll-y class="agent-list">
 					<view v-if="agentList.length === 0" class="agent-empty">
 						<text class="agent-empty-icon">🤖</text>
-						<text class="agent-empty-text">还没有数字员工</text>
-						<text class="agent-empty-sub">点击「招聘新员工」创建你的第一位AI员工</text>
+						<text class="agent-empty-text">{{ t('profile_agents_empty') }}</text>
+						<text class="agent-empty-sub">{{ t('profile_agents_empty_sub') }}</text>
 					</view>
 					<view
 						v-for="agent in agentList"
@@ -204,7 +208,7 @@
 								<text class="agent-name">{{ agent.name }}</text>
 								<text class="agent-role">{{ agent.role }}</text>
 							</view>
-							<text class="agent-last-msg">{{ agent.lastMsg || '已就绪，随时听候安排' }}</text>
+							<text class="agent-last-msg">{{ agent.lastMsg || t('vt_agent_ready_hint') }}</text>
 						</view>
 						<view class="agent-right">
 							<text v-if="agent.unread > 0" class="agent-badge">{{ agent.unread > 9 ? '9+' : agent.unread }}</text>
@@ -213,7 +217,7 @@
 					</view>
 				</scroll-view>
 				<view class="popup-footer">
-					<button class="popup-btn" @click="goCreateAgent">＋ 招聘新员工</button>
+					<button class="popup-btn" @click="goCreateAgent">{{ t('profile_hire_new_cta') }}</button>
 				</view>
 			</view>
 		</view>
@@ -221,7 +225,7 @@
 		<view v-if="showDailyReportPopup" class="mask" @click="closeDailyReportPopup">
 			<view class="report-popup" @click.stop>
 				<view class="popup-header">
-					<text class="popup-title">工作日报</text>
+					<text class="popup-title">{{ t('profile_daily_report') }}</text>
 					<view class="popup-header-right">
 						<text class="popup-count">{{ dailyReport ? dailyReport.date : '' }}</text>
 						<text class="popup-close" @click="closeDailyReportPopup">×</text>
@@ -232,22 +236,22 @@
 						<view class="report-summary">
 							<view class="summary-item">
 								<text class="summary-num">{{ dailyReport.agentCount }}</text>
-								<text class="summary-label">数字员工</text>
+								<text class="summary-label">{{ t('digital_employee_fallback') }}</text>
 							</view>
 							<view class="summary-item">
 								<text class="summary-num">{{ dailyReport.groupCount }}</text>
-								<text class="summary-label">项目群</text>
+								<text class="summary-label">{{ t('project_group_fallback') }}</text>
 							</view>
 							<view class="summary-item">
 								<text class="summary-num">{{ dailyReport.workflowCount }}</text>
-								<text class="summary-label">工作流</text>
+								<text class="summary-label">{{ t('workflow') }}</text>
 							</view>
 						</view>
 						<view class="report-divider" />
 						<view class="report-section">
-							<text class="section-title">团队状态</text>
+							<text class="section-title">{{ t('profile_report_team_status') }}</text>
 							<view v-if="dailyReport.agentList.length === 0" class="report-empty">
-								<text class="report-empty-text">暂无数字员工</text>
+								<text class="report-empty-text">{{ t('profile_report_no_agents') }}</text>
 							</view>
 							<view v-for="agent in dailyReport.agentList" :key="agent.name" class="report-agent">
 								<view class="report-agent-avatar" :style="{ background: avatarColor(agent.name) }">
@@ -257,8 +261,8 @@
 									<text class="report-agent-name">{{ agent.name }}</text>
 									<text class="report-agent-role">{{ agent.role }}</text>
 								</view>
-								<view class="report-agent-status" :class="{ busy: agent.status === '忙碌中' }">
-									<text>{{ agent.status }}</text>
+								<view class="report-agent-status" :class="{ busy: agent.status === 'busy' }">
+									<text>{{ agent.status === 'busy' ? t('agent_status_busy') : t('agent_status_ready') }}</text>
 								</view>
 							</view>
 						</view>
@@ -272,7 +276,7 @@
 <script>
 	import { getToken, getUserInfo, setUserInfo } from "@/utils/index";
 	import { switchMainTab } from "@/utils/tabNav";
-	import { t, getLanguage } from "@/utils/lang";
+	import { t as translate, getLanguage } from "@/utils/lang";
 	import AppTabBar from "@/components/AppTabBar.vue";
 	import { getAuthProfile, mergeProfileIntoUser, resolveAvatarDisplayUrl } from "@/clientApi/authApi";
 	import { loadDigitalAgents, loadProjectGroups } from "@/utils/virtualTeamStore";
@@ -304,8 +308,8 @@
 				return u.name || this.t('my_account');
 			},
 			accountSubLine() {
-				if (!this.loggedIn) return "点击登录，开始管理你的AI团队";
-				return "一人公司 · 团队负责人";
+				if (!this.loggedIn) return this.t("account_sub_guest");
+				return this.t("account_sub_logged");
 			},
 			avatarChar() {
 				const n = this.displayName;
@@ -334,7 +338,7 @@
 		onShow() {
 			uni.hideTabBar({ animation: false });
 			try {
-				uni.setNavigationBarTitle({ title: t("profile", getLanguage()) });
+				uni.setNavigationBarTitle({ title: translate("profile", getLanguage()) });
 			} catch (e) {
 				//
 			}
@@ -342,8 +346,8 @@
 			this.loadStats();
 		},
 		methods: {
-			t(key) {
-				return t(key);
+			t(key, params = {}) {
+				return translate(key, getLanguage(), params);
 			},
 			refreshAuth() {
 				const token = getToken();
@@ -382,7 +386,11 @@
 			},
 			generateDailyReport() {
 				const today = new Date();
-				const dateStr = `${today.getFullYear()}年${today.getMonth() + 1}月${today.getDate()}日`;
+				const lang = getLanguage();
+				const y = today.getFullYear();
+				const m = today.getMonth() + 1;
+				const d = today.getDate();
+				const dateStr = translate("profile_report_date", lang, { y, m, d });
 				const agents = loadDigitalAgents();
 				const groups = loadProjectGroups();
 				try {
@@ -395,8 +403,8 @@
 						agentList: agents.map(a => ({
 							name: a.name,
 							role: a.role,
-							status: a.unread > 0 ? '忙碌中' : '已就绪'
-						}))
+							status: a.unread > 0 ? "busy" : "ready",
+						})),
 					};
 				} catch {
 					this.dailyReport = {
@@ -407,8 +415,8 @@
 						agentList: agents.map(a => ({
 							name: a.name,
 							role: a.role,
-							status: '已就绪'
-						}))
+							status: "ready",
+						})),
 					};
 				}
 			},
@@ -428,8 +436,9 @@
 				return colors[h % colors.length];
 			},
 			avatarLetter(agent) {
-				const n = (agent && agent.name) || "员";
-				return n.trim().slice(0, 1);
+				const n = (agent && agent.name) || "";
+				if (n && String(n).trim()) return String(n).trim().slice(0, 1);
+				return translate("profile_agent_char_fallback", getLanguage());
 			},
 			onHeaderTap() {
 				if (this.loggedIn) {
@@ -499,8 +508,8 @@
 	}
 
 	.header-section {
-		background: linear-gradient(135deg, #1e3a5f 0%, #1a365d 50%, #2d3748 100%);
-		padding: 32rpx 28rpx 40rpx;
+		background: linear-gradient(165deg, #f0f9ff 0%, #e0f2fe 38%, #bae6fd 100%);
+		padding: 28rpx 24rpx 32rpx;
 	}
 
 	.profile-header {
@@ -510,7 +519,15 @@
 	}
 
 	.profile-header:active {
-		opacity: 0.9;
+		opacity: 0.92;
+	}
+
+	.header-arrow {
+		font-size: 40rpx;
+		color: #94a3b8;
+		font-weight: 300;
+		flex-shrink: 0;
+		padding-left: 8rpx;
 	}
 
 	.header-left {
@@ -526,14 +543,14 @@
 		width: 100rpx;
 		height: 100rpx;
 		border-radius: 50%;
-		background: linear-gradient(135deg, #2563eb, #7c3aed);
-		box-shadow: 0 8rpx 24rpx rgba(37, 99, 235, 0.28);
+		background: linear-gradient(135deg, #3b82f6, #6366f1);
+		box-shadow: 0 6rpx 20rpx rgba(37, 99, 235, 0.22);
 		flex-shrink: 0;
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		overflow: hidden;
-		border: 3rpx solid rgba(255, 255, 255, 0.2);
+		border: 3rpx solid rgba(255, 255, 255, 0.75);
 	}
 
 	.avatar-img {
@@ -563,8 +580,8 @@
 
 	.nick {
 		font-size: 36rpx;
-		font-weight: 600;
-		color: #fff;
+		font-weight: 700;
+		color: #0f172a;
 		line-height: 1.25;
 		flex: 1;
 		min-width: 0;
@@ -587,10 +604,10 @@
 	.ceo-badge-text {
 		font-size: 20rpx;
 		font-weight: 700;
-		color: #fbbf24;
-		background: rgba(251, 191, 36, 0.15);
+		color: #b45309;
+		background: rgba(251, 191, 36, 0.35);
 		padding: 4rpx 10rpx;
-		border-radius: 6rpx;
+		border-radius: 8rpx;
 		letter-spacing: 1rpx;
 	}
 
@@ -598,134 +615,204 @@
 		display: block;
 		margin-top: 8rpx;
 		font-size: 24rpx;
-		color: rgba(255, 255, 255, 0.7);
-		line-height: 1.3;
+		color: #475569;
+		line-height: 1.35;
 	}
 
 	.team-overview {
 		display: flex;
 		flex-direction: row;
-		gap: 16rpx;
-		padding: 24rpx 28rpx;
-		background: linear-gradient(135deg, #ffffff 0%, #eff6ff 100%);
+		align-items: stretch;
+		gap: 14rpx;
+		margin-top: 28rpx;
+		padding: 0 2rpx;
 	}
 
-	.team-stat-card {
+	.stat-card {
 		flex: 1;
-		background: #fff;
-		border-radius: 20rpx;
-		padding: 24rpx 16rpx;
+		min-width: 0;
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		gap: 12rpx;
-		box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.06);
-		border: 1rpx solid #e2e8f0;
+		justify-content: center;
+		padding: 22rpx 10rpx 20rpx;
+		box-sizing: border-box;
+		border-radius: 22rpx;
+		background: rgba(255, 255, 255, 0.88);
+		border: 1rpx solid rgba(255, 255, 255, 0.95);
+		box-shadow: 0 6rpx 22rpx rgba(15, 23, 42, 0.06), 0 1rpx 0 rgba(255, 255, 255, 0.8) inset;
 	}
 
-	.team-stat-icon {
-		width: 72rpx;
-		height: 72rpx;
-		border-radius: 50%;
+	.stat-card-hover {
+		background: rgba(255, 255, 255, 0.98);
+	}
+
+	.stat-card-top {
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		justify-content: center;
+		gap: 12rpx;
+		margin-bottom: 10rpx;
+	}
+
+	.stat-ico {
+		width: 56rpx;
+		height: 56rpx;
+		border-radius: 16rpx;
 		display: flex;
 		align-items: center;
 		justify-content: center;
+		margin-bottom: 0;
+		flex-shrink: 0;
 	}
 
-	.team-stat-icon-text {
-		font-size: 36rpx;
-	}
-
-	.bg-agents {
-		background: linear-gradient(135deg, #dbeafe, #bfdbfe);
-	}
-
-	.bg-groups {
-		background: linear-gradient(135deg, #dcfce7, #bbf7d0);
-	}
-
-	.bg-workflows {
-		background: linear-gradient(135deg, #fef3c7, #fde68a);
-	}
-
-	.team-stat-info {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		gap: 4rpx;
-	}
-
-	.team-stat-num {
-		font-size: 36rpx;
-		font-weight: 800;
-		color: #0f172a;
+	.stat-ico-emoji {
+		font-size: 30rpx;
 		line-height: 1;
 	}
 
-	.team-stat-label {
-		font-size: 22rpx;
-		color: #64748b;
-		font-weight: 500;
+	.bg-agents {
+		background: linear-gradient(145deg, #dbeafe 0%, #bfdbfe 100%);
 	}
 
-	.team-stat-arrow {
-		font-size: 28rpx;
-		color: #94a3b8;
+	.bg-groups {
+		background: linear-gradient(145deg, #d1fae5 0%, #a7f3d0 100%);
+	}
+
+	.bg-workflows {
+		background: linear-gradient(145deg, #fef3c7 0%, #fde68a 100%);
+	}
+
+	.team-stat-num {
+		font-size: 34rpx;
+		font-weight: 800;
+		color: #0f172a;
+		line-height: 1;
+		letter-spacing: -0.5rpx;
+	}
+
+	.team-stat-label {
+		font-size: 20rpx;
+		color: #64748b;
 		font-weight: 600;
-		margin-top: 4rpx;
+		text-align: center;
+		line-height: 1.35;
+		max-width: 100%;
+		padding: 0 4rpx;
+		overflow: hidden;
+		display: -webkit-box;
+		-webkit-box-orient: vertical;
+		-webkit-line-clamp: 2;
+		word-break: break-word;
 	}
 
 	.quick-actions {
 		display: flex;
-		flex-direction: row;
+		flex-direction: column;
 		gap: 16rpx;
 		padding: 0 28rpx;
+		margin-top: 8rpx;
 	}
 
-	.quick-action-item {
-		flex: 1;
-		background: #fff;
-		border-radius: 16rpx;
-		padding: 20rpx 16rpx;
+	.quick-tile {
 		display: flex;
 		flex-direction: row;
 		align-items: center;
-		gap: 12rpx;
-		box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.04);
-		border: 1rpx solid #e2e8f0;
+		background: #fff;
+		border-radius: 22rpx;
+		padding: 24rpx 22rpx;
+		border: none;
+		box-shadow: 0 8rpx 26rpx rgba(15, 23, 42, 0.06);
 	}
 
-	.quick-action-icon {
-		font-size: 32rpx;
+	.quick-tile-hover {
+		background: #f8fafc;
 	}
 
-	.quick-action-text {
-		font-size: 26rpx;
-		font-weight: 600;
-		color: #1e293b;
+	.quick-tile-ico {
+		width: 76rpx;
+		height: 76rpx;
+		border-radius: 20rpx;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		flex-shrink: 0;
+		margin-right: 22rpx;
+	}
+
+	.quick-ico-hire {
+		background: linear-gradient(145deg, #fff7ed 0%, #ffedd5 100%);
+	}
+
+	.quick-ico-group {
+		background: linear-gradient(145deg, #fdf2f8 0%, #fce7f3 100%);
+	}
+
+	.quick-tile-emoji {
+		font-size: 36rpx;
+		line-height: 1;
+	}
+
+	.quick-tile-texts {
+		flex: 1;
+		min-width: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 6rpx;
+	}
+
+	.quick-tile-title {
+		font-size: 30rpx;
+		font-weight: 700;
+		color: #0f172a;
+		letter-spacing: 0.2rpx;
+	}
+
+	.quick-tile-sub {
+		font-size: 24rpx;
+		color: #94a3b8;
+		line-height: 1.35;
+	}
+
+	.quick-tile-arrow {
+		flex-shrink: 0;
+		font-size: 34rpx;
+		color: #cbd5e1;
+		font-weight: 300;
+		padding-left: 12rpx;
 	}
 
 	.group-spacer {
-		height: 16rpx;
+		height: 20rpx;
 		background-color: #f1f5f9;
 	}
 
 	.cell-group {
-		background-color: #fff;
-		padding-left: 28rpx;
+		display: flex;
+		flex-direction: column;
+		gap: 16rpx;
+		margin-left: 28rpx;
+		margin-right: 28rpx;
+		background: transparent;
+		border: none;
+		box-shadow: none;
+	}
+
+	.cell-group .cell {
+		background: #fff;
+		border-radius: 22rpx;
+		border: none;
+		box-shadow: 0 8rpx 26rpx rgba(15, 23, 42, 0.06);
 	}
 
 	.cell {
 		display: flex;
 		flex-direction: row;
 		align-items: center;
-		min-height: 108rpx;
-		padding: 22rpx 28rpx 22rpx 0;
+		min-height: 112rpx;
+		padding: 26rpx 28rpx;
 		box-sizing: border-box;
-	}
-
-	.cell-border {
-		border-bottom: 1rpx solid #e2e8f0;
 	}
 
 	.cell:active {
@@ -737,14 +824,14 @@
 	}
 
 	.cell-icon {
-		width: 64rpx;
-		height: 64rpx;
-		border-radius: 12rpx;
+		width: 72rpx;
+		height: 72rpx;
+		border-radius: 18rpx;
 		flex-shrink: 0;
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		margin-right: 24rpx;
+		margin-right: 22rpx;
 	}
 
 	.cell-glyph {
@@ -759,6 +846,11 @@
 		color: #fff;
 	}
 
+	.cell-glyph-emoji {
+		font-size: 34rpx;
+		font-weight: 600;
+	}
+
 	.bg-wf {
 		background: linear-gradient(145deg, #2563eb, #1d4ed8);
 	}
@@ -771,6 +863,10 @@
 	.bg-reg {
 		background: linear-gradient(145deg, #8b5cf6, #7c3aed);
 	}
+	.bg-model {
+		background: linear-gradient(145deg, #0d9488, #14b8a6);
+	}
+
 	.bg-pwd {
 		background: linear-gradient(145deg, #64748b, #475569);
 	}
@@ -781,11 +877,31 @@
 		background: linear-gradient(145deg, #2563eb, #1d4ed8);
 	}
 
+	.cell-text-wrap {
+		flex: 1;
+		min-width: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 6rpx;
+		padding-right: 8rpx;
+	}
+
+	.cell-text-wrap .cell-title {
+		flex: none;
+		font-weight: 600;
+	}
+
+	.cell-text-wrap .cell-sub {
+		margin-right: 0;
+		line-height: 1.35;
+	}
+
 	.cell-title {
 		flex: 1;
-		font-size: 32rpx;
-		color: #1e293b;
-		font-weight: 400;
+		font-size: 31rpx;
+		color: #0f172a;
+		font-weight: 600;
+		letter-spacing: 0.2rpx;
 	}
 
 	.cell-sub {
@@ -809,12 +925,16 @@
 		padding-left: 12rpx;
 	}
 
-	.cell-static {
-		border-bottom: 1rpx solid #e2e8f0;
+	.cell-about-row {
+		border-bottom: none;
 	}
 
 	.about-desc {
-		padding: 24rpx 28rpx 28rpx 0;
+		padding: 24rpx 28rpx 32rpx;
+		background: #fafbfc;
+		border-radius: 22rpx;
+		border: none;
+		box-shadow: 0 8rpx 26rpx rgba(15, 23, 42, 0.06);
 	}
 
 	.about-line {

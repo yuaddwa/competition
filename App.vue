@@ -214,6 +214,10 @@
 		background: linear-gradient(135deg, var(--primary-color), #4f46e5) !important;
 	}
 
+	.bg-model {
+		background: linear-gradient(145deg, #4f46e6, #6366f1) !important;
+	}
+
 	.popup-btn,
 	.fab-btn,
 	.empty-primary {

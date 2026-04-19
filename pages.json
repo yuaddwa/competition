@@ -84,31 +84,41 @@
 			"path": "pages/profile/profile",
 			"style": {
 				"navigationBarTitleText": "我的",
-				"navigationBarBackButtonHidden": true
+				"navigationBarBackButtonHidden": true,
+				"navigationBarBackgroundColor": "#f1f5f9",
+				"navigationBarTextStyle": "black"
 			}
 		},
 		{
 			"path": "pages/profile/change-password",
 			"style": {
-				"navigationBarTitleText": "修改密码"
+				"navigationBarTitleText": "修改密码",
+				"navigationBarBackgroundColor": "#f1f5f9",
+				"navigationBarTextStyle": "black"
 			}
 		},
 		{
 			"path": "pages/profile/profile-info",
 			"style": {
-				"navigationBarTitleText": "个人资料"
+				"navigationBarTitleText": "个人资料",
+				"navigationBarBackgroundColor": "#f1f5f9",
+				"navigationBarTextStyle": "black"
 			}
 		},
 		{
 			"path": "pages/profile/model-settings",
 			"style": {
-				"navigationBarTitleText": "模型与 API"
+				"navigationBarTitleText": "模型与 API",
+				"navigationBarBackgroundColor": "#f1f5f9",
+				"navigationBarTextStyle": "black"
 			}
 		},
 		{
 			"path": "pages/profile/settings",
 			"style": {
-				"navigationBarTitleText": "设置"
+				"navigationBarTitleText": "设置",
+				"navigationBarBackgroundColor": "#f1f5f9",
+				"navigationBarTextStyle": "black"
 			}
 		},
 		{

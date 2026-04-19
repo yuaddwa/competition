@@ -2,42 +2,45 @@
 	<view class="page">
 		<view class="card">
 			<view class="head">
-			<view class="avatar-wrap" @click="chooseAvatar">
-				<image
-					v-if="avatarDisplay"
-					class="avatar-img"
-					:src="avatarDisplay"
-					mode="aspectFill"
-				/>
-				<text v-else class="avatar-text">{{ avatarChar }}</text>
-				<view class="avatar-badge">
-					<text class="avatar-badge-t">{{ t('change') }}</text>
+				<view class="avatar-wrap" @click="chooseAvatar">
+					<image
+						v-if="avatarDisplay"
+						class="avatar-img"
+						:src="avatarDisplay"
+						mode="aspectFill"
+					/>
+					<text v-else class="avatar-text">{{ avatarChar }}</text>
+					<view class="avatar-badge">
+						<text class="avatar-badge-t">{{ t("change") }}</text>
+					</view>
+				</view>
+				<view class="head-main">
+					<text class="name">{{ displayName }}</text>
+					<text class="sub">{{ phoneText }}</text>
+					<text v-if="emailLine" class="sub mail">{{ emailLine }}</text>
 				</view>
 			</view>
-			<view class="head-main">
-				<text class="name">{{ displayName }}</text>
-				<text class="sub">{{ phoneText }}</text>
-				<text v-if="emailLine" class="sub mail">{{ emailLine }}</text>
-			</view>
-		</view>
 
-		<view class="group">
-			<view class="row row-border">
-				<text class="lab">{{ t('nickname') }}</text>
-				<input
-					class="nick-input"
-					v-model.trim="nickname"
-					maxlength="20"
-					:placeholder="t('please_enter_nickname')"
-					placeholder-class="ph"
-				/>
+			<view class="divider" />
+
+			<view class="group">
+				<view class="row row-border">
+					<text class="lab">{{ t("nickname") }}</text>
+					<input
+						class="nick-input"
+						v-model.trim="nickname"
+						maxlength="20"
+						:placeholder="t('please_enter_nickname')"
+						placeholder-class="ph"
+					/>
+				</view>
+				<view class="row">
+					<text class="lab">{{ t("phone_number") }}</text>
+					<text class="val">{{ user.phone || user.mobile || "-" }}</text>
+				</view>
 			</view>
-			<view class="row row-border">
-				<text class="lab">{{ t('phone_number') }}</text>
-				<text class="val">{{ user.phone || user.mobile || "-" }}</text>
-			</view>
-		</view>
-		<button class="btn" type="primary" :loading="saving" @click="saveNickname">{{ t('save_nickname') }}</button>
+
+			<button class="btn" type="primary" :loading="saving" @click="saveNickname">{{ t("save_nickname") }}</button>
 		</view>
 	</view>
 </template>
@@ -74,7 +77,9 @@
 				return n;
 			},
 			avatarChar() {
-				return this.displayName && this.displayName.length ? this.displayName.slice(0, 1) : this.t("profile_avatar_me");
+				return this.displayName && this.displayName.length
+					? this.displayName.slice(0, 1)
+					: this.t("profile_avatar_me");
 			},
 			avatarDisplay() {
 				return resolveAvatarDisplayUrl(this.avatarUrl || this.user.avatarUrl);
@@ -137,19 +142,19 @@
 				if (this.saving) return;
 				const nextNickname = (this.nickname || "").trim();
 				if (nextNickname.length > 20) {
-				uni.showToast({ title: this.t('nickname_max_20'), icon: "none" });
-				return;
-			}
-			this.saving = true;
-			try {
-				await patchAuthNickname(nextNickname);
-				const merged = mergeProfileIntoUser(getUserInfo() || {}, {
-					nickname: nextNickname,
-				});
-				setUserInfo(merged);
-				this.user = merged;
-				this.nickname = nextNickname;
-				uni.showToast({ title: this.t('saved'), icon: "success" });
+					uni.showToast({ title: this.t("nickname_max_20"), icon: "none" });
+					return;
+				}
+				this.saving = true;
+				try {
+					await patchAuthNickname(nextNickname);
+					const merged = mergeProfileIntoUser(getUserInfo() || {}, {
+						nickname: nextNickname,
+					});
+					setUserInfo(merged);
+					this.user = merged;
+					this.nickname = nextNickname;
+					uni.showToast({ title: this.t("saved"), icon: "success" });
 				} catch (e) {
 					console.warn("[profile-info] PATCH nickname", e);
 				} finally {
@@ -193,43 +198,43 @@
 		min-height: 100vh;
 		background: #f1f5f9;
 		padding: 28rpx;
+		padding-bottom: calc(28rpx + env(safe-area-inset-bottom));
 		box-sizing: border-box;
 	}
 
 	.card {
 		background: #fff;
 		border-radius: 24rpx;
-		padding: 30rpx;
+		padding: 32rpx 28rpx 36rpx;
 		box-shadow: 0 12rpx 36rpx rgba(15, 23, 42, 0.06);
-		border: 1rpx solid #e2e8f0;
+		border: none;
 	}
 
 	.head {
 		display: flex;
 		flex-direction: row;
 		align-items: center;
-		padding-bottom: 24rpx;
-		border-bottom: 1rpx solid #e2e8f0;
-		margin-bottom: 16rpx;
 	}
 
 	.avatar-wrap {
 		position: relative;
 		width: 120rpx;
 		height: 120rpx;
-		border-radius: 18rpx;
+		border-radius: 50%;
 		background: linear-gradient(135deg, #2563eb, #7c3aed);
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		flex-shrink: 0;
 		overflow: hidden;
+		border: 3rpx solid rgba(37, 99, 235, 0.15);
+		box-shadow: 0 8rpx 24rpx rgba(37, 99, 235, 0.22);
 	}
 
 	.avatar-img {
 		width: 120rpx;
 		height: 120rpx;
-		border-radius: 18rpx;
+		border-radius: 50%;
 	}
 
 	.avatar-text {
@@ -243,7 +248,7 @@
 		left: 0;
 		right: 0;
 		bottom: 0;
-		padding: 4rpx 0;
+		padding: 6rpx 0;
 		background: rgba(15, 23, 42, 0.55);
 		text-align: center;
 	}
@@ -254,7 +259,7 @@
 	}
 
 	.head-main {
-		margin-left: 22rpx;
+		margin-left: 24rpx;
 		min-width: 0;
 		flex: 1;
 	}
@@ -281,12 +286,18 @@
 		word-break: break-all;
 	}
 
+	.divider {
+		height: 1rpx;
+		background: #e2e8f0;
+		margin: 28rpx 0 8rpx;
+	}
+
 	.group {
-		background: #fff;
+		padding-top: 8rpx;
 	}
 
 	.row {
-		min-height: 92rpx;
+		min-height: 96rpx;
 		display: flex;
 		flex-direction: row;
 		align-items: center;
@@ -300,10 +311,13 @@
 	.lab {
 		font-size: 28rpx;
 		color: #475569;
+		font-weight: 500;
+		flex-shrink: 0;
+		margin-right: 24rpx;
 	}
 
 	.val {
-		max-width: 66%;
+		flex: 1;
 		text-align: right;
 		font-size: 28rpx;
 		color: #0f172a;
@@ -313,8 +327,7 @@
 	.nick-input {
 		flex: 1;
 		min-width: 0;
-		margin-left: 24rpx;
-		height: 64rpx;
+		height: 72rpx;
 		text-align: right;
 		font-size: 28rpx;
 		color: #0f172a;
@@ -325,11 +338,11 @@
 	}
 
 	.btn {
-		margin-top: 28rpx;
-		height: 86rpx;
-		line-height: 86rpx;
+		margin-top: 36rpx;
+		height: 92rpx;
+		line-height: 92rpx;
 		border: none;
-		border-radius: 43rpx;
+		border-radius: 46rpx;
 		font-size: 30rpx;
 		font-weight: 700;
 		background: linear-gradient(135deg, #2563eb, #7c3aed) !important;

@@ -314,7 +314,8 @@
 		padding: 18rpx 16rpx;
 		background: #fff;
 		border-radius: 18rpx;
-		border: 1rpx solid #e2e8f0;
+		border: none;
+		box-shadow: 0 8rpx 26rpx rgba(15, 23, 42, 0.06);
 	}
 
 	.step {
@@ -368,8 +369,8 @@
 		border-radius: 18rpx;
 		padding: 22rpx 24rpx;
 		margin-bottom: 20rpx;
-		border: 1rpx solid #e2e8f0;
-		box-shadow: 0 8rpx 24rpx rgba(30, 58, 138, 0.06);
+		border: none;
+		box-shadow: 0 8rpx 28rpx rgba(15, 23, 42, 0.06);
 	}
 
 	.wf-info {
@@ -406,8 +407,8 @@
 		border-radius: 18rpx;
 		padding: 22rpx 24rpx;
 		margin-bottom: 18rpx;
-		border: 1rpx solid #e8ecf3;
-		box-shadow: 0 8rpx 22rpx rgba(15, 23, 42, 0.05);
+		border: none;
+		box-shadow: 0 8rpx 26rpx rgba(15, 23, 42, 0.06);
 	}
 
 	.label {
@@ -504,7 +505,8 @@
 		padding: 24rpx;
 		background: #fff;
 		border-radius: 18rpx;
-		border: 1rpx dashed #cbd5e1;
+		border: none;
+		box-shadow: 0 8rpx 26rpx rgba(15, 23, 42, 0.06);
 		margin-bottom: 24rpx;
 	}
 

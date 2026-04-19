@@ -1,5 +1,7 @@
 // 消息相关工具函数
 
+import { t, getLanguage } from "./lang.js";
+
 /**
  * 分组消息按项目名
  * @param {Array} messages - 消息列表
@@ -36,11 +38,12 @@ export function loadMessages() {
 	let stored = uni.getStorageSync('projectMessages') || []
 	const firstLaunch = !uni.getStorageSync('hasLaunched')
 	if (firstLaunch) {
+		const lang = getLanguage();
 		const bossMessage = {
 			id: 'boss-' + Date.now(),
-			projectName: '工程部',
-			title: '问候',
-			content: '有什么问题',
+			projectName: t("engineering_department", lang),
+			title: t("seed_inbox_title", lang),
+			content: t("seed_inbox_question", lang),
 			time: new Date().toISOString(),
 			url: '',
 			read: false

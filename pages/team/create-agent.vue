@@ -11,8 +11,8 @@
 		</view>
 		<view class="card">
 			<text class="label">{{ t('gender_display') }}</text>
-			<picker mode="selector" :range="genderOptions" :value="genderIdx" @change="onGender">
-				<view class="picker-line">{{ genderOptions[genderIdx] }}</view>
+			<picker mode="selector" :range="genderPickLabels" :value="genderIdx" @change="onGender">
+				<view class="picker-line">{{ genderPickLabels[genderIdx] }}</view>
 			</picker>
 		</view>
 
@@ -33,8 +33,8 @@
 		<view class="section-t">{{ t('collaboration_preference') }}</view>
 		<view class="card">
 			<text class="label">{{ t('reply_style') }}</text>
-			<picker mode="selector" :range="replyOptions" :value="replyIdx" @change="onReply">
-				<view class="picker-line">{{ replyOptions[replyIdx] }}</view>
+			<picker mode="selector" :range="replyPickLabels" :value="replyIdx" @change="onReply">
+				<view class="picker-line">{{ replyPickLabels[replyIdx] }}</view>
 			</picker>
 			<text class="hint">{{ t('reply_style_hint') }}</text>
 		</view>
@@ -50,8 +50,11 @@
 </template>
 
 <script>
-	import { addAgent } from "@/utils/virtualTeamStore";
+	import { addDigitalAgent } from "@/utils/virtualTeamStore";
 	import { t, getLanguage } from "@/utils/lang";
+
+	const GENDER_VALUES = ["unspecified", "male", "female"];
+	const REPLY_VALUES = ["brief", "detailed", "bluf_first"];
 
 	export default {
 		data() {
@@ -63,11 +66,17 @@
 				experience: "",
 				remark: "",
 				busy: false,
-				genderOptions: ["保密", "男", "女"],
 				genderIdx: 0,
-				replyOptions: ["简洁", "详细", "先说结论再展开"],
 				replyIdx: 1,
 			};
+		},
+		computed: {
+			genderPickLabels() {
+				return [this.t("gender_option_private"), this.t("gender_option_male"), this.t("gender_option_female")];
+			},
+			replyPickLabels() {
+				return [this.t("reply_option_brief"), this.t("reply_option_detailed"), this.t("reply_option_bluf")];
+			},
 		},
 		methods: {
 			t(key, params = {}) {
@@ -92,14 +101,14 @@
 			}
 			this.busy = true;
 			try {
-				addAgent({
+				addDigitalAgent({
 					name: n,
 					role: r,
-					gender: this.genderOptions[this.genderIdx] || "男",
+					gender: GENDER_VALUES[this.genderIdx] || "unspecified",
 					personality: this.personality,
 					hobbies: this.hobbies,
 					experience: this.experience,
-					replyStyle: this.replyOptions[this.replyIdx] || "详细",
+					replyStyle: REPLY_VALUES[this.replyIdx] || "detailed",
 					remark: this.remark,
 				});
 				uni.showToast({ title: this.t('created'), icon: "success" });

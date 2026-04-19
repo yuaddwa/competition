@@ -2,29 +2,29 @@
 <template>
 	<scroll-view scroll-y class="page">
 		<view class="hero">
-			<text class="eyebrow">交付治理</text>
+			<text class="eyebrow">{{ t('dept_pm_eyebrow') }}</text>
 			<text class="title">{{ cleanDeptLabel(translatedDepartment.name) }}</text>
 			<text class="desc">{{ translatedDepartment.desc }}</text>
 		</view>
 
 		<view class="card">
-			<text class="h">里程碑 / 检查点</text>
+			<text class="h">{{ t('dept_pm_ms_h') }}</text>
 			<view v-for="(m, i) in milestones" :key="i" class="ms-row">
 				<text class="idx">{{ i + 1 }}</text>
-				<input v-model="milestones[i]" class="inp-grow" placeholder="描述节点与完成标准" />
-				<text class="del" @click="milestones.splice(i, 1)">删</text>
+				<input v-model="milestones[i]" class="inp-grow" :placeholder="t('dept_pm_ms_ph')" />
+				<text class="del" @click="milestones.splice(i, 1)">{{ t('dept_pm_ms_del') }}</text>
 			</view>
-			<button class="add" size="mini" @click="milestones.push('')">＋ 添加节点</button>
+			<button class="add" size="mini" @click="milestones.push('')">{{ t('dept_pm_ms_add') }}</button>
 		</view>
 
 		<view class="card">
-			<text class="h">综合风险热度（自评 1–5）</text>
+			<text class="h">{{ t('dept_pm_risk_h') }}</text>
 			<text class="risk-val">{{ risk }}</text>
 			<slider :value="risk" min="1" max="5" step="1" show-value activeColor="#16a34a" @changing="e => (risk = +e.detail.value)" @change="e => (risk = +e.detail.value)" />
 		</view>
 
 		<view class="card">
-			<text class="h">启用治理角色</text>
+			<text class="h">{{ t('dept_pm_gov_h') }}</text>
 			<view class="chk">
 				<label v-for="s in translatedDepartment.services" :key="s.id" class="chk-row" @tap="tog(s.id)">
 					<text class="box">{{ gov.has(s.id) ? '☑' : '☐' }}</text>
@@ -34,8 +34,8 @@
 		</view>
 
 		<view class="actions">
-			<button class="btn ghost" @click="reset">清空</button>
-			<button class="btn primary" type="primary" @click="submit">导出治理纪要</button>
+			<button class="btn ghost" @click="reset">{{ t('dept_pm_reset') }}</button>
+			<button class="btn primary" type="primary" @click="submit">{{ t('dept_pm_submit') }}</button>
 		</view>
 		<view class="pad" />
 	</scroll-view>
@@ -50,9 +50,9 @@
 		props: { department: { type: Object, required: true } },
 		data() {
 			return {
-				milestone: "",
-				risk: "",
-				team: new Set(),
+				milestones: [""],
+				risk: 3,
+				gov: new Set(),
 			};
 		},
 		computed: {
