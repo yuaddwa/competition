@@ -3,8 +3,8 @@
 	<scroll-view scroll-y class="page">
 		<view class="hero">
 			<text class="eyebrow">体验与视觉</text>
-			<text class="title">{{ cleanDeptLabel(department.name) }}</text>
-			<text class="desc">{{ department.desc }}</text>
+			<text class="title">{{ cleanDeptLabel(translatedDepartment.name) }}</text>
+			<text class="desc">{{ translatedDepartment.desc }}</text>
 		</view>
 
 		<view class="card">
@@ -38,7 +38,7 @@
 			<text class="h">席位（选角色）</text>
 			<view class="seat-list">
 				<view
-					v-for="s in department.services"
+					v-for="s in translatedDepartment.services"
 					:key="s.id"
 					class="seat"
 					:class="{ on: picked === s.id }"
@@ -60,6 +60,7 @@
 
 <script>
 	import { cleanDeptLabel } from "@/utils/deptUi";
+	import { t, getLanguage, translateDepartment } from "@/utils/lang";
 
 	export default {
 		name: "DeptDesign",
@@ -83,7 +84,15 @@
 				picked: "",
 			};
 		},
+		computed: {
+			translatedDepartment() {
+				return translateDepartment(this.department, getLanguage());
+			},
+		},
 		methods: {
+			t(key, params = {}) {
+				return t(key, getLanguage(), params);
+			},
 			cleanDeptLabel,
 			toggleDel(key) {
 				const n = new Set(this.delSet);
@@ -100,14 +109,14 @@
 			},
 			submit() {
 				if (this.delSet.size === 0) {
-					uni.showToast({ title: "请勾选至少一项交付物", icon: "none" });
+					uni.showToast({ title: this.t("dept_des_err_deliver"), icon: "none" });
 					return;
 				}
 				if (!this.picked) {
-					uni.showToast({ title: "请选定一个主设计席位", icon: "none" });
+					uni.showToast({ title: this.t("dept_des_err_seat"), icon: "none" });
 					return;
 				}
-				uni.showToast({ title: "设计工单已生成（待接后端）", icon: "success" });
+				uni.showToast({ title: this.t("dept_des_ok"), icon: "success" });
 			},
 		},
 	};

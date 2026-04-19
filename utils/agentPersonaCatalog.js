@@ -27,6 +27,18 @@ function snippetZhPreviewFallback(snippet) {
 	return "点击进入对话 · 查看完整人设说明";
 }
 
+/** 从 snippet 中提取英文 description */
+function snippetEnPreview(snippet) {
+	const raw = String(snippet || "").replace(/^---[^\n]*\n?/m, "").trim();
+	const yaml = raw.match(/\bdescription\s*:\s*(.+?)\s+(?:color|emoji|vibe)\s*:/is)?.[1] ||
+		raw.match(/\bdescription\s*:\s*(.+)$/is)?.[1];
+	if (yaml) {
+		let t = String(yaml).trim().replace(/\s+/g, " ");
+		return t.length > 110 ? `${t.slice(0, 107)}…` : t;
+	}
+	return "Tap to chat · View full persona details";
+}
+
 /** @returns {PersonaRow[]} */
 export function listPersonasByCategorySlug(slug) {
 	if (!slug) return [];
@@ -39,13 +51,20 @@ export function getPersonaById(id) {
 	return catalog.find((p) => p.id === id) || null;
 }
 
-/** 界面与聊天标题（中文优先） */
-export function personaChatTitle(persona) {
+/** 界面与聊天标题（中文优先，lang 为 'en' 时返回英文） */
+export function personaChatTitle(persona, lang = "zh") {
+	if (lang === "en") {
+		return (persona?.title || "").replace(/\s*Agent Personality\s*$/i, "").replace(/\s*Agent\s*$/i, "").trim() || "Persona";
+	}
 	return personaTitleZh(persona);
 }
 
 /** 部门角色列表副标题（请只从本模块取，避免页面侧重复引用 personaDisplayZh 导致 mp 运行时非函数） */
-export function personaSnippetLine(persona) {
+export function personaSnippetLine(persona, lang = "zh") {
+	if (lang === "en") {
+		const snippet = persona?.snippet || "";
+		return snippetEnPreview(snippet);
+	}
 	const snippet = persona?.snippet || "";
 	if (typeof snippetZhPreviewFn === "function") {
 		try {

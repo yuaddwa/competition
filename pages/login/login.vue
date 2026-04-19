@@ -3,29 +3,29 @@
 		<view class="auth-bg" />
 		<view class="auth-main">
 			<view class="auth-card">
-			<text class="brand">欢迎回来</text>
-			<text class="sub">使用账号或手机号登录，开始使用工作台</text>
+			<text class="brand">{{ t('welcome_back') }}</text>
+			<text class="sub">{{ t('login_subtitle') }}</text>
 
 			<view class="field">
-				<text class="lab">账号 / 手机号</text>
-				<input class="inp" v-model="phone" placeholder="请输入账号或手机号" placeholder-class="ph" />
+				<text class="lab">{{ t('account_phone') }}</text>
+				<input class="inp" v-model="phone" :placeholder="t('input_account_phone')" placeholder-class="ph" />
 			</view>
 
 			<view class="field">
-				<text class="lab">密码</text>
+				<text class="lab">{{ t('password') }}</text>
 				<view class="pwd-wrap">
-					<input class="inp pwd" :password="!showPw" v-model="password" placeholder="请输入密码" placeholder-class="ph" />
+					<input class="inp pwd" :password="!showPw" v-model="password" :placeholder="t('input_password')" placeholder-class="ph" />
 					<text class="eye iconfont" @click="showPw = !showPw">{{ showPw ? '\ue78f' : '\ue8ff' }}</text>
 				</view>
 			</view>
 
 			<!-- 小程序里原生 button 偶发不触发；view + tap/click。点击后走 authApi.login → POST /api/auth/login -->
 			<view class="submit primary" :class="{ 'is-busy': loading }" hover-class="submit-hover" @tap.stop="onLogin" @click.stop="onLogin">
-				<text>{{ loading ? "登录中…" : "登录" }}</text>
+				<text>{{ loading ? t('logging_in') : t('login') }}</text>
 			</view>
 
 			<view class="foot">
-				<text class="link" @tap.stop="goRegister">还没有账号？注册</text>
+				<text class="link" @tap.stop="goRegister">{{ t('no_account') }}</text>
 			</view>
 			</view>
 		</view>
@@ -35,6 +35,7 @@
 <script>
 	import { setToken, setUserInfo } from "@/utils/index";
 	import * as authApi from "@/clientApi/authApi";
+	import { t, getLanguage } from "@/utils/lang";
 
 	export default {
 		data() {
@@ -45,32 +46,42 @@
 				loading: false,
 			};
 		},
+		onShow() {
+			try {
+				uni.setNavigationBarTitle({ title: t("login", getLanguage()) });
+			} catch (e) {
+				//
+			}
+		},
 		methods: {
+			t(key, params = {}) {
+				return t(key, getLanguage(), params);
+			},
 			async onLogin() {
 				if (this.loading) return;
 				const phone = (this.phone || "").trim();
 				if (!phone) {
-					uni.showToast({ title: "请输入手机号", icon: "none" });
+					uni.showToast({ title: this.t('please_input_phone'), icon: "none" });
 					return;
 				}
 				if (!this.password) {
-					uni.showToast({ title: "请输入密码", icon: "none" });
+					uni.showToast({ title: this.t('please_input_password'), icon: "none" });
 					return;
 				}
 				this.loading = true;
-				uni.showLoading({ title: "登录中", mask: true });
+				uni.showLoading({ title: this.t('logging_in'), mask: true });
 				try {
 					const { token, user } = await authApi.login({
 						phone,
 						password: this.password,
 					});
 					if (!token) {
-						uni.showToast({ title: "登录成功但未返回 token", icon: "none" });
+						uni.showToast({ title: this.t('login_success_no_token'), icon: "none" });
 						return;
 					}
 					setToken(token);
-					setUserInfo(user || { phone: account, username: account });
-					uni.showToast({ title: "登录成功", icon: "success" });
+					setUserInfo(user || { phone: phone, username: phone });
+					uni.showToast({ title: this.t('login_success'), icon: "success" });
 					setTimeout(() => {
 						uni.switchTab({
 							url: "/pages/profile/profile",

@@ -3,8 +3,8 @@
 	<scroll-view scroll-y class="page">
 		<view class="hero">
 			<text class="eyebrow">产品与路线</text>
-			<text class="title">{{ cleanDeptLabel(department.name) }}</text>
-			<text class="desc">{{ department.desc }}</text>
+			<text class="title">{{ cleanDeptLabel(translatedDepartment.name) }}</text>
+			<text class="desc">{{ translatedDepartment.desc }}</text>
 		</view>
 
 		<view class="card">
@@ -30,15 +30,15 @@
 		<view class="card">
 			<text class="h">产品经理编组（多选）</text>
 			<view class="tiles">
-				<view v-for="s in department.services" :key="s.id" class="tile" :class="{ on: set.has(s.id) }" @click="tog(s.id)">
+				<view v-for="s in translatedDepartment.services" :key="s.id" class="tile" :class="{ on: set.has(s.id) }" @click="tog(s.id)">
 					<text>{{ cleanDeptLabel(s.name) }}</text>
 				</view>
 			</view>
 		</view>
 
 		<view class="actions">
-			<button class="btn ghost" @click="reset">重置</button>
-			<button class="btn primary" type="primary" @click="submit">生成路线图切片</button>
+			<button class="btn ghost" @click="reset">清空</button>
+			<button class="btn primary" type="primary" @click="submit">生成路线评估</button>
 		</view>
 		<view class="pad" />
 	</scroll-view>
@@ -46,20 +46,29 @@
 
 <script>
 	import { cleanDeptLabel } from "@/utils/deptUi";
+	import { t, getLanguage, translateDepartment } from "@/utils/lang";
 
 	export default {
 		name: "DeptProduct",
 		props: { department: { type: Object, required: true } },
 		data() {
 			return {
-				boxes: ["本周", "本月", "本季度"],
-				boxIdx: 1,
+				boxes: ["本周", "本月", "本季度", "下季度"],
+				boxIdx: 0,
 				hypothesis: "",
 				mode: "discovery",
 				set: new Set(),
 			};
 		},
+		computed: {
+			translatedDepartment() {
+				return translateDepartment(this.department, getLanguage());
+			},
+		},
 		methods: {
+			t(key, params = {}) {
+				return t(key, getLanguage(), params);
+			},
 			cleanDeptLabel,
 			onBox(e) {
 				this.boxIdx = Number(e.detail.value);
@@ -78,14 +87,14 @@
 			},
 			submit() {
 				if (!this.hypothesis.trim()) {
-					uni.showToast({ title: "请填写假设", icon: "none" });
+					uni.showToast({ title: this.t("dept_prd_err_hypo"), icon: "none" });
 					return;
 				}
 				if (this.set.size === 0) {
-					uni.showToast({ title: "请选择 PM 角色", icon: "none" });
+					uni.showToast({ title: this.t("dept_prd_err_pm"), icon: "none" });
 					return;
 				}
-				uni.showToast({ title: "路线图切片已生成（待接后端）", icon: "success" });
+				uni.showToast({ title: this.t("dept_prd_ok"), icon: "success" });
 			},
 		},
 	};

@@ -3,8 +3,8 @@
 	<scroll-view scroll-y class="page">
 		<view class="hero">
 			<text class="eyebrow">质量门禁</text>
-			<text class="title">{{ cleanDeptLabel(department.name) }}</text>
-			<text class="desc">{{ department.desc }}</text>
+			<text class="title">{{ cleanDeptLabel(translatedDepartment.name) }}</text>
+			<text class="desc">{{ translatedDepartment.desc }}</text>
 		</view>
 
 		<view class="card">
@@ -31,7 +31,7 @@
 		<view class="card">
 			<text class="h">测试编组</text>
 			<view class="list">
-				<view v-for="x in department.services" :key="x.id" class="li" @click="tog(x.id)">
+				<view v-for="x in translatedDepartment.services" :key="x.id" class="li" @click="tog(x.id)">
 					<text class="mark">{{ qa.has(x.id) ? '✓' : '' }}</text>
 					<view>
 						<text class="nm">{{ cleanDeptLabel(x.name) }}</text>
@@ -51,6 +51,7 @@
 
 <script>
 	import { cleanDeptLabel } from "@/utils/deptUi";
+	import { t, getLanguage, translateDepartment } from "@/utils/lang";
 
 	export default {
 		name: "DeptQa",
@@ -65,7 +66,15 @@
 				qa: new Set(),
 			};
 		},
+		computed: {
+			translatedDepartment() {
+				return translateDepartment(this.department, getLanguage());
+			},
+		},
 		methods: {
+			t(key, params = {}) {
+				return t(key, getLanguage(), params);
+			},
 			cleanDeptLabel,
 			flipSev(s) {
 				const n = new Set(this.sev);
@@ -87,18 +96,18 @@
 			},
 			submit() {
 				if (!this.scope.trim()) {
-					uni.showToast({ title: "请填写验证范围", icon: "none" });
+					uni.showToast({ title: this.t("dept_qa_err_scope"), icon: "none" });
 					return;
 				}
 				if (this.sev.size === 0) {
-					uni.showToast({ title: "请选择严重级别", icon: "none" });
+					uni.showToast({ title: this.t("dept_qa_err_severity"), icon: "none" });
 					return;
 				}
 				if (this.qa.size === 0) {
-					uni.showToast({ title: "请选择测试角色", icon: "none" });
+					uni.showToast({ title: this.t("dept_qa_err_role"), icon: "none" });
 					return;
 				}
-				uni.showToast({ title: "验证单已出具（待接后端）", icon: "success" });
+				uni.showToast({ title: this.t("dept_qa_ok"), icon: "success" });
 			},
 		},
 	};

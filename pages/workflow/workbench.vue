@@ -2,7 +2,7 @@
 	<view class="wb">
 		<view class="hero">
 			<text class="hero-title">{{ screenTitle }}</text>
-			<text class="hero-sub">ID：{{ workflowId || "-" }}</text>
+			<text class="hero-sub">{{ t('workbench_id_label') }}{{ workflowId || "-" }}</text>
 		</view>
 
 		<view class="seg">
@@ -15,11 +15,11 @@
 		<scroll-view v-show="mainTab === 'tasks'" scroll-y class="panel">
 			<view class="toolbar">
 				<view class="subseg">
-					<text class="subseg-item" :class="{ on: taskView === 'dept' }" @click="taskView = 'dept'">按部门</text>
-					<text class="subseg-item" :class="{ on: taskView === 'board' }" @click="taskView = 'board'">看板</text>
-					<text class="subseg-item" :class="{ on: taskView === 'list' }" @click="taskView = 'list'">列表</text>
+					<text class="subseg-item" :class="{ on: taskView === 'dept' }" @click="taskView = 'dept'">{{ t('by_department') }}</text>
+					<text class="subseg-item" :class="{ on: taskView === 'board' }" @click="taskView = 'board'">{{ t('kanban') }}</text>
+					<text class="subseg-item" :class="{ on: taskView === 'list' }" @click="taskView = 'list'">{{ t('list') }}</text>
 				</view>
-				<button class="mini primary" type="primary" size="mini" @click="openCommand">下发指令</button>
+				<button class="mini primary" type="primary" size="mini" @click="openCommand">{{ t('issue_command') }}</button>
 			</view>
 
 			<view v-if="taskView === 'dept'">
@@ -74,11 +74,11 @@
 		<scroll-view v-show="mainTab === 'comms'" scroll-y class="panel comm-panel">
 			<view class="toolbar">
 				<view class="subseg">
-					<text class="subseg-item" :class="{ on: threadKind === 'INTERNAL' }" @click="threadKind = 'INTERNAL'">内部</text>
-					<text class="subseg-item" :class="{ on: threadKind === 'CUSTOMER' }" @click="threadKind = 'CUSTOMER'">客户</text>
+					<text class="subseg-item" :class="{ on: threadKind === 'INTERNAL' }" @click="threadKind = 'INTERNAL'">{{ t('internal') }}</text>
+					<text class="subseg-item" :class="{ on: threadKind === 'CUSTOMER' }" @click="threadKind = 'CUSTOMER'">{{ t('customer') }}</text>
 				</view>
-				<button class="mini" size="mini" @click="ensureBootstrap">初始化线程</button>
-				<button class="mini primary" type="primary" size="mini" @click="showBroadcast = true">播报</button>
+				<button class="mini" size="mini" @click="ensureBootstrap">{{ t('initialize_thread') }}</button>
+				<button class="mini primary" type="primary" size="mini" @click="showBroadcast = true">{{ t('broadcast') }}</button>
 			</view>
 
 			<scroll-view scroll-x class="thread-strip" show-scrollbar="false">
@@ -93,7 +93,7 @@
 				</view>
 			</scroll-view>
 
-			<view v-if="!selectedThreadId" class="empty-inline">请选择左侧线程或先初始化</view>
+			<view v-if="!selectedThreadId" class="empty-inline">{{ t('select_thread_or_initialize') }}</view>
 
 			<view v-else>
 				<view v-for="(m, mi) in messages" :key="mi" class="msg">
@@ -103,30 +103,30 @@
 					</view>
 					<text class="msg-body">{{ messageBody(m) }}</text>
 					<view v-if="msgTasks(m)" class="msg-links">
-						<text class="linkish" @click="highlightTask(msgFromTask(m))">来自任务 {{ shortId(msgFromTask(m)) }}</text>
-						<text v-if="msgToTask(m)" class="linkish" @click="highlightTask(msgToTask(m))">→ 任务 {{ shortId(msgToTask(m)) }}</text>
+						<text class="linkish" @click="highlightTask(msgFromTask(m))">{{ t('from_task') }} {{ shortId(msgFromTask(m)) }}</text>
+						<text v-if="msgToTask(m)" class="linkish" @click="highlightTask(msgToTask(m))">{{ t('to_task') }} {{ shortId(msgToTask(m)) }}</text>
 					</view>
 					<view class="msg-actions">
-						<text class="link" @click="openLinkTask(m)">关联任务</text>
+						<text class="link" @click="openLinkTask(m)">{{ t('link_task') }}</text>
 					</view>
 				</view>
 			</view>
 
 			<view v-if="mainTab === 'comms' && selectedThreadId" class="composer">
 				<picker mode="selector" :range="deptLabels" @change="onPickFromDept">
-					<view class="picker-line">发件部门：{{ deptLabels[msgFromDeptIndex] || "（可选）" }}</view>
+					<view class="picker-line">{{ t('wb_from_dept') }}{{ deptLabels[msgFromDeptIndex] || t('wb_optional_paren') }}</view>
 				</picker>
 				<picker mode="selector" :range="deptLabels" @change="onPickToDept">
-					<view class="picker-line">收件部门：{{ deptLabels[msgToDeptIndex] || "（可选）" }}</view>
+					<view class="picker-line">{{ t('wb_to_dept') }}{{ deptLabels[msgToDeptIndex] || t('wb_optional_paren') }}</view>
 				</picker>
 				<picker mode="selector" :range="taskPickLabels" @change="onPickFromTask">
-					<view class="picker-line">关联来源任务：{{ taskPickLabels[msgFromTaskIndex] }}</view>
+					<view class="picker-line">{{ t('wb_link_from_task') }}{{ taskPickLabels[msgFromTaskIndex] }}</view>
 				</picker>
 				<picker mode="selector" :range="taskPickLabels" @change="onPickToTask">
-					<view class="picker-line">关联目标任务：{{ taskPickLabels[msgToTaskIndex] }}</view>
+					<view class="picker-line">{{ t('wb_link_to_task') }}{{ taskPickLabels[msgToTaskIndex] }}</view>
 				</picker>
-				<textarea class="ta" v-model="draftMsg" placeholder="输入消息内容" />
-				<button class="send" type="primary" :loading="sendingMsg" @click="submitMessage">发送</button>
+				<textarea class="ta" v-model="draftMsg" :placeholder="t('wb_msg_placeholder')" />
+				<button class="send" type="primary" :loading="sendingMsg" @click="submitMessage">{{ t('send') }}</button>
 			</view>
 
 			<view class="tail-gap" />
@@ -134,8 +134,8 @@
 
 		<!-- 图谱 -->
 		<scroll-view v-show="mainTab === 'graph'" scroll-y class="panel">
-			<button class="refresh" size="mini" @click="loadGraph">刷新图谱</button>
-			<view v-if="graphNodes.length === 0" class="empty-inline">暂无节点数据</view>
+			<button class="refresh" size="mini" @click="loadGraph">{{ t('refresh_graph') }}</button>
+			<view v-if="graphNodes.length === 0" class="empty-inline">{{ t('no_node_data') }}</view>
 			<view class="node-grid">
 				<view v-for="(n, ni) in graphNodes" :key="ni" class="g-node" @click="tapGraphNode(n)">
 					<text class="g-node-t">{{ graphNodeTitle(n) }}</text>
@@ -144,7 +144,7 @@
 				</view>
 			</view>
 			<view class="blk">
-				<text class="blk-title">关系边</text>
+				<text class="blk-title">{{ t('relationship_edges') }}</text>
 				<text v-for="(e, idx) in graphEdges" :key="idx" class="edge-line">{{ edgeLabel(e) }}</text>
 			</view>
 			<view class="tail-gap" />
@@ -152,8 +152,8 @@
 
 		<!-- 动态 -->
 		<scroll-view v-show="mainTab === 'feed'" scroll-y class="panel">
-			<button class="refresh" size="mini" @click="loadEvents">刷新动态</button>
-			<view v-if="events.length === 0" class="empty-inline">暂无事件（或接口未开放）</view>
+			<button class="refresh" size="mini" @click="loadEvents">{{ t('refresh_feed') }}</button>
+			<view v-if="events.length === 0" class="empty-inline">{{ t('no_events') }}</view>
 			<view v-for="(ev, idx) in events" :key="idx" class="ev">
 				<text class="ev-t">{{ eventText(ev) }}</text>
 				<text class="ev-time">{{ eventTime(ev) }}</text>
@@ -164,27 +164,27 @@
 		<!-- 下发指令 -->
 		<view v-if="showCommand" class="mask" @click.self="showCommand = false">
 			<view class="dialog lg" @click.stop>
-				<text class="dialog-title">下发指令</text>
+				<text class="dialog-title">{{ t('issue_command') }}</text>
 				<picker mode="selector" :range="deptLabels" @change="onCmdSource">
-					<view class="picker-line">来源部门：{{ deptLabels[cmdSourceIdx] }}</view>
+					<view class="picker-line">{{ t('source_department') }}：{{ deptLabels[cmdSourceIdx] }}</view>
 				</picker>
 				<picker mode="selector" :range="deptLabels" @change="onCmdTarget">
-					<view class="picker-line">目标部门：{{ deptLabels[cmdTargetIdx] }}</view>
+					<view class="picker-line">{{ t('target_department') }}：{{ deptLabels[cmdTargetIdx] }}</view>
 				</picker>
 				<picker mode="selector" :range="levelLabels" @change="onCmdLevel">
-					<view class="picker-line">层级：{{ levelLabels[cmdLevelIdx] }}</view>
+					<view class="picker-line">{{ t('hierarchy_level') }}：{{ levelLabels[cmdLevelIdx] }}</view>
 				</picker>
-				<textarea class="ta" v-model="cmdBody" placeholder="指令正文（必填）" />
-				<input class="inp" v-model="cmdTaskTitle" placeholder="生成任务标题（可选）" />
+				<textarea class="ta" v-model="cmdBody" :placeholder="t('command_body_required')" />
+				<input class="inp" v-model="cmdTaskTitle" :placeholder="t('generate_task_title_optional')" />
 				<picker mode="selector" :range="taskPickLabels" @change="onCmdParent">
-					<view class="picker-line">父任务：{{ taskPickLabels[cmdParentIdx] }}</view>
+					<view class="picker-line">{{ t('parent_task') }}：{{ taskPickLabels[cmdParentIdx] }}</view>
 				</picker>
 				<picker mode="selector" :range="taskPickLabels" @change="onCmdDepend">
-					<view class="picker-line">依赖任务：{{ taskPickLabels[cmdDependIdx] }}</view>
+					<view class="picker-line">{{ t('dependent_task') }}：{{ taskPickLabels[cmdDependIdx] }}</view>
 				</picker>
 				<view class="dialog-actions">
-					<button class="btn ghost" @click="showCommand = false">取消</button>
-					<button class="btn primary" type="primary" :loading="cmdLoading" @click="submitCommand">提交</button>
+					<button class="btn ghost" @click="showCommand = false">{{ t('cancel') }}</button>
+					<button class="btn primary" type="primary" :loading="cmdLoading" @click="submitCommand">{{ t('submit') }}</button>
 				</view>
 			</view>
 		</view>
@@ -192,13 +192,13 @@
 		<!-- 更新进度 -->
 		<view v-if="progressTask" class="mask" @click.self="progressTask = null">
 			<view class="dialog" @click.stop>
-				<text class="dialog-title">更新进度</text>
+				<text class="dialog-title">{{ t('update_progress') }}</text>
 				<text class="dlg-sub">{{ taskTitle(progressTask) }}</text>
 				<slider :value="progressValue" min="0" max="100" show-value @changing="onSlider" @change="onSlider" />
-				<input class="inp" v-model="progressNote" placeholder="备注（可选）" />
+				<input class="inp" v-model="progressNote" :placeholder="t('remark_optional')" />
 				<view class="dialog-actions">
-					<button class="btn ghost" @click="progressTask = null">取消</button>
-					<button class="btn primary" type="primary" :loading="progressLoading" @click="submitProgress">保存</button>
+					<button class="btn ghost" @click="progressTask = null">{{ t('cancel') }}</button>
+					<button class="btn primary" type="primary" :loading="progressLoading" @click="submitProgress">{{ t('save') }}</button>
 				</view>
 			</view>
 		</view>
@@ -206,12 +206,12 @@
 		<!-- 播报 -->
 		<view v-if="showBroadcast" class="mask" @click.self="showBroadcast = false">
 			<view class="dialog" @click.stop>
-				<text class="dialog-title">指令播报</text>
-				<input class="inp" v-model="bcTitle" placeholder="标题（可选）" />
-				<textarea class="ta" v-model="bcBody" placeholder="播报内容" />
+				<text class="dialog-title">{{ t('command_broadcast') }}</text>
+				<input class="inp" v-model="bcTitle" :placeholder="t('title_optional')" />
+				<textarea class="ta" v-model="bcBody" :placeholder="t('broadcast_content')" />
 				<view class="dialog-actions">
-					<button class="btn ghost" @click="showBroadcast = false">取消</button>
-					<button class="btn primary" type="primary" :loading="bcLoading" @click="submitBroadcast">发送</button>
+					<button class="btn ghost" @click="showBroadcast = false">{{ t('cancel') }}</button>
+					<button class="btn primary" type="primary" :loading="bcLoading" @click="submitBroadcast">{{ t('send') }}</button>
 				</view>
 			</view>
 		</view>
@@ -219,13 +219,13 @@
 		<!-- 关联任务 -->
 		<view v-if="linkMsg" class="mask" @click.self="linkMsg = null">
 			<view class="dialog" @click.stop>
-				<text class="dialog-title">消息关联任务</text>
+				<text class="dialog-title">{{ t('message_link_task') }}</text>
 				<picker mode="selector" :range="taskPickLabels" @change="onLinkPick">
 					<view class="picker-line">{{ taskPickLabels[linkTaskIndex] }}</view>
 				</picker>
 				<view class="dialog-actions">
-					<button class="btn ghost" @click="linkMsg = null">取消</button>
-					<button class="btn primary" type="primary" :loading="linkLoading" @click="submitLink">确定</button>
+					<button class="btn ghost" @click="linkMsg = null">{{ t('cancel') }}</button>
+					<button class="btn primary" type="primary" :loading="linkLoading" @click="submitLink">{{ t('confirm') }}</button>
 				</view>
 			</view>
 		</view>
@@ -237,12 +237,13 @@
 	import * as workflowApi from "@/clientApi/workflowApi";
 	import { pickId } from "@/utils/apiHelpers";
 	import { subscribeWorkflowChannel } from "@/utils/realtime";
+	import { t, getLanguage } from "@/utils/lang";
 
 	const STATUS_LABEL = {
-		NOT_STARTED: "未开始",
-		IN_PROGRESS: "进行中",
-		BLOCKED: "阻塞",
-		DONE: "完成",
+		NOT_STARTED: "not_started",
+		IN_PROGRESS: "in_progress",
+		BLOCKED: "blocked",
+		DONE: "done",
 	};
 
 	function cleanLabel(label = "") {
@@ -255,12 +256,6 @@
 				workflowId: "",
 				meta: null,
 				mainTab: "tasks",
-				mainTabs: [
-					{ key: "tasks", label: "任务" },
-					{ key: "comms", label: "沟通" },
-					{ key: "graph", label: "图谱" },
-					{ key: "feed", label: "动态" },
-				],
 				taskView: "dept",
 				tasks: [],
 				threads: [],
@@ -306,13 +301,13 @@
 				if (this.meta && (this.meta.title || this.meta.name)) {
 					return this.meta.title || this.meta.name;
 				}
-				return "工作台";
+				return this.t("workbench");
 			},
 			deptLabels() {
 				return this.deptOptions.map((d) => d.label);
 			},
 			taskPickLabels() {
-				const xs = ["（无）"];
+				const xs = [this.t("task_pick_none")];
 				for (const t of this.tasks) {
 					xs.push(`${this.taskTitle(t)} (${this.shortId(this.taskKey(t))})`);
 				}
@@ -328,7 +323,7 @@
 			groupedByDept() {
 				const map = {};
 				for (const t of this.tasks) {
-					const d = this.taskDept(t) || "未分配";
+					const d = this.taskDept(t) || this.t('unassigned');
 					if (!map[d]) map[d] = [];
 					map[d].push(t);
 				}
@@ -339,10 +334,10 @@
 			},
 			boardColumns() {
 				return [
-					{ key: "NOT_STARTED", label: "未开始" },
-					{ key: "IN_PROGRESS", label: "进行中" },
-					{ key: "BLOCKED", label: "阻塞" },
-					{ key: "DONE", label: "完成" },
+					{ key: "NOT_STARTED", label: this.t('not_started') },
+					{ key: "IN_PROGRESS", label: this.t('in_progress') },
+					{ key: "BLOCKED", label: this.t('blocked') },
+					{ key: "DONE", label: this.t('done') },
 				];
 			},
 			graphNodes() {
@@ -356,6 +351,14 @@
 				if (Array.isArray(g.edges)) return g.edges;
 				return [];
 			},
+			mainTabs() {
+				return [
+					{ key: "tasks", label: this.t('tasks') },
+					{ key: "comms", label: this.t('communication') },
+					{ key: "graph", label: this.t('graph') },
+					{ key: "feed", label: this.t('feed') },
+				];
+			},
 		},
 		onLoad(options) {
 			this.workflowId = options.id ? decodeURIComponent(options.id) : "";
@@ -368,8 +371,13 @@
 			}
 		},
 		async onShow() {
+			try {
+				uni.setNavigationBarTitle({ title: this.t("workbench") });
+			} catch (e) {
+				//
+			}
 			if (!this.workflowId) {
-				uni.showToast({ title: "缺少工作流 ID", icon: "none" });
+				uni.showToast({ title: this.t("missing_workflow_id"), icon: "none" });
 				return;
 			}
 			await this.bootstrapPage();
@@ -398,6 +406,9 @@
 			},
 		},
 		methods: {
+			t(key, params = {}) {
+				return t(key, getLanguage(), params);
+			},
 			shortId(id) {
 				if (!id) return "-";
 				const s = String(id);
@@ -416,7 +427,7 @@
 				} catch {
 					//
 				}
-				if (this.screenTitle && this.screenTitle !== "工作台") {
+				if (this.screenTitle && this.screenTitle !== this.t("workbench")) {
 					uni.setNavigationBarTitle({ title: this.screenTitle });
 				}
 				await Promise.all([this.loadTasks(), this.loadThreads(), this.loadGraph(), this.loadEvents()]);
@@ -498,15 +509,23 @@
 				}
 			},
 			async ensureBootstrap() {
-				await workflowApi.commsBootstrap(this.workflowId);
-				await this.loadThreads();
-				uni.showToast({ title: "已请求初始化", icon: "none" });
+				if (!this.workflowId) {
+					uni.showToast({ title: this.t('missing_workflow_id'), icon: "none" });
+					return;
+				}
+				try {
+					await workflowApi.commsBootstrap(this.workflowId);
+					await this.loadThreads();
+					uni.showToast({ title: this.t('bootstrap_requested'), icon: "success" });
+				} catch {
+					//
+				}
 			},
 			taskKey(t) {
 				return pickId(t) || t.taskId || "";
 			},
 			taskTitle(t) {
-				return t.title || t.name || t.taskTitle || "未命名任务";
+				return t.title || t.name || t.taskTitle || this.t('unnamed_task');
 			},
 			taskDept(t) {
 				return t.department || t.departmentId || t.dept || t.ownerDepartment || "";
@@ -519,7 +538,7 @@
 			},
 			statusLabel(t) {
 				const s = this.rawStatus(t);
-				return STATUS_LABEL[s] || s || "未知";
+				return this.t(STATUS_LABEL[s]) || s || this.t('unknown');
 			},
 			statusClass(t) {
 				const s = this.rawStatus(t);
@@ -534,12 +553,12 @@
 				if (Number.isFinite(v)) return Math.max(0, Math.min(100, Math.round(v)));
 				return 0;
 			},
-			taskHint(t) {
-				const p = t.parentTaskId || t.parentId;
-				const d = t.dependsOnTaskId || (Array.isArray(t.dependsOnTaskIds) && t.dependsOnTaskIds[0]);
+			taskHint(task) {
+				const p = task.parentTaskId || task.parentId;
+				const d = task.dependsOnTaskId || (Array.isArray(task.dependsOnTaskIds) && task.dependsOnTaskIds[0]);
 				const bits = [];
-				if (p) bits.push(`父任务 ${this.shortId(p)}`);
-				if (d) bits.push(`依赖 ${this.shortId(d)}`);
+				if (p) bits.push(`${this.t("wb_parent_prefix")} ${this.shortId(p)}`);
+				if (d) bits.push(`${this.t("wb_dep_prefix")} ${this.shortId(d)}`);
 				return bits.join(" · ");
 			},
 			tasksInStatus(key) {
@@ -573,13 +592,13 @@
 			async submitCommand() {
 				const text = (this.cmdBody || "").trim();
 				if (!text) {
-					uni.showToast({ title: "请填写指令正文", icon: "none" });
+					uni.showToast({ title: this.t('please_enter_command_body'), icon: "none" });
 					return;
 				}
 				const src = this.deptOptions[this.cmdSourceIdx]?.id;
 				const tgt = this.deptOptions[this.cmdTargetIdx]?.id;
 				if (!src || !tgt) {
-					uni.showToast({ title: "请选择部门", icon: "none" });
+					uni.showToast({ title: this.t('please_select_department'), icon: "none" });
 					return;
 				}
 				const level = Number(this.levelLabels[this.cmdLevelIdx] || "1");
@@ -600,7 +619,7 @@
 				this.cmdLoading = true;
 				try {
 					await workflowApi.postCommand(this.workflowId, payload);
-					uni.showToast({ title: "已下发", icon: "success" });
+					uni.showToast({ title: this.t('issued'), icon: "success" });
 					this.showCommand = false;
 					await this.loadTasks();
 				} catch {
@@ -629,7 +648,7 @@
 						note,
 						remark: note,
 					});
-					uni.showToast({ title: "已更新", icon: "success" });
+					uni.showToast({ title: this.t('updated'), icon: "success" });
 					this.progressTask = null;
 					await this.loadTasks();
 				} catch {
@@ -642,7 +661,7 @@
 				return pickId(th) || th.threadId || "";
 			},
 			threadTitle(th) {
-				return th.title || th.name || th.topic || "线程";
+				return th.title || th.name || th.topic || this.t("thread_default");
 			},
 			selectThread(th) {
 				const id = this.threadKey(th);
@@ -686,11 +705,11 @@
 			async submitMessage() {
 				const body = (this.draftMsg || "").trim();
 				if (!this.selectedThreadId) {
-					uni.showToast({ title: "请选择线程", icon: "none" });
+					uni.showToast({ title: this.t('please_select_thread'), icon: "none" });
 					return;
 				}
 				if (!body) {
-					uni.showToast({ title: "请输入内容", icon: "none" });
+					uni.showToast({ title: this.t('please_enter_content'), icon: "none" });
 					return;
 				}
 				const payload = { content: body, body };
@@ -716,7 +735,7 @@
 				try {
 					await workflowApi.sendMessage(this.workflowId, this.selectedThreadId, payload);
 					this.draftMsg = "";
-					uni.showToast({ title: "已发送", icon: "success" });
+					uni.showToast({ title: this.t('sent'), icon: "success" });
 					await this.loadMessages();
 				} catch {
 					//
@@ -727,14 +746,14 @@
 			async submitBroadcast() {
 				const content = (this.bcBody || "").trim();
 				if (!content) {
-					uni.showToast({ title: "请输入播报内容", icon: "none" });
+					uni.showToast({ title: this.t('please_enter_broadcast_content'), icon: "none" });
 					return;
 				}
 				const title = (this.bcTitle || "").trim();
 				this.bcLoading = true;
 				try {
 					await workflowApi.broadcastComms(this.workflowId, { content, body: content, title });
-					uni.showToast({ title: "已播报", icon: "success" });
+					uni.showToast({ title: this.t('broadcasted'), icon: "success" });
 					this.showBroadcast = false;
 					this.bcTitle = "";
 					this.bcBody = "";
@@ -756,13 +775,13 @@
 				const taskId = this.selectedTaskByPickerIndex(this.linkTaskIndex);
 				const messageId = pickId(m);
 				if (!m || !messageId || !taskId) {
-					uni.showToast({ title: "请选择任务", icon: "none" });
+					uni.showToast({ title: this.t('please_select_task'), icon: "none" });
 					return;
 				}
 				this.linkLoading = true;
 				try {
 					await workflowApi.linkMessageToTask(this.workflowId, messageId, { taskId });
-					uni.showToast({ title: "已关联", icon: "success" });
+					uni.showToast({ title: this.t('linked'), icon: "success" });
 					this.linkMsg = null;
 				} catch {
 					//
@@ -772,7 +791,7 @@
 			},
 			highlightTask(id) {
 				if (!id) return;
-				uni.showToast({ title: `任务 ${this.shortId(id)}`, icon: "none" });
+				uni.showToast({ title: this.t("wb_task_prefix", { id: this.shortId(id) }), icon: "none" });
 				this.mainTab = "tasks";
 				this.taskView = "list";
 			},
@@ -781,7 +800,7 @@
 				this.highlightTask(id);
 			},
 			graphNodeTitle(n) {
-				return n.title || n.name || n.label || "节点";
+				return n.title || n.name || n.label || this.t("wb_node_fallback");
 			},
 			graphNodeDept(n) {
 				return n.department || n.departmentId || "";

@@ -24,9 +24,9 @@
 
 			<view v-if="rows.length === 0" class="empty">
 
-				<text class="empty-t">暂无该部门下的角色</text>
+				<text class="empty-t">{{ t('dept_roles_empty') }}</text>
 
-				<text class="empty-sub">请确认本地人设表已包含该部门分类；下拉刷新重试。</text>
+				<text class="empty-sub">{{ t('dept_roles_empty_hint') }}</text>
 
 			</view>
 
@@ -34,9 +34,9 @@
 
 				<view class="hero">
 
-					<text class="hero-title">可选角色</text>
+					<text class="hero-title">{{ t('dept_roles_hero_title') }}</text>
 
-					<text class="hero-meta">共 {{ rows.length }} 位 · 轻触进入对话</text>
+					<text class="hero-meta">{{ t('dept_roles_hero_meta', { count: rows.length }) }}</text>
 
 				</view>
 
@@ -85,181 +85,101 @@
 
 
 <script>
-
 	import NavBackClick from "@/components/NavBackClick.vue";
-
 	import {
-
 		listPersonasByCategorySlug,
-
 		personaChatTitle,
-
 		personaSnippetLine,
-
 	} from "@/utils/agentPersonaCatalog";
-
-
-
+	import { t, getLanguage } from "@/utils/lang";
 	export default {
-
 		components: { NavBackClick },
-
 		data() {
-
 			return {
-
 				slug: "",
-
 				rows: [],
-
 				statusBarPx: 20,
-
-				pageTitle: "岗位角色",
-
+				pageTitle: "",
 			};
-
 		},
-
 		onLoad(options) {
-
 			const sys = uni.getSystemInfoSync();
-
 			this.statusBarPx = sys.statusBarHeight || 20;
-
 			this.slug = this.normalizeSlug(options.slug);
-
 			const rawTitle = options.title || "";
-
-			let navTitle = "岗位角色";
-
+			let navTitle = t("dept_roles_nav", getLanguage());
 			try {
-
 				navTitle = rawTitle ? decodeURIComponent(rawTitle) : navTitle;
-
 			} catch {
-
 				navTitle = rawTitle || navTitle;
-
 			}
-
 			this.pageTitle = navTitle;
-
 			this.reloadRows();
-
+			try {
+				uni.setNavigationBarTitle({ title: this.pageTitle });
+			} catch (e) {
+				//
+			}
 		},
-
 		methods: {
-
+			t(key, params = {}) {
+				return t(key, getLanguage(), params);
+			},
 			normalizeSlug(raw) {
-
 				if (raw == null || raw === "") return "";
-
 				let s = raw;
-
 				try {
-
 					s = decodeURIComponent(String(raw));
-
 				} catch {
-
 					s = String(raw);
-
 				}
-
 				try {
-
 					while (/%[0-9A-Fa-f]{2}/.test(s)) {
-
 						const next = decodeURIComponent(s);
-
 						if (next === s) break;
-
 						s = next;
-
 					}
-
 				} catch {
-
 					//
-
 				}
-
 				return String(s).trim();
-
 			},
-
 			reloadRows() {
-
 				this.rows = listPersonasByCategorySlug(this.slug);
-
 			},
-
 			displayTitle(row) {
-
-				return personaChatTitle(row);
-
+				return personaChatTitle(row, getLanguage());
 			},
-
 			snippetPreview(row) {
-
-				return personaSnippetLine(row);
-
+				return personaSnippetLine(row, getLanguage());
 			},
-
 			avatarBg(row) {
-
 				const colors = [
-
 					"linear-gradient(145deg, #2563eb, #1d4ed8)",
-
 					"linear-gradient(145deg, #7c3aed, #6d28d9)",
-
 					"linear-gradient(145deg, #059669, #047857)",
-
 					"linear-gradient(145deg, #d97706, #b45309)",
-
 					"linear-gradient(145deg, #db2777, #be185d)",
-
 					"linear-gradient(145deg, #0891b2, #0e7490)",
-
 				];
-
 				const s = row.id || row.title || "";
-
 				let h = 0;
-
 				for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
-
 				return colors[h % colors.length];
-
 			},
-
 			avatarLetter(row) {
-
-				const t = personaChatTitle(row) || "?";
-
+				const t = personaChatTitle(row, getLanguage()) || "?";
 				return t.slice(0, 1);
-
 			},
-
 			openChat(row) {
-
-				const title = encodeURIComponent(personaChatTitle(row));
-
+				const title = encodeURIComponent(personaChatTitle(row, getLanguage()));
 				const id = encodeURIComponent(row.id);
-
 				uni.navigateTo({
-
 					url: `/pages/chat/chat?mode=virtual&kind=persona&id=${id}&title=${title}`,
-
 				});
-
 			},
-
 		},
-
 	};
-
 </script>
 
 

@@ -4,8 +4,8 @@
 			<view class="navbar">
 				<view class="navbar-side" />
 				<view class="navbar-center">
-					<text class="navbar-title">全员群</text>
-					<text class="navbar-sub">共 {{ agentCount }} 位数字员工 · 日报与总览发在本群</text>
+					<text class="navbar-title">{{ t('hq_group') }}</text>
+					<text class="navbar-sub">{{ t('hq_subtitle', { count: agentCount }) }}</text>
 				</view>
 				<view class="navbar-side navbar-side-right" @click="openHallSettings">
 					<text class="navbar-more">⋯</text>
@@ -14,7 +14,7 @@
 		</view>
 
 		<scroll-view scroll-y class="chat-scroll" :scroll-into-view="scrollToId" scroll-with-animation>
-			<view v-if="loading" class="chat-empty"><text>加载中…</text></view>
+			<view v-if="loading" class="chat-empty"><text>{{ t('loading') }}</text></view>
 			<view v-else class="chat-inner">
 				<view
 					v-for="msg in hallMessages"
@@ -28,7 +28,7 @@
 							<text class="hall-av-t">{{ avatarLetter(msg) }}</text>
 						</view>
 						<view class="hall-bubble-wrap">
-							<text v-if="msg.senderName" class="hall-name">{{ msg.senderName }}</text>
+							<text v-if="msg.senderName" class="hall-name">{{ hallSenderLabel(msg.senderName) }}</text>
 							<view class="hall-bubble" :class="{ manager: msg.isManager }">
 								<text class="hall-text">{{ msg.content }}</text>
 							</view>
@@ -47,8 +47,8 @@
 		</scroll-view>
 
 		<view class="chat-input">
-			<input type="text" v-model="inputText" class="input-field" placeholder="发送消息到全员群…" placeholder-class="iph" />
-			<view class="send-button" @click="sendHall">发送</view>
+			<input type="text" v-model="inputText" class="input-field" :placeholder="t('send_message')" placeholder-class="iph" />
+			<view class="send-button" @click="sendHall">{{ t('send') }}</view>
 		</view>
 
 		<AppTabBar current="home" />
@@ -57,12 +57,14 @@
 
 <script>
 	import AppTabBar from "@/components/AppTabBar.vue";
+	import { t, getLanguage } from "@/utils/lang";
 	import {
 		loadHQChatMessages,
 		appendHQMessage,
 		ensureHallWelcome,
 		ensureHallDailyDigest,
 		loadDigitalAgents,
+		resolveHallSenderDisplay,
 		HQ_ID,
 	} from "@/utils/virtualTeamStore";
 
@@ -92,9 +94,12 @@
 			this.bootstrapHall();
 		},
 		methods: {
+			t(key, params = {}) {
+				return t(key, getLanguage(), params);
+			},
 			openHallSettings() {
 				uni.navigateTo({
-					url: `/pages/chat/chat-settings?mode=virtual&kind=hq&id=${encodeURIComponent(HQ_ID)}&title=${encodeURIComponent("全员群")}`,
+					url: `/pages/chat/chat-settings?mode=virtual&kind=hq&id=${encodeURIComponent(HQ_ID)}&title=${encodeURIComponent(this.t('hq_group'))}`,
 				});
 			},
 			bootstrapHall() {
@@ -116,7 +121,7 @@
 			sendHall() {
 				const t = (this.inputText || "").trim();
 				if (!t) return;
-				appendHQMessage({ content: t, isMine: true, senderName: "我" });
+				appendHQMessage({ content: t, isMine: true, senderName: this.t("home_sender_me") });
 				this.inputText = "";
 				this.hallMessages = loadHQChatMessages();
 				this.$nextTick(() => this.scrollToBottom());
@@ -128,11 +133,15 @@
 				for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
 				return colors[h % colors.length];
 			},
+			hallSenderLabel(raw) {
+				return resolveHallSenderDisplay(raw);
+			},
 			avatarLetter(msg) {
-				const n = (msg.senderName || "员").trim();
-				if (n === "系统") return "系";
-				if (n.includes("经理总览")) return "经";
-				return n.slice(0, 1);
+				const lang = getLanguage();
+				const fallback = lang === "en" ? "?" : "员";
+				const raw = (msg.senderName || "").trim() || fallback;
+				const shown = resolveHallSenderDisplay(raw);
+				return shown.slice(0, 1);
 			},
 			formatTime(time) {
 				const date = new Date(time);

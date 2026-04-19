@@ -2,48 +2,49 @@
 	<view class="page">
 		<view class="card">
 			<view class="head">
-				<view class="avatar-wrap" @click="chooseAvatar">
-					<image
-						v-if="avatarDisplay"
-						class="avatar-img"
-						:src="avatarDisplay"
-						mode="aspectFill"
-					/>
-					<text v-else class="avatar-text">{{ avatarChar }}</text>
-					<view class="avatar-badge">
-						<text class="avatar-badge-t">更换</text>
-					</view>
-				</view>
-				<view class="head-main">
-					<text class="name">{{ displayName }}</text>
-					<text class="sub">{{ phoneText }}</text>
-					<text v-if="emailLine" class="sub mail">{{ emailLine }}</text>
+			<view class="avatar-wrap" @click="chooseAvatar">
+				<image
+					v-if="avatarDisplay"
+					class="avatar-img"
+					:src="avatarDisplay"
+					mode="aspectFill"
+				/>
+				<text v-else class="avatar-text">{{ avatarChar }}</text>
+				<view class="avatar-badge">
+					<text class="avatar-badge-t">{{ t('change') }}</text>
 				</view>
 			</view>
+			<view class="head-main">
+				<text class="name">{{ displayName }}</text>
+				<text class="sub">{{ phoneText }}</text>
+				<text v-if="emailLine" class="sub mail">{{ emailLine }}</text>
+			</view>
+		</view>
 
-			<view class="group">
-				<view class="row row-border">
-					<text class="lab">昵称</text>
-					<input
-						class="nick-input"
-						v-model.trim="nickname"
-						maxlength="20"
-						placeholder="请输入昵称"
-						placeholder-class="ph"
-					/>
-				</view>
-				<view class="row row-border">
-					<text class="lab">手机号</text>
-					<text class="val">{{ user.phone || user.mobile || "-" }}</text>
-				</view>
+		<view class="group">
+			<view class="row row-border">
+				<text class="lab">{{ t('nickname') }}</text>
+				<input
+					class="nick-input"
+					v-model.trim="nickname"
+					maxlength="20"
+					:placeholder="t('please_enter_nickname')"
+					placeholder-class="ph"
+				/>
 			</view>
-			<button class="btn" type="primary" :loading="saving" @click="saveNickname">保存昵称</button>
+			<view class="row row-border">
+				<text class="lab">{{ t('phone_number') }}</text>
+				<text class="val">{{ user.phone || user.mobile || "-" }}</text>
+			</view>
+		</view>
+		<button class="btn" type="primary" :loading="saving" @click="saveNickname">{{ t('save_nickname') }}</button>
 		</view>
 	</view>
 </template>
 
 <script>
 	import { getToken, getUserInfo, setUserInfo } from "@/utils/index";
+	import { t, getLanguage } from "@/utils/lang";
 	import {
 		getAuthProfile,
 		patchAuthNickname,
@@ -69,18 +70,18 @@
 					this.user.nickname ||
 					this.user.name ||
 					this.user.username ||
-					"我的资料";
+					this.t("my_profile_default");
 				return n;
 			},
 			avatarChar() {
-				return this.displayName && this.displayName.length ? this.displayName.slice(0, 1) : "我";
+				return this.displayName && this.displayName.length ? this.displayName.slice(0, 1) : this.t("profile_avatar_me");
 			},
 			avatarDisplay() {
 				return resolveAvatarDisplayUrl(this.avatarUrl || this.user.avatarUrl);
 			},
 			phoneText() {
 				const p = this.user.phone || this.user.mobile || "";
-				if (!p || String(p).length < 7) return "请完善手机号";
+				if (!p || String(p).length < 7) return this.t("please_complete_phone");
 				const s = String(p);
 				return `${s.slice(0, 3)}****${s.slice(-4)}`;
 			},
@@ -90,8 +91,13 @@
 			},
 		},
 		onShow() {
+			try {
+				uni.setNavigationBarTitle({ title: this.t("profile_info_nav") });
+			} catch (e) {
+				//
+			}
 			if (!getToken()) {
-				uni.showToast({ title: "请先登录", icon: "none" });
+				uni.showToast({ title: this.t("please_login_first"), icon: "none" });
 				setTimeout(() => {
 					uni.redirectTo({ url: "/pages/login/login" });
 				}, 400);
@@ -101,6 +107,9 @@
 			this.syncProfileFromServer();
 		},
 		methods: {
+			t(key, params = {}) {
+				return t(key, getLanguage(), params);
+			},
 			hydrateLocal() {
 				this.user = getUserInfo() || {};
 				this.nickname = this.user.nickname != null ? String(this.user.nickname) : "";
@@ -128,19 +137,19 @@
 				if (this.saving) return;
 				const nextNickname = (this.nickname || "").trim();
 				if (nextNickname.length > 20) {
-					uni.showToast({ title: "昵称最多 20 字", icon: "none" });
-					return;
-				}
-				this.saving = true;
-				try {
-					await patchAuthNickname(nextNickname);
-					const merged = mergeProfileIntoUser(getUserInfo() || {}, {
-						nickname: nextNickname,
-					});
-					setUserInfo(merged);
-					this.user = merged;
-					this.nickname = nextNickname;
-					uni.showToast({ title: "已保存", icon: "success" });
+				uni.showToast({ title: this.t('nickname_max_20'), icon: "none" });
+				return;
+			}
+			this.saving = true;
+			try {
+				await patchAuthNickname(nextNickname);
+				const merged = mergeProfileIntoUser(getUserInfo() || {}, {
+					nickname: nextNickname,
+				});
+				setUserInfo(merged);
+				this.user = merged;
+				this.nickname = nextNickname;
+				uni.showToast({ title: this.t('saved'), icon: "success" });
 				} catch (e) {
 					console.warn("[profile-info] PATCH nickname", e);
 				} finally {
@@ -157,7 +166,7 @@
 						const path = res.tempFilePaths && res.tempFilePaths[0];
 						if (!path) return;
 						this.uploading = true;
-						uni.showLoading({ title: "上传中", mask: true });
+						uni.showLoading({ title: this.t("uploading"), mask: true });
 						try {
 							const data = await uploadAuthAvatar(path);
 							const merged = mergeProfileIntoUser(getUserInfo() || {}, data || {});
@@ -165,7 +174,7 @@
 							this.user = merged;
 							const av = (data && (data.avatarUrl ?? data.avatar)) || merged.avatarUrl;
 							if (av) this.avatarUrl = String(av).trim();
-							uni.showToast({ title: "头像已更新", icon: "success" });
+							uni.showToast({ title: this.t("avatar_updated"), icon: "success" });
 						} catch (e) {
 							console.warn("[profile-info] avatar upload", e);
 						} finally {

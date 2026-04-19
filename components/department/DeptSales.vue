@@ -3,8 +3,8 @@
 	<scroll-view scroll-y class="page">
 		<view class="hero">
 			<text class="eyebrow">商机管道</text>
-			<text class="title">{{ cleanDeptLabel(department.name) }}</text>
-			<text class="desc">{{ department.desc }}</text>
+			<text class="title">{{ cleanDeptLabel(translatedDepartment.name) }}</text>
+			<text class="desc">{{ translatedDepartment.desc }}</text>
 		</view>
 
 		<view class="card">
@@ -36,7 +36,7 @@
 		<view class="card">
 			<text class="h">请哪类销售能力介入</text>
 			<view class="radio-list">
-				<view v-for="s in department.services" :key="s.id" class="radio" @click="pick = s.id">
+				<view v-for="s in translatedDepartment.services" :key="s.id" class="radio" @click="pick = s.id">
 					<text class="r">{{ pick === s.id ? "◉" : "○" }}</text>
 					<view>
 						<text class="nm">{{ cleanDeptLabel(s.name) }}</text>
@@ -56,6 +56,7 @@
 
 <script>
 	import { cleanDeptLabel } from "@/utils/deptUi";
+	import { t, getLanguage, translateDepartment } from "@/utils/lang";
 
 	export default {
 		name: "DeptSales",
@@ -74,7 +75,15 @@
 				pick: "",
 			};
 		},
+		computed: {
+			translatedDepartment() {
+				return translateDepartment(this.department, getLanguage());
+			},
+		},
 		methods: {
+			t(key, params = {}) {
+				return t(key, getLanguage(), params);
+			},
 			cleanDeptLabel,
 			reset() {
 				this.stage = "qual";
@@ -84,14 +93,14 @@
 			},
 			submit() {
 				if (!this.dealName.trim()) {
-					uni.showToast({ title: "请填写机会名称", icon: "none" });
+					uni.showToast({ title: this.t("dept_sal_err_name"), icon: "none" });
 					return;
 				}
 				if (!this.pick) {
-					uni.showToast({ title: "请选择销售角色", icon: "none" });
+					uni.showToast({ title: this.t("dept_sal_err_role"), icon: "none" });
 					return;
 				}
-				uni.showToast({ title: "赢单草稿已保存（待接后端）", icon: "success" });
+				uni.showToast({ title: this.t("dept_sal_ok"), icon: "success" });
 			},
 		},
 	};

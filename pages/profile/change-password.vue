@@ -1,23 +1,23 @@
 <template>
 	<view class="page">
 		<view class="card">
-			<text class="h">修改密码</text>
-			<text class="hint">修改成功后请牢记新密码；接口需登录态。</text>
+			<text class="h">{{ t('change_password') }}</text>
+			<text class="hint">{{ t('change_password_hint') }}</text>
 
 			<view class="field">
-				<text class="lab">当前密码</text>
-				<input class="inp" password v-model="oldPassword" placeholder="请输入当前密码" placeholder-class="ph" />
+				<text class="lab">{{ t('current_password') }}</text>
+				<input class="inp" password v-model="oldPassword" :placeholder="t('please_enter_current_password')" placeholder-class="ph" />
 			</view>
 			<view class="field">
-				<text class="lab">新密码</text>
-				<input class="inp" password v-model="newPassword" placeholder="至少 6 位" placeholder-class="ph" />
+				<text class="lab">{{ t('new_password') }}</text>
+				<input class="inp" password v-model="newPassword" :placeholder="t('new_password_min_6')" placeholder-class="ph" />
 			</view>
 			<view class="field">
-				<text class="lab">确认新密码</text>
-				<input class="inp" password v-model="confirmPassword" placeholder="再次输入新密码" placeholder-class="ph" />
+				<text class="lab">{{ t('confirm_new_password') }}</text>
+				<input class="inp" password v-model="confirmPassword" :placeholder="t('reenter_new_password')" placeholder-class="ph" />
 			</view>
 
-			<button class="btn primary" type="primary" :loading="loading" @click="submit">保存新密码</button>
+			<button class="btn primary" type="primary" :loading="loading" @click="submit">{{ t('save_new_password') }}</button>
 		</view>
 	</view>
 </template>
@@ -25,6 +25,7 @@
 <script>
 	import * as authApi from "@/clientApi/authApi";
 	import { getToken } from "@/utils/index";
+	import { t, getLanguage } from "@/utils/lang";
 
 	export default {
 		data() {
@@ -36,14 +37,22 @@
 			};
 		},
 		onShow() {
+			try {
+				uni.setNavigationBarTitle({ title: t("change_password", getLanguage()) });
+			} catch (e) {
+				//
+			}
 			if (!getToken()) {
-				uni.showToast({ title: "请先登录", icon: "none" });
+				uni.showToast({ title: this.t('please_login_first'), icon: "none" });
 				setTimeout(() => {
 					uni.redirectTo({ url: "/pages/login/login" });
 				}, 400);
 			}
 		},
 		methods: {
+			t(key, params = {}) {
+				return t(key, getLanguage(), params);
+			},
 			handleChangePasswordError(err) {
 				const sc = err && Number(err.statusCode);
 				const data = err && err.data;
@@ -55,14 +64,14 @@
 				}
 				if (sc === 400) {
 					if (/相同|一致|same|identical|不能与|unchanged|未变更/i.test(bodyText)) {
-						uni.showToast({ title: "不能修改与当前一样的密码", icon: "none" });
+						uni.showToast({ title: this.t('cannot_use_same_password'), icon: "none" });
 						return;
 					}
-					uni.showToast({ title: "当前密码错误", icon: "none" });
+					uni.showToast({ title: this.t('current_password_error'), icon: "none" });
 					return;
 				}
 				const fallback =
-					bodyText || (err && err.message) || "修改失败，请稍后重试";
+					bodyText || (err && err.message) || this.t('change_failed_retry');
 				uni.showToast({
 					title: String(fallback).slice(0, 40),
 					icon: "none",
@@ -70,19 +79,19 @@
 			},
 			async submit() {
 				if (!this.oldPassword) {
-					uni.showToast({ title: "请输入当前密码", icon: "none" });
+					uni.showToast({ title: this.t('please_enter_current_password'), icon: "none" });
 					return;
 				}
 				if (!this.newPassword || this.newPassword.length < 6) {
-					uni.showToast({ title: "新密码至少 6 位", icon: "none" });
+					uni.showToast({ title: this.t('new_password_min_6'), icon: "none" });
 					return;
 				}
 				if (this.newPassword !== this.confirmPassword) {
-					uni.showToast({ title: "两次新密码不一致", icon: "none" });
+					uni.showToast({ title: this.t('passwords_not_match'), icon: "none" });
 					return;
 				}
 				if (this.newPassword === this.oldPassword) {
-					uni.showToast({ title: "不能修改与当前一样的密码", icon: "none" });
+					uni.showToast({ title: this.t('cannot_use_same_password'), icon: "none" });
 					return;
 				}
 				this.loading = true;
@@ -91,12 +100,10 @@
 						oldPassword: this.oldPassword,
 						newPassword: this.newPassword,
 					});
-					uni.showToast({ title: "已更新密码", icon: "success" });
-					setTimeout(() => {
-						uni.navigateBack({ delta: 1 });
-					}, 400);
-				} catch (err) {
-					this.handleChangePasswordError(err);
+					uni.showToast({ title: this.t('change_success'), icon: "success" });
+					setTimeout(() => uni.navigateBack(), 600);
+				} catch (e) {
+					this.handleChangePasswordError(e);
 				} finally {
 					this.loading = false;
 				}

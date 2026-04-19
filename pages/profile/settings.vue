@@ -1,19 +1,19 @@
 <template>
 	<view class="page">
-		<view class="hint">账号与安全</view>
+		<view class="hint">{{ t('settings_section_account') }}</view>
 		<view class="cell-group">
 			<view class="cell cell-border" @click="switchAccount">
 				<view class="cell-icon bg-switch">
 					<text class="iconfont cell-glyph">&#xe654;</text>
 				</view>
-				<text class="cell-title">切换账号</text>
+				<text class="cell-title">{{ t('switch_account') }}</text>
 				<text class="cell-arrow">›</text>
 			</view>
 			<view class="cell" @click="logoutAccount">
 				<view class="cell-icon bg-out">
 					<text class="iconfont cell-glyph">&#xe727;</text>
 				</view>
-				<text class="cell-title cell-danger">退出账号</text>
+				<text class="cell-title cell-danger">{{ t('logout') }}</text>
 				<text class="cell-arrow">›</text>
 			</view>
 		</view>
@@ -119,6 +119,7 @@
 
 <script>
 	import { getToken, clearSession } from "@/utils/index";
+	import { LANGUAGES, getLanguage, setLanguage, t } from "@/utils/lang";
 
 	const LANG_OPTIONS = ["简体中文", "繁体中文", "English", "日本語"];
 	const FONT_OPTIONS = ["小", "中", "大", "特大"];
@@ -335,10 +336,10 @@
 			},
 			switchAccount() {
 				uni.showModal({
-					title: "切换账号",
-					content: "将退出当前账号并前往登录页，以便使用其他账号登录。",
-					confirmText: "前往登录",
-					cancelText: "取消",
+					title: t("switch_account", getLanguage()),
+					content: t("switch_account_modal_body", getLanguage()),
+					confirmText: t("go_to_login", getLanguage()),
+					cancelText: t("cancel", getLanguage()),
 					success: (res) => {
 						if (!res.confirm) return;
 						clearSession();
@@ -348,20 +349,41 @@
 			},
 			logoutAccount() {
 				uni.showModal({
-					title: "退出账号",
-					content: "确定退出当前账号吗？",
-					confirmText: "退出",
-					cancelText: "取消",
+					title: t("logout", getLanguage()),
+					content: t("logout_confirm_body", getLanguage()),
+					confirmText: t("logout_action", getLanguage()),
+					cancelText: t("cancel", getLanguage()),
 					success: (res) => {
 						if (!res.confirm) return;
 						clearSession();
-						uni.showToast({ title: "已退出", icon: "success" });
+						uni.showToast({ title: t("logged_out", getLanguage()), icon: "success" });
 						setTimeout(() => {
 							uni.navigateBack({ delta: 1 });
 						}, 400);
 					},
 				});
 			},
+			openLanguageSelect() {
+				const languageOptions = Object.values(this.languages).map(lang => ({
+					text: lang.name,
+					value: lang.code
+				}));
+				
+				uni.showActionSheet({
+					itemList: languageOptions.map(opt => opt.text),
+					success: (res) => {
+						const selectedLang = languageOptions[res.tapIndex].value;
+						if (selectedLang !== this.currentLanguage) {
+							setLanguage(selectedLang);
+							uni.showToast({ title: t("language_switched", getLanguage()), icon: "success" });
+							// 刷新页面以应用语言变化
+							setTimeout(() => {
+								uni.reLaunch({ url: "/pages/profile/profile" });
+							}, 500);
+						}
+					}
+				});
+			}
 		},
 	};
 </script>

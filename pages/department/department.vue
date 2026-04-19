@@ -15,13 +15,14 @@
 		<DeptFinance v-else-if="department && department.id === 'finance'" :department="department" />
 		<DeptAcademic v-else-if="department && department.id === 'academic'" :department="department" />
 		<DeptDefault v-else-if="department" :department="department" />
-		<view v-else class="empty-page"><text>未找到该部门</text></view>
+		<view v-else class="empty-page"><text>{{ t('department_not_found') }}</text></view>
 	</view>
 </template>
 
 <script>
 	import agentDepartments from "@/data/agentDepartments";
 	import { cleanDeptLabel } from "@/utils/deptUi";
+	import { t, getLanguage } from "@/utils/lang";
 
 	import DeptEngineering from "@/components/department/DeptEngineering.vue";
 	import DeptDesign from "@/components/department/DeptDesign.vue";
@@ -60,6 +61,11 @@
 			return {
 				department: null,
 			};
+		},
+		methods: {
+			t(key, params = {}) {
+				return t(key, getLanguage(), params);
+			},
 		},
 		onLoad(options) {
 			const id = (options && options.id) || "";

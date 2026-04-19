@@ -80,6 +80,9 @@
 					<text class="cell-sub">查看团队今日工作</text>
 					<text class="cell-arrow">›</text>
 				</view>
+				<text class="cell-title">{{ t('workflow') }}</text>
+				<text class="cell-arrow">›</text>
+			</view>
 			</view>
 
 			<view class="group-spacer" />
@@ -106,57 +109,60 @@
 					<text class="cell-sub">管理协作流水线</text>
 					<text class="cell-arrow">›</text>
 				</view>
+				<text class="cell-title">{{ t('add') }}</text>
+				<text class="cell-arrow">›</text>
+			</view>
 			</view>
 
 			<view class="group-spacer" />
 
 			<view v-if="!loggedIn" class="cell-group">
 				<view class="cell cell-border" @click="goLogin">
-					<view class="cell-icon bg-account">
-						<text class="iconfont cell-glyph">&#xe654;</text>
-					</view>
-					<text class="cell-title">登录</text>
-					<text class="cell-arrow">›</text>
+				<view class="cell-icon bg-account">
+					<text class="iconfont cell-glyph">&#xe654;</text>
 				</view>
-				<view class="cell" @click="goRegister">
-					<view class="cell-icon bg-reg">
-						<text class="iconfont cell-glyph">&#xe727;</text>
-					</view>
-					<text class="cell-title">注册</text>
-					<text class="cell-arrow">›</text>
+				<text class="cell-title">{{ t('login') }}</text>
+				<text class="cell-arrow">›</text>
+			</view>
+			<view class="cell" @click="goRegister">
+				<view class="cell-icon bg-reg">
+					<text class="iconfont cell-glyph">&#xe727;</text>
 				</view>
+				<text class="cell-title">{{ t('register') }}</text>
+				<text class="cell-arrow">›</text>
+			</view>
 			</view>
 
 			<view v-else class="cell-group">
 				<view class="cell cell-border" @click="goPage('/pages/profile/model-settings')">
-					<view class="cell-icon bg-pwd">
-						<text class="iconfont cell-glyph">&#xe727;</text>
-					</view>
-					<text class="cell-title">模型与 API</text>
-					<text class="cell-arrow">›</text>
+				<view class="cell-icon bg-pwd">
+					<text class="iconfont cell-glyph">&#xe727;</text>
 				</view>
-				<view class="cell cell-border" @click="goChangePassword">
-					<view class="cell-icon bg-pwd">
-						<text class="iconfont cell-glyph">&#xe78f;</text>
-					</view>
-					<text class="cell-title">修改密码</text>
-					<text class="cell-arrow">›</text>
+				<text class="cell-title">{{ t('model_api') }}</text>
+				<text class="cell-arrow">›</text>
+			</view>
+			<view class="cell cell-border" @click="goChangePassword">
+				<view class="cell-icon bg-pwd">
+					<text class="iconfont cell-glyph">&#xe78f;</text>
 				</view>
-				<view class="cell" @click="goSettings">
-					<view class="cell-icon bg-settings">
-						<text class="iconfont cell-glyph">&#xe654;</text>
-					</view>
-					<text class="cell-title">设置</text>
-					<text class="cell-arrow">›</text>
+				<text class="cell-title">{{ t('change_password') }}</text>
+				<text class="cell-arrow">›</text>
+			</view>
+			<view class="cell" @click="goSettings">
+				<view class="cell-icon bg-settings">
+					<text class="iconfont cell-glyph">&#xe654;</text>
 				</view>
+				<text class="cell-title">{{ t('settings') }}</text>
+				<text class="cell-arrow">›</text>
+			</view>
 			</view>
 
 			<view class="group-spacer" />
 
 			<view class="cell-group">
 				<view class="cell cell-static">
-					<text class="cell-title">关于</text>
-					<text class="cell-extra">v1.0</text>
+					<text class="cell-title">{{ t('about') }}</text>
+					<text class="cell-extra">{{ t('version') }}</text>
 				</view>
 				<view class="about-desc">
 					<text class="about-line">一人公司 · AI驱动</text>
@@ -266,6 +272,7 @@
 <script>
 	import { getToken, getUserInfo, setUserInfo } from "@/utils/index";
 	import { switchMainTab } from "@/utils/tabNav";
+	import { t, getLanguage } from "@/utils/lang";
 	import AppTabBar from "@/components/AppTabBar.vue";
 	import { getAuthProfile, mergeProfileIntoUser, resolveAvatarDisplayUrl } from "@/clientApi/authApi";
 	import { loadDigitalAgents, loadProjectGroups } from "@/utils/virtualTeamStore";
@@ -285,7 +292,7 @@
 		},
 		computed: {
 			displayName() {
-				if (!this.loggedIn) return "未登录";
+				if (!this.loggedIn) return this.t('not_logged_in');
 				const u = this.user || {};
 				const nick = u.nickname != null ? String(u.nickname).trim() : "";
 				if (nick) return nick;
@@ -294,7 +301,7 @@
 					const p = String(phone);
 					return `${p.slice(0, 3)}****${p.slice(-4)}`;
 				}
-				return u.name || "我的账号";
+				return u.name || this.t('my_account');
 			},
 			accountSubLine() {
 				if (!this.loggedIn) return "点击登录，开始管理你的AI团队";
@@ -302,8 +309,8 @@
 			},
 			avatarChar() {
 				const n = this.displayName;
-				if (!this.loggedIn) return "用";
-				return n && n.length ? n.slice(0, 1) : "用";
+				if (!this.loggedIn) return this.t("profile_avatar_guest");
+				return n && n.length ? n.slice(0, 1) : this.t("profile_avatar_guest");
 			},
 			avatarImg() {
 				if (!this.loggedIn || !this.user) return "";
@@ -326,10 +333,18 @@
 		},
 		onShow() {
 			uni.hideTabBar({ animation: false });
+			try {
+				uni.setNavigationBarTitle({ title: t("profile", getLanguage()) });
+			} catch (e) {
+				//
+			}
 			this.refreshAuth();
 			this.loadStats();
 		},
 		methods: {
+			t(key) {
+				return t(key);
+			},
 			refreshAuth() {
 				const token = getToken();
 				this.loggedIn = !!token;

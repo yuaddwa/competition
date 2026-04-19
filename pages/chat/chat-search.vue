@@ -5,13 +5,13 @@
 				class="search-input"
 				type="text"
 				v-model="keyword"
-				placeholder="搜索聊天内容"
+				:placeholder="t('chat_search_placeholder')"
 				confirm-type="search"
 				@input="onInput"
 			/>
 		</view>
-		<view v-if="loading" class="state"><text>加载中…</text></view>
-		<view v-else-if="filtered.length === 0" class="state"><text>{{ keyword.trim() ? "未找到相关内容" : "输入关键词搜索" }}</text></view>
+		<view v-if="loading" class="state"><text>{{ t('loading') }}</text></view>
+		<view v-else-if="filtered.length === 0" class="state"><text>{{ keyword.trim() ? t('chat_search_no_hits') : t('chat_search_hint') }}</text></view>
 		<scroll-view v-else scroll-y class="list">
 			<view v-for="row in filtered" :key="row.id" class="hit">
 				<text class="hit-time">{{ row.timeLabel }}</text>
@@ -27,6 +27,7 @@
 	import * as workflowApi from "@/clientApi/workflowApi";
 	import { pickId } from "@/utils/apiHelpers";
 	import { getUserInfo } from "@/utils/index";
+	import { t, getLanguage } from "@/utils/lang";
 
 	function messageBody(m) {
 		if (!m || typeof m !== "object") return "";
@@ -78,6 +79,13 @@
 				return this.rawRows.filter((r) => (r.searchText || "").toLowerCase().includes(k));
 			},
 		},
+		onShow() {
+			try {
+				uni.setNavigationBarTitle({ title: this.t("chat_search_nav") });
+			} catch (e) {
+				//
+			}
+		},
 		onLoad(options) {
 			this.mode = (options && options.mode) || "local";
 			if (this.mode === "virtual") {
@@ -94,6 +102,9 @@
 			}
 		},
 		methods: {
+			t(key, params = {}) {
+				return t(key, getLanguage(), params);
+			},
 			onInput() {
 				// computed filtered updates
 			},
@@ -109,7 +120,8 @@
 			loadVirtual() {
 				const list = loadVirtualChatMessages(this.kind, this.id);
 				this.rawRows = list.map((m) => {
-					const prefix = m.senderName && !m.isMine ? `${m.senderName}：` : m.isMine ? "我：" : "";
+					const me = this.t("home_sender_me");
+					const prefix = m.senderName && !m.isMine ? `${m.senderName}：` : m.isMine ? `${me}：` : "";
 					const text = `${prefix}${m.content || ""}`;
 					return {
 						id: m.id,
@@ -126,9 +138,9 @@
 					const arr = Array.isArray(list) ? list : [];
 					const user = getUserInfo();
 					this.rawRows = arr.map((m) => {
-						const body = messageBody(m) || "（空）";
+						const body = messageBody(m) || this.t("message_empty_mark");
 						const mine = remoteMessageIsMine(m, user);
-						const preview = mine ? `我：${body}` : body;
+						const preview = mine ? `${this.t("home_sender_me")}：${body}` : body;
 						return {
 							id: pickId(m) || m.messageId || `m-${messageTime(m)}`,
 							preview,
@@ -139,7 +151,7 @@
 				} catch (e) {
 					console.warn("[chat-search] remote", e);
 					this.rawRows = [];
-					uni.showToast({ title: "加载失败", icon: "none" });
+					uni.showToast({ title: this.t("load_failed_short"), icon: "none" });
 				} finally {
 					this.loading = false;
 				}

@@ -2,28 +2,28 @@
 <template>
 	<scroll-view scroll-y class="page">
 		<view class="hero">
-			<text class="title">{{ cleanDeptLabel(department.name) }}</text>
-			<text class="desc">{{ department.desc }}</text>
+			<text class="title">{{ cleanDeptLabel(translatedDepartment.name) }}</text>
+			<text class="desc">{{ translatedDepartment.desc }}</text>
 		</view>
 		<view class="card">
-			<text class="h">目标</text>
-			<textarea v-model="goal" class="ta" placeholder="描述本阶段要达成的结果" />
+			<text class="h">{{ t('dept_def_goal') }}</text>
+			<textarea v-model="goal" class="ta" :placeholder="t('dept_def_goal_ph')" />
 		</view>
 		<view class="card">
-			<text class="h">优先级</text>
+			<text class="h">{{ t('dept_def_priority') }}</text>
 			<view class="chips">
 				<text v-for="u in urg" :key="u.v" class="c" :class="{ on: uu === u.v }" @click="uu = u.v">{{ u.l }}</text>
 			</view>
 		</view>
 		<view class="card">
-			<text class="h">角色（多选）</text>
+			<text class="h">{{ t('dept_def_roles') }}</text>
 			<view class="tags">
-				<text v-for="s in department.services" :key="s.id" class="t" :class="{ on: bag.has(s.id) }" @click="tog(s.id)">{{ cleanDeptLabel(s.name) }}</text>
+				<text v-for="s in translatedDepartment.services" :key="s.id" class="t" :class="{ on: bag.has(s.id) }" @click="tog(s.id)">{{ cleanDeptLabel(s.name) }}</text>
 			</view>
 		</view>
 		<view class="actions">
-			<button class="btn ghost" @click="reset">清空</button>
-			<button class="btn primary" type="primary" @click="submit">生成任务草稿</button>
+			<button class="btn ghost" @click="reset">{{ t('clear') }}</button>
+			<button class="btn primary" type="primary" @click="submit">{{ t('dept_def_submit') }}</button>
 		</view>
 		<view class="pad" />
 	</scroll-view>
@@ -31,6 +31,7 @@
 
 <script>
 	import { cleanDeptLabel } from "@/utils/deptUi";
+	import { t, getLanguage, translateDepartment } from "@/utils/lang";
 
 	export default {
 		name: "DeptDefault",
@@ -38,16 +39,27 @@
 		data() {
 			return {
 				goal: "",
-				urg: [
-					{ l: "低", v: "l" },
-					{ l: "中", v: "m" },
-					{ l: "高", v: "h" },
+				urgKeys: [
+					{ k: "priority_low", v: "l" },
+					{ k: "priority_mid", v: "m" },
+					{ k: "priority_high", v: "h" },
 				],
 				uu: "m",
 				bag: new Set(),
 			};
 		},
+		computed: {
+			urg() {
+				return this.urgKeys.map((x) => ({ l: this.t(x.k), v: x.v }));
+			},
+			translatedDepartment() {
+				return translateDepartment(this.department, getLanguage());
+			},
+		},
 		methods: {
+			t(key, params = {}) {
+				return t(key, getLanguage(), params);
+			},
 			cleanDeptLabel,
 			tog(id) {
 				const n = new Set(this.bag);
@@ -62,14 +74,14 @@
 			},
 			submit() {
 				if (!this.goal.trim()) {
-					uni.showToast({ title: "请填写目标", icon: "none" });
+					uni.showToast({ title: this.t("dept_def_err_goal"), icon: "none" });
 					return;
 				}
 				if (this.bag.size === 0) {
-					uni.showToast({ title: "请选择角色", icon: "none" });
+					uni.showToast({ title: this.t("dept_def_err_role"), icon: "none" });
 					return;
 				}
-				uni.showToast({ title: "草稿已生成（待接后端）", icon: "success" });
+				uni.showToast({ title: this.t("dept_def_ok"), icon: "success" });
 			},
 		},
 	};

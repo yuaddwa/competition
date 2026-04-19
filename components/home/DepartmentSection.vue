@@ -1,14 +1,14 @@
 <template>
 	<view class="department-card">
 		<view class="department-header">
-			<text class="department-title">{{ cleanLabel(department.name) }}</text>
-			<text class="department-desc">{{ department.desc }}</text>
+			<text class="department-title">{{ cleanLabel(translatedDept.name) }}</text>
+			<text class="department-desc">{{ translatedDept.desc }}</text>
 		</view>
 
 		<view class="service-list">
 			<view
 				class="service-item"
-				v-for="service in department.services"
+				v-for="service in translatedDept.services"
 				:key="service.id"
 				@click="$emit('select-service', service)"
 			>
@@ -23,12 +23,19 @@
 </template>
 
 <script>
+	import { t, getLanguage, translateDepartment } from "@/utils/lang";
+
 	export default {
 		name: "DepartmentSection",
 		props: {
 			department: {
 				type: Object,
 				required: true
+			}
+		},
+		computed: {
+			translatedDept() {
+				return translateDepartment(this.department, getLanguage());
 			}
 		},
 		methods: {

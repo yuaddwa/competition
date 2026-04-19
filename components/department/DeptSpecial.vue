@@ -3,8 +3,8 @@
 	<scroll-view scroll-y class="page">
 		<view class="hero">
 			<text class="eyebrow">跨域编排</text>
-			<text class="title">{{ cleanDeptLabel(department.name) }}</text>
-			<text class="desc">{{ department.desc }}</text>
+			<text class="title">{{ cleanDeptLabel(translatedDepartment.name) }}</text>
+			<text class="desc">{{ translatedDepartment.desc }}</text>
 		</view>
 
 		<view class="card">
@@ -30,7 +30,7 @@
 		<view class="card">
 			<text class="h">专家池（多选）</text>
 			<view class="pool">
-				<view v-for="s in department.services" :key="s.id" class="p" :class="{ on: pool.has(s.id) }" @click="flip(s.id)">
+				<view v-for="s in translatedDepartment.services" :key="s.id" class="p" :class="{ on: pool.has(s.id) }" @click="flip(s.id)">
 					<text>{{ cleanDeptLabel(s.name) }}</text>
 				</view>
 			</view>
@@ -46,6 +46,7 @@
 
 <script>
 	import { cleanDeptLabel } from "@/utils/deptUi";
+	import { t, getLanguage, translateDepartment } from "@/utils/lang";
 
 	export default {
 		name: "DeptSpecial",
@@ -58,7 +59,15 @@
 				pool: new Set(),
 			};
 		},
+		computed: {
+			translatedDepartment() {
+				return translateDepartment(this.department, getLanguage());
+			},
+		},
 		methods: {
+			t(key, params = {}) {
+				return t(key, getLanguage(), params);
+			},
 			cleanDeptLabel,
 			flip(id) {
 				const n = new Set(this.pool);
@@ -74,19 +83,19 @@
 			},
 			submit() {
 				if (!this.brief.trim()) {
-					uni.showToast({ title: "请填写任务综述", icon: "none" });
+					uni.showToast({ title: this.t("dept_spe_err_brief"), icon: "none" });
 					return;
 				}
 				const ok = this.steps.some((x) => (x || "").trim());
 				if (!ok) {
-					uni.showToast({ title: "请至少填写一步编排", icon: "none" });
+					uni.showToast({ title: this.t("dept_spe_err_step"), icon: "none" });
 					return;
 				}
 				if (this.pool.size === 0) {
-					uni.showToast({ title: "请选择专家角色", icon: "none" });
+					uni.showToast({ title: this.t("dept_spe_err_expert"), icon: "none" });
 					return;
 				}
-				uni.showToast({ title: "编排方案已生成（待接后端）", icon: "success" });
+				uni.showToast({ title: this.t("dept_spe_ok"), icon: "success" });
 			},
 		},
 	};

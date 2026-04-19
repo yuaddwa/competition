@@ -2,6 +2,8 @@
  * 底部五个主 Tab 统一用 switchTab，避免 redirectTo 整页替换带来的卡顿与闪烁。
  * 路径须与 pages.json 中 tabBar.list 一致。
  */
+import { t, getLanguage } from "@/utils/lang";
+
 export const TAB_PAGE = {
 	home: "/pages/home/home",
 	project: "/pages/project/project",
@@ -23,7 +25,7 @@ export function switchMainTab(keyOrPath) {
 		url,
 		fail(err) {
 			console.warn("[tabNav] switchTab failed", url, err);
-			uni.showToast({ title: "切换失败", icon: "none" });
+			uni.showToast({ title: t("tab_switch_failed", getLanguage()), icon: "none" });
 		},
 	});
 }

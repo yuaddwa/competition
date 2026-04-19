@@ -1,23 +1,23 @@
 <template>
 	<view class="page">
 		<view class="tip-card">
-			<text class="tip-text">密钥仅保存在本机。对话时直接向「接口地址」发起聊天补全请求（OpenAI 兼容）。微信小程序需在公众平台配置该域名为合法 request 域名；或使用与后端同域的代理。</text>
+			<text class="tip-text">{{ t('model_settings_tip') }}</text>
 		</view>
 
 		<view class="form-group">
-			<text class="label">API Key</text>
+			<text class="label">{{ t('model_label_api_key') }}</text>
 			<input
 				class="input"
 				type="text"
 				password
 				v-model="apiKey"
-				placeholder="sk-… 或服务商密钥"
+				:placeholder="t('model_placeholder_key')"
 				placeholder-class="ph"
 			/>
 		</view>
 
 		<view class="form-group">
-			<text class="label">接口根地址（含 /v1）</text>
+			<text class="label">{{ t('model_label_base_url') }}</text>
 			<input
 				class="input"
 				type="text"
@@ -28,18 +28,19 @@
 		</view>
 
 		<view class="form-group">
-			<text class="label">模型名</text>
+			<text class="label">{{ t('model_label_model_name') }}</text>
 			<input class="input" type="text" v-model="model" placeholder="gpt-4o-mini" placeholder-class="ph" />
 		</view>
 
 		<view class="btn-save" @click="save">
-			<text class="btn-save-t">保存</text>
+			<text class="btn-save-t">{{ t('save') }}</text>
 		</view>
 	</view>
 </template>
 
 <script>
 	import { getLlmSettings, setLlmSettings } from "@/utils/llmSettings";
+	import { t, getLanguage } from "@/utils/lang";
 
 	export default {
 		data() {
@@ -55,14 +56,24 @@
 			this.baseUrl = s.baseUrl;
 			this.model = s.model;
 		},
+		onShow() {
+			try {
+				uni.setNavigationBarTitle({ title: t("model_api", getLanguage()) });
+			} catch (e) {
+				//
+			}
+		},
 		methods: {
+			t(key, params = {}) {
+				return t(key, getLanguage(), params);
+			},
 			save() {
 				setLlmSettings({
 					apiKey: this.apiKey,
 					baseUrl: this.baseUrl,
 					model: this.model,
 				});
-				uni.showToast({ title: "已保存", icon: "success" });
+				uni.showToast({ title: this.t("saved"), icon: "success" });
 				setTimeout(() => uni.navigateBack(), 600);
 			},
 		},

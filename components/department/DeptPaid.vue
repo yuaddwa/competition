@@ -3,8 +3,8 @@
 	<scroll-view scroll-y class="page">
 		<view class="hero">
 			<text class="eyebrow">投放与效果</text>
-			<text class="title">{{ cleanDeptLabel(department.name) }}</text>
-			<text class="desc">{{ department.desc }}</text>
+			<text class="title">{{ cleanDeptLabel(translatedDepartment.name) }}</text>
+			<text class="desc">{{ translatedDepartment.desc }}</text>
 		</view>
 
 		<view class="card">
@@ -31,7 +31,7 @@
 		<view class="card">
 			<text class="h">协同角色</text>
 			<view class="list">
-				<view v-for="s in department.services" :key="s.id" class="li" @click="toggle(s.id)">
+				<view v-for="s in translatedDepartment.services" :key="s.id" class="li" @click="toggle(s.id)">
 					<text class="tick">{{ roster.has(s.id) ? "✓" : "" }}</text>
 					<view class="grow">
 						<text class="nm">{{ cleanDeptLabel(s.name) }}</text>
@@ -51,6 +51,7 @@
 
 <script>
 	import { cleanDeptLabel } from "@/utils/deptUi";
+	import { t, getLanguage, translateDepartment } from "@/utils/lang";
 
 	export default {
 		name: "DeptPaid",
@@ -68,7 +69,15 @@
 				roster: new Set(),
 			};
 		},
+		computed: {
+			translatedDepartment() {
+				return translateDepartment(this.department, getLanguage());
+			},
+		},
 		methods: {
+			t(key, params = {}) {
+				return t(key, getLanguage(), params);
+			},
 			cleanDeptLabel,
 			onPace(e) {
 				this.pacing = Number(e.detail.value);
@@ -93,14 +102,14 @@
 			},
 			submit() {
 				if (!this.kpi.trim()) {
-					uni.showToast({ title: "请填写 KPI 方向", icon: "none" });
+					uni.showToast({ title: this.t("dept_paid_err_kpi"), icon: "none" });
 					return;
 				}
 				if (this.roster.size === 0) {
-					uni.showToast({ title: "请勾选协同角色", icon: "none" });
+					uni.showToast({ title: this.t("dept_paid_err_role"), icon: "none" });
 					return;
 				}
-				uni.showToast({ title: "投放单已生成（待接后端）", icon: "success" });
+				uni.showToast({ title: this.t("dept_paid_ok"), icon: "success" });
 			},
 		},
 	};

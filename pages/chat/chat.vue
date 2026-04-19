@@ -11,7 +11,7 @@
 </view>
 
 <view v-if="loading" class="chat-empty">
-<text>加载中…</text>
+<text>{{ t('loading') }}</text>
 </view>
 
 <view v-else-if="chatMessages.length > 0" class="chat-scroll-wrap">
@@ -57,22 +57,22 @@ class="message-bubble"
 </view>
 
 <view v-else class="chat-empty chat-empty-flex">
-<text>暂无消息</text>
+<text>{{ t('chat_no_messages') }}</text>
 </view>
 
 <view v-if="!loading && multiSelectMode" class="multi-bar safe-bottom">
-<text class="multi-cancel" @click="exitMultiSelect">取消</text>
-<text class="multi-count">已选 {{ selectedIds.length }} 条</text>
+<text class="multi-cancel" @click="exitMultiSelect">{{ t('multi_cancel') }}</text>
+<text class="multi-count">{{ t('multi_selected', { count: selectedIds.length }) }}</text>
 <view class="multi-actions">
-<text class="multi-link" @click="batchCopy">复制</text>
-<text class="multi-link" @click="batchForward">转发</text>
-<text class="multi-link multi-link-danger" @click="batchDelete">删除</text>
+<text class="multi-link" @click="batchCopy">{{ t('action_copy') }}</text>
+<text class="multi-link" @click="batchForward">{{ t('action_forward') }}</text>
+<text class="multi-link multi-link-danger" @click="batchDelete">{{ t('action_delete') }}</text>
 </view>
 </view>
 
 <view v-else-if="!loading" class="chat-input safe-bottom">
-<input type="text" v-model="inputText" placeholder="输入消息..." class="input-field" confirm-type="send" :disabled="sending" @confirm="sendMessage" />
-<view class="send-button" :class="{ 'send-disabled': sending }" @click="sendMessage"><text>{{ sending ? "请求中…" : "发送" }}</text></view>
+<input type="text" v-model="inputText" :placeholder="t('chat_input_placeholder')" class="input-field" confirm-type="send" :disabled="sending" @confirm="sendMessage" />
+<view class="send-button" :class="{ 'send-disabled': sending }" @click="sendMessage"><text>{{ sending ? t('chat_requesting') : t('send') }}</text></view>
 </view>
 </view>
 </template>
@@ -101,6 +101,7 @@ import { getLlmSettings } from "@/utils/llmSettings";
 import { chatCompletion } from "@/utils/openaiCompatible";
 import { extractAssistantText } from "@/utils/openaiResponse";
 import NavBackClick from "@/components/NavBackClick.vue";
+import { t, getLanguage } from "@/utils/lang";
 
 const RECALL_MS = 2 * 60 * 1000;
 
@@ -224,16 +225,17 @@ personaSystemPrompt: "",
 },
 computed: {
 headerTitle() {
+const lang = getLanguage();
 if (this.mode === "virtual") {
-return (this.virtualTitle || "").trim() || "聊天";
+return (this.virtualTitle || "").trim() || t("chat_title_fallback", lang);
 }
 if (this.mode === "remote") {
 const a = (this.workflowTitle || "").trim();
 const b = (this.threadTitle || "").trim();
 if (a && b) return `${a} · ${b}`;
-return a || b || "工作流沟通";
+return a || b || t("workflow_chat_title", lang);
 }
-return this.projectName || "聊天";
+return this.projectName || t("chat_title_fallback", lang);
 },
 headerIsBoss() {
 return this.mode === "local" && this.projectName === "老板";
@@ -299,6 +301,9 @@ this.markAsRead();
 }
 },
 methods: {
+t(key, params = {}) {
+return t(key, getLanguage(), params);
+},
 safeScrollId(id) {
 return "sm-" + String(id == null ? "x" : id).replace(/[^a-zA-Z0-9_-]/g, "_");
 },
@@ -364,7 +369,7 @@ const t = (text || "").trim();
 if (!t) return;
 uni.setClipboardData({
 data: t,
-success: () => uni.showToast({ title: "已复制", icon: "none" }),
+success: () => uni.showToast({ title: this.t("toast_copied"), icon: "none" }),
 });
 },
 forwardMessage(msg) {
@@ -373,7 +378,7 @@ if (!t) return;
 uni.setStorageSync("chat_forward_draft", t);
 uni.setClipboardData({
 data: t,
-success: () => uni.showToast({ title: "已复制，可粘贴到其他会话", icon: "none", duration: 2200 }),
+success: () => uni.showToast({ title: this.t("toast_copied_paste"), icon: "none", duration: 2200 }),
 });
 },
 enterMultiSelect(msg) {
@@ -391,7 +396,7 @@ return this.chatMessages.filter((m) => set.has(m.id));
 batchCopy() {
 const list = this.selectedMessagesList();
 if (!list.length) {
-uni.showToast({ title: "请先选择消息", icon: "none" });
+uni.showToast({ title: this.t("toast_select_msg_first"), icon: "none" });
 return;
 }
 const text = list
@@ -403,7 +408,7 @@ this.copyText(text);
 batchForward() {
 const list = this.selectedMessagesList();
 if (!list.length) {
-uni.showToast({ title: "请先选择消息", icon: "none" });
+uni.showToast({ title: this.t("toast_select_msg_first"), icon: "none" });
 return;
 }
 const text = list
@@ -413,22 +418,22 @@ const text = list
 uni.setStorageSync("chat_forward_draft", text);
 uni.setClipboardData({
 data: text,
-success: () => uni.showToast({ title: "已复制合并内容，可粘贴到其他会话", icon: "none", duration: 2200 }),
+success: () => uni.showToast({ title: this.t("toast_copied_merge"), icon: "none", duration: 2200 }),
 });
 },
 batchDelete() {
 if (this.mode === "remote") {
-uni.showToast({ title: "远程会话暂不支持删除", icon: "none" });
+uni.showToast({ title: this.t("toast_remote_no_delete"), icon: "none" });
 return;
 }
 const list = this.selectedMessagesList();
 if (!list.length) {
-uni.showToast({ title: "请先选择消息", icon: "none" });
+uni.showToast({ title: this.t("toast_select_msg_first"), icon: "none" });
 return;
 }
 uni.showModal({
-title: "删除消息",
-content: `将删除已选的 ${list.length} 条消息（仅本机）`,
+title: this.t("delete_messages_title"),
+content: this.t("delete_messages_body", { count: list.length }),
 success: (res) => {
 if (!res.confirm) return;
 const ids = list.map((m) => m.id);
@@ -447,7 +452,7 @@ this.$nextTick(() => this.scrollToBottom());
 recallMessage(msg) {
 if (!msg || !msg.isMine) return;
 if (this.mode === "remote") {
-uni.showToast({ title: "远程消息暂不支持撤回", icon: "none" });
+uni.showToast({ title: this.t("toast_remote_no_recall"), icon: "none" });
 return;
 }
 if (this.mode === "virtual") {
@@ -457,18 +462,18 @@ this.loadVirtualMessages(false);
 removeLocalProjectMessage(this.projectName, msg.id);
 this.loadChatMessages(false);
 }
-uni.showToast({ title: "已撤回", icon: "none" });
+uni.showToast({ title: this.t("toast_recalled"), icon: "none" });
 this.$nextTick(() => this.scrollToBottom());
 },
 deleteMessage(msg) {
 if (!msg) return;
 if (this.mode === "remote") {
-uni.showToast({ title: "远程消息无法删除", icon: "none" });
+uni.showToast({ title: this.t("toast_remote_cannot_delete"), icon: "none" });
 return;
 }
 uni.showModal({
-title: "删除消息",
-content: "从本机删除该条消息？",
+title: this.t("delete_one_title"),
+content: this.t("delete_one_body"),
 success: (res) => {
 if (!res.confirm) return;
 if (this.mode === "virtual") {
@@ -490,15 +495,15 @@ const push = (label, fn) => {
 itemList.push(label);
 handlers.push(fn);
 };
-push("复制", () => this.copyText(msg.content));
+push(this.t("menu_copy"), () => this.copyText(msg.content));
 if (!isRemote) {
 if (msg.isMine && this.canRecall(msg)) {
-push("撤回", () => this.recallMessage(msg));
+push(this.t("menu_recall"), () => this.recallMessage(msg));
 }
-push("删除", () => this.deleteMessage(msg));
+push(this.t("menu_delete"), () => this.deleteMessage(msg));
 }
-push("转发", () => this.forwardMessage(msg));
-push("多选", () => this.enterMultiSelect(msg));
+push(this.t("menu_forward"), () => this.forwardMessage(msg));
+push(this.t("menu_multiselect"), () => this.enterMultiSelect(msg));
 uni.showActionSheet({
 itemList,
 success: (res) => {
@@ -527,7 +532,7 @@ return ta - tb;
 const user = getUserInfo();
 this.chatMessages = sorted.map((m) => ({
 id: pickId(m) || m.messageId || `m-${messageTime(m)}`,
-content: messageBody(m) || "（空）",
+content: messageBody(m) || this.t("message_empty_mark"),
 time: messageTime(m) || new Date().toISOString(),
 isMine: remoteMessageIsMine(m, user),
 }));
@@ -594,14 +599,14 @@ const body = (this.inputText || "").trim();
 if (!body || this.sending) return;
 const { apiKey, baseUrl, model } = getLlmSettings();
 if (!apiKey) {
-uni.showToast({ title: "请先在「我的 → 模型与 API」填写密钥", icon: "none" });
+uni.showToast({ title: this.t("toast_set_api_key_in_profile"), icon: "none" });
 return;
 }
 if (!this.personaSystemPrompt || !String(this.personaSystemPrompt).trim()) {
 await this.fetchPersonaMaterial();
 }
 if (!this.personaSystemPrompt || !String(this.personaSystemPrompt).trim()) {
-uni.showToast({ title: "未获取到人设正文，请确认后端 /api/agents 可用", icon: "none" });
+uni.showToast({ title: this.t("toast_agent_content_missing"), icon: "none" });
 return;
 }
 this.sending = true;
@@ -632,20 +637,20 @@ if (!text) throw new Error("empty reply");
 appendVirtualChat("persona", this.virtualId, {
 content: text,
 isMine: false,
-senderName: ((this.virtualTitle || "助手").slice(0, 16)),
+senderName: ((this.virtualTitle || this.t("assistant_name_short")).slice(0, 16)),
 });
 } catch (e) {
 console.warn("[chat] persona llm", e);
 const errMsg = (e && e.message) || String(e || "");
 uni.showToast({
-title: errMsg.length > 36 ? "模型请求失败，请检查密钥与合法域名" : errMsg,
+title: errMsg.length > 36 ? this.t("model_err_title") : errMsg,
 icon: "none",
 duration: 2800,
 });
 appendVirtualChat("persona", this.virtualId, {
-content: "（模型调用失败：请检查密钥、接口地址，且小程序需配置 request 合法域名）",
+content: this.t("model_err_body"),
 isMine: false,
-senderName: "系统",
+senderName: this.t("sender_system_name"),
 });
 } finally {
 this.sending = false;
@@ -680,7 +685,7 @@ const newMessage = {
 id: "msg-" + Date.now(),
 projectName: this.projectName,
 employeeId: this.selectedEmployeeId || "",
-title: "消息",
+title: this.t("chat_list_title"),
 content: userContent,
 time: new Date().toISOString(),
 sender: "me",
@@ -709,8 +714,8 @@ const replyMessage = {
 id: "msg-" + Date.now(),
 projectName: "工程部",
 employeeId: this.selectedEmployeeId,
-title: "回复",
-content: "好的，我知道了",
+title: this.t("reply_ok_title"),
+content: this.t("reply_ok_content"),
 time: new Date().toISOString(),
 read: false,
 };

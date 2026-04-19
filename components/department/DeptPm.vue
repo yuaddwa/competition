@@ -3,8 +3,8 @@
 	<scroll-view scroll-y class="page">
 		<view class="hero">
 			<text class="eyebrow">交付治理</text>
-			<text class="title">{{ cleanDeptLabel(department.name) }}</text>
-			<text class="desc">{{ department.desc }}</text>
+			<text class="title">{{ cleanDeptLabel(translatedDepartment.name) }}</text>
+			<text class="desc">{{ translatedDepartment.desc }}</text>
 		</view>
 
 		<view class="card">
@@ -26,7 +26,7 @@
 		<view class="card">
 			<text class="h">启用治理角色</text>
 			<view class="chk">
-				<label v-for="s in department.services" :key="s.id" class="chk-row" @tap="tog(s.id)">
+				<label v-for="s in translatedDepartment.services" :key="s.id" class="chk-row" @tap="tog(s.id)">
 					<text class="box">{{ gov.has(s.id) ? '☑' : '☐' }}</text>
 					<text class="nm">{{ cleanDeptLabel(s.name) }}</text>
 				</label>
@@ -43,18 +43,27 @@
 
 <script>
 	import { cleanDeptLabel } from "@/utils/deptUi";
+	import { t, getLanguage, translateDepartment } from "@/utils/lang";
 
 	export default {
 		name: "DeptPm",
 		props: { department: { type: Object, required: true } },
 		data() {
 			return {
-				milestones: [""],
-				risk: 3,
-				gov: new Set(),
+				milestone: "",
+				risk: "",
+				team: new Set(),
 			};
 		},
+		computed: {
+			translatedDepartment() {
+				return translateDepartment(this.department, getLanguage());
+			},
+		},
 		methods: {
+			t(key, params = {}) {
+				return t(key, getLanguage(), params);
+			},
 			cleanDeptLabel,
 			tog(id) {
 				const n = new Set(this.gov);
@@ -70,14 +79,14 @@
 			submit() {
 				const ok = this.milestones.some((x) => (x || "").trim());
 				if (!ok) {
-					uni.showToast({ title: "请填写至少一个里程碑", icon: "none" });
+					uni.showToast({ title: this.t("dept_pm_err_milestone"), icon: "none" });
 					return;
 				}
 				if (this.gov.size === 0) {
-					uni.showToast({ title: "请选择治理角色", icon: "none" });
+					uni.showToast({ title: this.t("dept_pm_err_gov"), icon: "none" });
 					return;
 				}
-				uni.showToast({ title: "纪要草稿已生成（待接后端）", icon: "success" });
+				uni.showToast({ title: this.t("dept_pm_ok"), icon: "success" });
 			},
 		},
 	};

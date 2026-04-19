@@ -1,77 +1,77 @@
 <template>
 	<view class="page">
 		<view v-if="mode === 'virtual' && kind === 'group' && groupDetail" class="hero">
-			<text class="hero-title">{{ groupDetail.name }}</text>
-			<text class="hero-desc">{{ groupDetail.desc || "暂无简介" }}</text>
-			<text v-if="groupDetail.clientName" class="hero-meta">客户：{{ groupDetail.clientName }}</text>
-			<text v-if="groupDetail.deadline" class="hero-meta">交付：{{ groupDetail.deadline }}</text>
+			<text class="hero-title">{{ displayGroupName(groupDetail) }}</text>
+			<text class="hero-desc">{{ groupHeroDesc }}</text>
+			<text v-if="groupDetail.clientName" class="hero-meta">{{ t('cs_client_prefix') }}{{ groupDetail.clientName }}</text>
+			<text v-if="groupDetail.deadline" class="hero-meta">{{ t('cs_delivery_prefix') }}{{ groupDetail.deadline }}</text>
 		</view>
 
 		<view v-else-if="mode === 'virtual' && kind === 'agent' && agentDetail" class="hero">
-			<text class="hero-title">{{ agentDetail.name }}</text>
-			<text class="hero-desc">{{ agentDetail.role || "数字员工" }}</text>
-			<text class="hero-meta">一对一工作沟通</text>
+			<text class="hero-title">{{ displayAgentName(agentDetail) }}</text>
+			<text class="hero-desc">{{ agentHeroRoleLine }}</text>
+			<text class="hero-meta">{{ t('cs_one_on_one') }}</text>
 		</view>
 
 		<view v-else-if="mode === 'virtual' && kind === 'hq'" class="hero">
 			<text class="hero-title">{{ pageTitle }}</text>
-			<text class="hero-desc">全员大群 · 日报与经理总览</text>
+			<text class="hero-desc">{{ t('cs_hq_desc') }}</text>
 		</view>
 
 		<view v-else-if="mode === 'virtual' && kind === 'manager'" class="hero">
 			<text class="hero-title">{{ pageTitle }}</text>
-			<text class="hero-desc">每日 21:30 推送总览 · 可与系统留痕沟通</text>
+			<text class="hero-desc">{{ t('cs_manager_desc') }}</text>
 		</view>
 
 		<view v-else-if="mode === 'virtual' && kind === 'persona'" class="hero">
 			<text class="hero-title">{{ pageTitle }}</text>
-			<text class="hero-desc">人格对话 · 本地演示（未接大模型）</text>
+			<text class="hero-desc">{{ t('cs_persona_desc') }}</text>
 		</view>
 
 		<view v-else-if="mode === 'remote'" class="hero">
 			<text class="hero-title">{{ pageTitle }}</text>
-			<text class="hero-desc">工作流沟通线程</text>
-			<text class="hero-meta mono">工作流编号：{{ workflowId }}</text>
+			<text class="hero-desc">{{ t('workflow_thread_hero') }}</text>
+			<text class="hero-meta mono">{{ t('workflow_id_prefix') }}{{ workflowId }}</text>
 		</view>
 
 		<view v-else class="hero">
 			<text class="hero-title">{{ pageTitle }}</text>
-			<text class="hero-desc">本地会话</text>
+			<text class="hero-desc">{{ t('cs_local_session') }}</text>
 		</view>
 
 		<view class="group">
 			<view class="cell" hover-class="cell-hover" @click="goSearch">
-				<text class="cell-main">查找聊天记录</text>
+				<text class="cell-main">{{ t('cs_find_chat_history') }}</text>
 				<text class="cell-arrow">›</text>
 			</view>
 			<view v-if="showGroupManage" class="cell" hover-class="cell-hover" @click="openGroupManage">
-				<text class="cell-main">群管理</text>
+				<text class="cell-main">{{ t('cs_group_manage') }}</text>
 				<text class="cell-arrow">›</text>
 			</view>
 			<view v-if="showGroupManage" class="cell" hover-class="cell-hover" @click="openGroupNotice">
-				<text class="cell-main">群公告</text>
+				<text class="cell-main">{{ t('cs_group_notice') }}</text>
 				<text class="cell-arrow">›</text>
 			</view>
 		</view>
 
 		<view class="group">
 			<view class="cell cell-row">
-				<text class="cell-main">置顶聊天</text>
+				<text class="cell-main">{{ t('cs_pin_chat') }}</text>
 				<switch :checked="pinned" color="#07c160" @change="onPinChange" />
 			</view>
 			<view class="cell cell-row">
-				<text class="cell-main">消息免打扰</text>
+				<text class="cell-main">{{ t('cs_mute') }}</text>
 				<switch :checked="muted" color="#07c160" @change="onMuteChange" />
 			</view>
 		</view>
 
 		<view class="group">
 			<view class="cell cell-danger" hover-class="cell-hover" @click="confirmClear">
-				<text class="cell-main">清空聊天记录</text>
+				<text class="cell-main">{{ t('cs_clear_history') }}</text>
 			</view>
 		</view>
 
-		<text v-if="mode === 'remote'" class="foot-tip">工作流会话正文在服务端保存；本页清空仅影响本机已拉取列表的展示缓存。</text>
+		<text v-if="mode === 'remote'" class="foot-tip">{{ t('workflow_remote_storage_tip') }}</text>
 	</view>
 </template>
 
@@ -84,8 +84,14 @@
 		touchAgentLastMsg,
 		markAgentChatCleared,
 		loadDigitalAgents,
+		displayGroupName,
+		displayGroupDesc,
+		displayAgentName,
+		displayAgentRole,
+		formatAgentNavTitle,
 	} from "@/utils/virtualTeamStore";
 	import { clearLocalProjectChat } from "@/utils/messageUtils";
+	import { t, getLanguage } from "@/utils/lang";
 
 	function storageSessionKey(vm) {
 		if (vm.mode === "virtual") return `v_${vm.kind}_${vm.id}`;
@@ -99,7 +105,7 @@
 				mode: "local",
 				kind: "",
 				id: "",
-				pageTitle: "聊天信息",
+				pageTitle: "",
 				workflowId: "",
 				threadId: "",
 				workflowTitle: "",
@@ -111,17 +117,31 @@
 				muted: false,
 			};
 		},
+		created() {
+			this.pageTitle = t("chat_settings_title", getLanguage());
+		},
 		computed: {
 			showGroupManage() {
 				return this.mode === "virtual" && (this.kind === "group" || this.kind === "hq");
 			},
+			groupHeroDesc() {
+				const d = this.groupDetail && displayGroupDesc(this.groupDetail);
+				return d || this.t("cs_no_desc");
+			},
+			agentHeroRoleLine() {
+				const r = this.agentDetail && displayAgentRole(this.agentDetail);
+				return r || this.t("cs_digital_employee_role");
+			},
+		},
+		onShow() {
+			this.$forceUpdate();
 		},
 		onLoad(options) {
 			this.mode = (options && options.mode) || "local";
 			if (this.mode === "virtual") {
 				this.kind = options.kind ? decodeURIComponent(options.kind) : "";
 				this.id = options.id ? decodeURIComponent(options.id) : "";
-				this.pageTitle = options.title ? decodeURIComponent(options.title) : "聊天信息";
+				this.pageTitle = options.title ? decodeURIComponent(options.title) : t("chat_settings_title", getLanguage());
 				if (this.kind === "group" && this.id) {
 					this.groupDetail = getProjectGroupById(this.id);
 				}
@@ -135,14 +155,24 @@
 				this.threadTitle = options.threadTitle ? decodeURIComponent(options.threadTitle) : "";
 				const a = (this.workflowTitle || "").trim();
 				const b = (this.threadTitle || "").trim();
-				this.pageTitle = a && b ? `${a} · ${b}` : a || b || "工作流沟通";
+				this.pageTitle = a && b ? `${a} · ${b}` : a || b || t("workflow_chat_title", getLanguage());
 			} else {
 				this.projectName = options.projectName ? decodeURIComponent(options.projectName) : "";
-				this.pageTitle = this.projectName || "聊天信息";
+				this.pageTitle = this.projectName || t("chat_settings_title", getLanguage());
 			}
 			this.loadPrefs();
+			try {
+				uni.setNavigationBarTitle({ title: t("chat_settings_title", getLanguage()) });
+			} catch (e) {
+				//
+			}
 		},
 		methods: {
+			displayGroupName,
+			displayAgentName,
+			t(key, params = {}) {
+				return t(key, getLanguage(), params);
+			},
 			loadPrefs() {
 				const key = storageSessionKey(this);
 				this.pinned = uni.getStorageSync(`chat_pin_${key}`) === "1";
@@ -188,40 +218,42 @@
 			},
 			openGroupManage() {
 				const agents = loadDigitalAgents();
-				const lines = agents.map((a) => `· ${a.name}（${a.role}）`).join("\n");
+				const lines = agents.map((a) => `· ${formatAgentNavTitle(a)}`).join("\n");
 				if (this.kind === "hq") {
 					uni.showModal({
-						title: "群管理",
-						content: `全员群 · 共 ${agents.length} 位数字员工\n${lines || "暂无成员"}`,
+						title: this.t("cs_group_manage"),
+						content: `${this.t("cs_hq_members_modal", { count: agents.length })}\n${lines || this.t("cs_no_members")}`,
 						showCancel: false,
 					});
 					return;
 				}
 				const g = this.groupDetail;
-				const head = g ? `「${g.name}」协作成员\n` : "协作成员\n";
+				const head = g
+					? `${this.t("cs_collab_members_named", { name: displayGroupName(g) })}\n`
+					: `${this.t("cs_collab_members_plain")}\n`;
 				uni.showModal({
-					title: "群管理",
-					content: `${head}${lines || "暂无成员"}`,
+					title: this.t("cs_group_manage"),
+					content: `${head}${lines || this.t("cs_no_members")}`,
 					showCancel: false,
 				});
 			},
 			openGroupNotice() {
 				if (this.kind === "hq") {
 					uni.showModal({
-						title: "群公告",
-						content: "每日 21:00 各员工提交日报，21:30 经理总览推送至本群。",
+						title: this.t("cs_group_notice"),
+						content: this.t("cs_notice_hq_body"),
 						showCancel: false,
 					});
 					return;
 				}
 				const g = this.groupDetail;
-				const notice = g && g.desc ? g.desc : "暂无群公告。可在「创建项目群」时填写项目说明，或后续在管理后台维护。";
-				uni.showModal({ title: "群公告", content: notice, showCancel: false });
+				const notice = g && displayGroupDesc(g) ? displayGroupDesc(g) : this.t("cs_notice_empty");
+				uni.showModal({ title: this.t("cs_group_notice"), content: notice, showCancel: false });
 			},
 			confirmClear() {
 				uni.showModal({
-					title: "清空聊天记录",
-					content: "将删除本机该会话的聊天内容，是否继续？",
+					title: this.t("cs_clear_modal_title"),
+					content: this.t("cs_clear_modal_body"),
 					success: (res) => {
 						if (res.confirm) this.doClear();
 					},
@@ -230,19 +262,19 @@
 			doClear() {
 				if (this.mode === "virtual") {
 					clearVirtualChatMessages(this.kind, this.id);
-					if (this.kind === "group") touchGroupLastMsg(this.id, "暂无消息");
+					if (this.kind === "group") touchGroupLastMsg(this.id, this.t("cs_no_message_stub"));
 					if (this.kind === "agent") {
 						markAgentChatCleared(this.id);
-						touchAgentLastMsg(this.id, "暂无消息");
+						touchAgentLastMsg(this.id, this.t("cs_no_message_stub"));
 					}
 				} else if (this.mode === "local") {
 					clearLocalProjectChat(this.projectName);
 				} else {
-					uni.showToast({ title: "已清除本机展示缓存", icon: "none" });
+					uni.showToast({ title: this.t("cs_cleared_remote_cache"), icon: "none" });
 					uni.navigateBack();
 					return;
 				}
-				uni.showToast({ title: "已清空", icon: "success" });
+				uni.showToast({ title: this.t("cs_cleared"), icon: "success" });
 				setTimeout(() => uni.navigateBack(), 400);
 			},
 		},

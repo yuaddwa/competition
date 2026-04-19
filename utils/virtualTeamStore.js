@@ -1,6 +1,8 @@
 /**
  * 本地「项目群」「数字员工」及会话摘要（后续可对接后端）
  */
+import { t, getLanguage } from "./lang.js";
+
 const K_GROUPS = "virtualProjectGroups";
 const K_AGENTS = "virtualDigitalAgents";
 const K_MSG_PREFIX = "virtualChat_";
@@ -14,6 +16,129 @@ export const HQ_ID = "company_hall";
 export const MANAGER_KIND = "manager";
 export const MANAGER_ID = "manager_digest";
 const K_MANAGER_UNREAD = "manager_feed_unread";
+
+/** 演示数据 id → 语言包键（名称与简介） */
+const DEMO_GROUP_KEYS = {
+  g_demo_1: { nameKey: "vt_demo_group_mall_name", descKey: "vt_demo_group_mall_desc" },
+};
+const DEMO_AGENT_KEYS = {
+  a_demo_1: { nameKey: "vt_demo_agent_chen_name", roleKey: "role_title_pm" },
+  a_demo_2: { nameKey: "vt_demo_agent_xiao_name", roleKey: "role_title_frontend" },
+  a_demo_3: { nameKey: "vt_demo_agent_qiang_name", roleKey: "role_title_backend" },
+};
+
+const UNNAMED_GROUP_ZH = "未命名项目群";
+const DEFAULT_AGENT_NAME_ZH = "数字员工";
+const DEFAULT_MEMBER_ZH = "成员";
+
+/** 全员群气泡旁展示名：中/英历史值 → 语言包键 */
+const HALL_SENDER_ZH_TO_KEY = {
+  系统: "sender_system_name",
+  经理总览: "manager_overview_title",
+  "陈经理（项目经理）": "vt_hall_sender_1",
+  "小艾（前端）": "vt_hall_sender_2",
+  "阿强（后端）": "vt_hall_sender_3",
+};
+const HALL_SENDER_EN_TO_KEY = {
+  "Chen (Project Manager)": "vt_hall_sender_1",
+  "Aria (Frontend)": "vt_hall_sender_2",
+  "Qiang (Backend)": "vt_hall_sender_3",
+};
+
+export function displayGroupName(g) {
+  if (!g) return "";
+  const lang = getLanguage();
+  const demo = DEMO_GROUP_KEYS[g.id];
+  if (demo && demo.nameKey) {
+    const tr = t(demo.nameKey, lang);
+    if (tr !== demo.nameKey) return tr;
+  }
+  const raw = (g.name || "").trim();
+  if (raw === UNNAMED_GROUP_ZH) return t("vt_unnamed_group", lang);
+  return g.name || "";
+}
+
+export function displayGroupDesc(g) {
+  if (!g) return "";
+  const lang = getLanguage();
+  const demo = DEMO_GROUP_KEYS[g.id];
+  if (demo && demo.descKey) {
+    const tr = t(demo.descKey, lang);
+    if (tr !== demo.descKey) return tr;
+  }
+  return g.desc || "";
+}
+
+export function displayAgentName(a) {
+  if (!a) return "";
+  const lang = getLanguage();
+  const demo = DEMO_AGENT_KEYS[a.id];
+  if (demo && demo.nameKey) {
+    const tr = t(demo.nameKey, lang);
+    if (tr !== demo.nameKey) return tr;
+  }
+  const raw = (a.name || "").trim();
+  if (raw === DEFAULT_AGENT_NAME_ZH) return t("vt_default_agent_name", lang);
+  return a.name || "";
+}
+
+export function displayAgentRole(a) {
+  if (!a) return "";
+  const lang = getLanguage();
+  const demo = DEMO_AGENT_KEYS[a.id];
+  if (demo && demo.roleKey) {
+    const tr = t(demo.roleKey, lang);
+    if (tr !== demo.roleKey) return tr;
+  }
+  const raw = (a.role || "").trim();
+  if (raw === DEFAULT_MEMBER_ZH) return t("vt_member_default", lang);
+  return a.role || "";
+}
+
+export function formatAgentNavTitle(a) {
+  if (!a) return "";
+  const lang = getLanguage();
+  const name = displayAgentName(a);
+  const role = displayAgentRole(a);
+  if (!role) return name;
+  if (lang === "en") return `${name} (${role})`;
+  return `${name}（${role}）`;
+}
+
+/** 会话列表副标题：系统占位与「我：」前缀随语言切换 */
+export function translateVirtualLastMsgPreview(text) {
+  const s = String(text || "").trim();
+  if (!s) return "";
+  const lang = getLanguage();
+  if (s === "暂无消息") return t("chat_no_messages", lang);
+  if (s === "群已创建，开始协作吧") return t("vt_group_created_toast", lang);
+  if (s === "已就绪，随时听候安排") return t("vt_agent_ready_hint", lang);
+  const meZh = "我：";
+  if (s.startsWith(meZh)) {
+    const me = t("vt_preview_me_prefix", lang);
+    return me + s.slice(meZh.length);
+  }
+  return text;
+}
+
+/** 首页全员群：发送者展示名（兼容已写入的中/英文） */
+export function resolveHallSenderDisplay(raw) {
+  const s = String(raw || "").trim();
+  if (!s) return "";
+  const lang = getLanguage();
+  if (s === t("manager_overview_title", "zh") || s === t("manager_overview_title", "en")) {
+    return t("manager_overview_title", lang);
+  }
+  if (s === t("sender_system_name", "zh") || s === t("sender_system_name", "en")) {
+    return t("sender_system_name", lang);
+  }
+  const key = HALL_SENDER_ZH_TO_KEY[s] || HALL_SENDER_EN_TO_KEY[s];
+  if (key) {
+    const tr = t(key, lang);
+    if (tr !== key) return tr;
+  }
+  return raw;
+}
 
 function nowIso() {
   return new Date().toISOString();
@@ -193,6 +318,7 @@ export function clearManagerFeedUnread() {
  */
 export function buildMessageFeedRows() {
   seedIfNeeded();
+  const lang = getLanguage();
   const b = getDailyBriefing();
   const groups = loadProjectGroups();
   const rows = [];
@@ -200,11 +326,11 @@ export function buildMessageFeedRows() {
   rows.push({
     id: "home_manager",
     rowKind: "manager",
-    title: "经理总览",
+    title: t("manager_overview_title", lang),
     subtitle: managerFeedSubtitle(),
     time: b.managerTime,
     unread: getManagerFeedUnread(),
-    badge: "主读",
+    badge: t("feed_badge_must_read", lang),
   });
 
   for (const line of b.employeeLines) {
@@ -224,8 +350,8 @@ export function buildMessageFeedRows() {
       id: `g_${g.id}`,
       rowKind: "group",
       groupId: g.id,
-      title: g.name,
-      subtitle: truncateText(g.lastMsg || "", 80),
+      title: displayGroupName(g),
+      subtitle: truncateText(translateVirtualLastMsgPreview(g.lastMsg || ""), 80),
       time: g.lastTime || nowIso(),
       unread: Number(g.unread) || 0,
     });
@@ -267,7 +393,7 @@ export function ensureHallWelcome() {
     content:
       "欢迎加入【公司全员群】。每日 21:00 各数字员工在此提交日报，21:30 经理推送总览。您可随时 @ 员工安排工作。",
     isMine: false,
-    senderName: "系统",
+    senderName: t("sender_system_name", getLanguage()),
   });
 }
 
@@ -282,21 +408,23 @@ export function ensureHallDailyDigest() {
   appendHQMessage({
     content: "—— 今日 21:00 日报开始 ——",
     isMine: false,
-    senderName: "系统",
+    senderName: t("sender_system_name", getLanguage()),
   });
 
+  const agents = loadDigitalAgents();
   for (const line of b.employeeLines) {
+    const agent = agents.find((x) => x.id === line.id);
     appendHQMessage({
       content: `【日报】${line.summary}`,
       isMine: false,
-      senderName: `${line.name}（${line.role}）`,
+      senderName: agent ? formatAgentNavTitle(agent) : formatAgentNavTitle({ id: line.id, name: line.name, role: line.role }),
     });
   }
 
   appendHQMessage({
-    content: `【经理总览】${b.managerSummary}`,
+    content: b.managerSummary,
     isMine: false,
-    senderName: "经理总览",
+    senderName: t("manager_overview_title", getLanguage()),
     isManager: true,
   });
 
@@ -470,32 +598,33 @@ export function ensureManagerChatSeed() {
   appendVirtualChat(MANAGER_KIND, MANAGER_ID, {
     content: b.scheduleNote,
     isMine: false,
-    senderName: "系统",
+    senderName: t("sender_system_name", getLanguage()),
   });
   appendVirtualChat(MANAGER_KIND, MANAGER_ID, {
     content: b.managerSummary,
     isMine: false,
-    senderName: "经理总览",
+    senderName: t("manager_overview_title", getLanguage()),
   });
 }
 
 /** 首页：经理总结 + 各员工日报（演示数据，可替换为定时任务写入） */
 export function getDailyBriefing() {
   seedIfNeeded();
+  const lang = getLanguage();
   const agents = loadDigitalAgents();
-  const scheduleNote = "每日 21:00 各员工自动提交日报，21:30 经理生成总览";
+  const scheduleNote = t("briefing_schedule_note", lang);
   const employeeLines = agents.slice(0, 8).map((a) => ({
     id: a.id,
-    name: a.name,
-    role: a.role,
-    summary: `【${a.role}】今日完成例行推进；风险：无阻塞；明日：继续当前迭代。`,
-    time: "今日 21:00",
+    name: displayAgentName(a),
+    role: displayAgentRole(a),
+    summary: t("briefing_employee_summary", lang, { role: displayAgentRole(a) }),
+    time: t("briefing_time_2100", lang),
   }));
-  const managerSummary = `【经理总览】今日整体进度正常。重点：客户侧验收清单已对齐；明日优先联调支付链路。${scheduleNote}`;
+  const managerSummary = t("briefing_manager_summary", lang, { schedule: scheduleNote });
   return {
     scheduleNote,
     managerSummary,
-    managerTime: "今日 21:30",
+    managerTime: t("briefing_time_2130", lang),
     employeeLines,
   };
 }

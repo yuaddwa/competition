@@ -1,4 +1,5 @@
 import { getToken, buildQuery, clearSession } from "./index";
+import { t, getLanguage } from "./lang";
 
 /** H5 是否走本地 Vite 代理（不要直连远程，避免跨域且易配错） */
 function isH5Development() {
@@ -53,15 +54,16 @@ function defaultTimeoutMs() {
 /** 统一网络错误文案，便于全局排查 */
 export function toastNetworkMessage(err, hint = "") {
   const msg = (err && err.errMsg) || String(err || "");
-  let title = hint || "网络异常，请稍后重试";
+  const lang = getLanguage();
+  let title = hint || t("err_network", lang);
   if (msg.includes("timeout") || msg.includes("超时")) {
-    title = "连接超时：可换网络或稍后重试";
+    title = t("err_timeout_net", lang);
   } else if (msg.includes("domain") || msg.includes("域名")) {
-    title = "请求被拒绝：请配置合法域名或检查网络";
+    title = t("err_domain", lang);
   } else if (msg.includes("abort")) {
-    title = "请求已中断";
+    title = t("err_abort", lang);
   } else if (msg.includes("fail") && msg.includes("ssl")) {
-    title = "安全连接失败，请稍后重试";
+    title = t("err_ssl", lang);
   }
   uni.showToast({ title, icon: "none", duration: 2600 });
 }
@@ -125,7 +127,7 @@ export function uploadFile(options = {}) {
         if (statusCode === 401 && needAuth) {
           clearSession();
           if (showError) {
-            uni.showToast({ title: "登录已失效，请重新登录", icon: "none", duration: 2200 });
+            uni.showToast({ title: t("err_login_expired", getLanguage()), icon: "none", duration: 2200 });
           }
           reject({ statusCode: 401, message: "未授权", data });
           setTimeout(() => {
@@ -137,7 +139,7 @@ export function uploadFile(options = {}) {
           resolve(data);
           return;
         }
-        const message = (data && (data.msg || data.message)) || "上传失败";
+        const message = (data && (data.msg || data.message)) || t("err_upload_failed", getLanguage());
         if (showError) {
           uni.showToast({ title: `${message}(${statusCode})`, icon: "none", duration: 2600 });
         }
@@ -206,7 +208,7 @@ function request(options = {}) {
         if (statusCode === 401 && needAuth) {
           clearSession();
           if (showError) {
-            uni.showToast({ title: "登录已失效，请重新登录", icon: "none", duration: 2200 });
+            uni.showToast({ title: t("err_login_expired", getLanguage()), icon: "none", duration: 2200 });
           }
           reject({ statusCode: 401, message: "未授权", data: resData });
           setTimeout(() => {
@@ -219,9 +221,10 @@ function request(options = {}) {
           return;
         }
 
-        let message = (resData && (resData.msg || resData.message)) || "请求失败";
+        const lang = getLanguage();
+        let message = (resData && (resData.msg || resData.message)) || t("err_request_failed", lang);
         if (statusCode >= 500) {
-          message = "服务暂时不可用，请稍后重试";
+          message = t("err_service_unavailable", lang);
         } else if (statusCode === 404 || Number(statusCode) === 404) {
           const bodyStr =
             typeof resData === "string"
@@ -230,10 +233,10 @@ function request(options = {}) {
           const looksLikeHtml = typeof resData === "string" && /<\s*html/i.test(resData);
           const doubleApi = String(requestUrl).includes("/api/api/");
           message = looksLikeHtml
-            ? "404：请求未到达接口（像打到前端/Nginx）"
+            ? t("err_404_frontend", lang)
             : doubleApi
-              ? "404：地址里多了一段 /api，请改 .env"
-              : "接口404：请对照 Swagger 路径或后端是否部署同一版本";
+              ? t("err_404_double_api", lang)
+              : t("err_404_api", lang);
           console.warn("[request] 404", finalMethod, requestUrl);
           console.warn("[request] 响应片段:", bodyStr);
           if (doubleApi) {
