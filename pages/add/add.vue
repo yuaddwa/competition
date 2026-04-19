@@ -5,74 +5,74 @@
 			<view class="hero">
 				<view class="hero-icon">⚡</view>
 				<view class="hero-copy">
-					<text class="head-title">布置任务</text>
-					<text class="head-sub">写清目标即可；默认从 <text class="em">产品部</text> 下发至 <text class="em">工程部</text>。</text>
-				</view>
+				<text class="head-title">{{ t('add') }}</text>
+				<text class="head-sub">{{ t('add_subtitle') }}</text>
+			</view>
 			</view>
 
 			<view class="steps">
-				<view class="step" :class="{ done: !!workflowId }">
-					<text class="step-n">1</text>
-					<text class="step-t">选工作流</text>
-				</view>
-				<text class="step-line"></text>
-				<view class="step" :class="{ done: goalTrimmed.length > 0 }">
-					<text class="step-n">2</text>
-					<text class="step-t">写任务</text>
-				</view>
-				<text class="step-line"></text>
-				<view class="step">
-					<text class="step-n">3</text>
-					<text class="step-t">下发</text>
-				</view>
+			<view class="step" :class="{ done: !!workflowId }">
+				<text class="step-n">1</text>
+				<text class="step-t">{{ t('select_workflow') }}</text>
 			</view>
+			<text class="step-line"></text>
+			<view class="step" :class="{ done: goalTrimmed.length > 0 }">
+				<text class="step-n">2</text>
+				<text class="step-t">{{ t('write_task') }}</text>
+			</view>
+			<text class="step-line"></text>
+			<view class="step">
+				<text class="step-n">3</text>
+				<text class="step-t">{{ t('submit_task') }}</text>
+			</view>
+		</view>
 
 			<view class="wf-bar" @click="pickWorkflow">
-				<view class="wf-info">
-					<text class="wf-label">落到哪个工作流</text>
-					<text class="wf-name">{{ workflowTitle || "点击选择" }}</text>
+			<view class="wf-info">
+				<text class="wf-label">{{ t('which_workflow') }}</text>
+				<text class="wf-name">{{ workflowTitle || t('click_to_select') }}</text>
+			</view>
+			<text class="wf-arrow">›</text>
+		</view>
+
+		<view class="card">
+			<text class="label">{{ t('task_content') }}</text>
+			<textarea
+				class="goal"
+				v-model="goal"
+				:maxlength="2000"
+				:placeholder="t('task_placeholder')"
+				placeholder-class="ph"
+				:auto-height="false"
+			/>
+			<text class="counter">{{ goal.length }} / 2000</text>
+		</view>
+
+		<view class="card">
+			<text class="label">{{ t('priority') }}</text>
+			<view class="pri-row">
+				<view
+					v-for="(p, i) in priorities"
+					:key="p.key"
+					class="pri"
+					:class="{ on: priorityIdx === i }"
+					@click="priorityIdx = i"
+				>
+					<text class="pri-t">{{ t(`priority_${p.key}`) }}</text>
 				</view>
-				<text class="wf-arrow">›</text>
 			</view>
+		</view>
 
-			<view class="card">
-				<text class="label">任务内容</text>
-				<textarea
-					class="goal"
-					v-model="goal"
-					:maxlength="2000"
-					placeholder="例如：两周内上线可用 MVP，并完成首批用户验证。"
-					placeholder-class="ph"
-					:auto-height="false"
-				/>
-				<text class="counter">{{ goal.length }} / 2000</text>
-			</view>
+		<view class="actions">
+			<button class="btn ghost" :disabled="submitting" @click="reset">{{ t('clear') }}</button>
+			<button class="btn main" type="primary" :loading="submitting" @click="submit">{{ t('submit_task') }}</button>
+		</view>
 
-			<view class="card">
-				<text class="label">优先级</text>
-				<view class="pri-row">
-					<view
-						v-for="(p, i) in priorities"
-						:key="p.key"
-						class="pri"
-						:class="{ on: priorityIdx === i }"
-						@click="priorityIdx = i"
-					>
-						<text class="pri-t">{{ p.label }}</text>
-					</view>
-				</view>
-			</view>
-
-			<view class="actions">
-				<button class="btn ghost" :disabled="submitting" @click="reset">清空</button>
-				<button class="btn main" type="primary" :loading="submitting" @click="submit">下发任务</button>
-			</view>
-
-			<view class="hint-card">
-				<text class="hint-title">小贴士</text>
-				<text class="hint-t">还没有工作流？先到「项目」创建一个，再回到本页选择并下发。</text>
-				<button class="hint-btn" @click="goProject">打开项目</button>
-			</view>
+		<view class="hint-card">
+			<text class="hint-title">{{ t('tips') }}</text>
+			<text class="hint-t">{{ t('no_workflow_tip') }}</text>
+			<button class="hint-btn" @click="goProject">{{ t('open_project') }}</button>
+		</view>
 
 			<view class="pad-bottom" />
 		</view>
@@ -84,6 +84,7 @@
 	import * as workflowApi from "@/clientApi/workflowApi";
 	import { pickId } from "@/utils/apiHelpers";
 	import { switchMainTab } from "@/utils/tabNav";
+	import { t, getLanguage } from "@/utils/lang";
 	import AppTabBar from "@/components/AppTabBar.vue";
 
 	const STORAGE_WF = "lastWorkflowId";
@@ -98,11 +99,6 @@
 				workflowList: [],
 				goal: "",
 				priorityIdx: 1,
-				priorities: [
-					{ key: "low", label: "低" },
-					{ key: "mid", label: "中" },
-					{ key: "high", label: "高" },
-				],
 				submitting: false,
 			};
 		},
@@ -113,17 +109,28 @@
 			goalTrimmed() {
 				return (this.goal || "").trim();
 			},
+			priorities() {
+				return [{ key: "low" }, { key: "mid" }, { key: "high" }];
+			},
 		},
 		onLoad() {
 			uni.hideTabBar({ animation: false });
 		},
 		onShow() {
 			uni.hideTabBar({ animation: false });
+			try {
+				uni.setNavigationBarTitle({ title: this.t("add") });
+			} catch (e) {
+				//
+			}
 			this.workflowId = uni.getStorageSync(STORAGE_WF) || "";
 			this.workflowTitle = uni.getStorageSync(STORAGE_WF_TITLE) || "";
 			this.prefetchWorkflows();
 		},
 		methods: {
+			t(key, params = {}) {
+				return t(key, getLanguage(), params);
+			},
 			async prefetchWorkflows() {
 				try {
 					const list = await workflowApi.listWorkflows();
@@ -133,7 +140,7 @@
 						const id = pickId(w);
 						if (id) {
 							this.workflowId = id;
-							this.workflowTitle = w.title || w.name || "工作流";
+							this.workflowTitle = w.title || w.name || this.t("workflow");
 							uni.setStorageSync(STORAGE_WF, id);
 							uni.setStorageSync(STORAGE_WF_TITLE, this.workflowTitle);
 						}
@@ -144,15 +151,15 @@
 			},
 			wfLabel(w) {
 				const id = pickId(w);
-				const name = w.title || w.name || "工作流";
+				const name = w.title || w.name || this.t("workflow");
 				return id ? `${name}` : name;
 			},
 			pickWorkflow() {
 				const list = this.workflowList;
 				if (!list.length) {
 					uni.showModal({
-						title: "暂无工作流",
-						content: "需要先在「项目」里创建工作流，是否前往？",
+						title: this.t("no_workflow"),
+						content: this.t("modal_need_workflow_first"),
 						success: (res) => {
 							if (res.confirm) {
 								switchMainTab("project");
@@ -169,7 +176,7 @@
 						const id = pickId(w);
 						if (!id) return;
 						this.workflowId = id;
-						this.workflowTitle = w.title || w.name || "工作流";
+						this.workflowTitle = w.title || w.name || this.t("workflow");
 						try {
 							uni.setStorageSync(STORAGE_WF, id);
 							uni.setStorageSync(STORAGE_WF_TITLE, this.workflowTitle);
@@ -189,15 +196,15 @@
 			async submit() {
 				const text = (this.goal || "").trim();
 				if (!text) {
-					uni.showToast({ title: "请先写任务内容", icon: "none" });
+					uni.showToast({ title: this.t("please_write_task_content"), icon: "none" });
 					return;
 				}
 				if (!this.workflowId) {
 					uni.showModal({
-						title: "还没有工作流",
-						content: "请先到「项目」里创建并进入过一次，或点「选择」从列表里指定。",
-						confirmText: "去项目",
-						cancelText: "选择",
+						title: this.t("no_workflow"),
+						content: this.t("modal_pick_workflow_hint"),
+						confirmText: this.t("go_to_project"),
+						cancelText: this.t("action_select"),
 						success: (res) => {
 							if (res.confirm) {
 								switchMainTab("project");
@@ -218,7 +225,7 @@
 						body: text,
 						commandText: text,
 					});
-					uni.showToast({ title: "已下发", icon: "success" });
+					uni.showToast({ title: this.t("issued"), icon: "success" });
 					this.goal = "";
 				} catch {
 					//

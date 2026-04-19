@@ -4,6 +4,7 @@
 import * as workflowApi from "@/clientApi/workflowApi";
 import { getToken } from "@/utils/index";
 import { pickId } from "@/utils/apiHelpers";
+import { t, getLanguage } from "@/utils/lang";
 
 const READ_PREFIX = "commsRead_";
 
@@ -38,7 +39,7 @@ export async function listCommsInboxFromApi(options = {}) {
   for (const w of sliced) {
     const wid = pickId(w) || w.workflowId;
     if (!wid) continue;
-    const wtitle = w.title || w.name || "工作流";
+    const wtitle = w.title || w.name || t("workflow", getLanguage());
     let threads = [];
     try {
       await workflowApi.commsBootstrap(wid);
@@ -54,7 +55,7 @@ export async function listCommsInboxFromApi(options = {}) {
         workflowId: wid,
         workflowTitle: wtitle,
         threadId: tid,
-        threadTitle: th.title || th.name || th.topic || "线程",
+        threadTitle: th.title || th.name || th.topic || t("thread_default", getLanguage()),
       });
     }
   }
@@ -83,7 +84,7 @@ export async function listCommsInboxFromApi(options = {}) {
         const tIso = time || new Date(0).toISOString();
         return {
           ...base,
-          content: body || "（暂无消息）",
+          content: body || t("comms_no_message", getLanguage()),
           time: tIso,
           read: isThreadRead(r.workflowId, r.threadId, tIso),
           id: mid || `remote-${r.workflowId}-${r.threadId}`,
@@ -91,7 +92,7 @@ export async function listCommsInboxFromApi(options = {}) {
       } catch {
         return {
           ...base,
-          content: "（加载失败）",
+          content: t("comms_load_failed", getLanguage()),
           time: new Date(0).toISOString(),
           read: true,
           id: `remote-${r.workflowId}-${r.threadId}`,

@@ -2,37 +2,43 @@
  * 消息列表：工作流远程会话 + 本地项目群/数字员工 + 旧版本地演示会话
  */
 import { listCommsInboxFromApi } from "@/utils/commsInbox";
-import { loadProjectGroups, loadDigitalAgents } from "@/utils/virtualTeamStore";
+import {
+  loadProjectGroups,
+  loadDigitalAgents,
+  displayGroupName,
+  formatAgentNavTitle,
+  translateVirtualLastMsgPreview,
+} from "@/utils/virtualTeamStore";
 import { groupMessagesByProject, loadMessages } from "@/utils/messageUtils";
 
 export async function loadUnifiedConversationList() {
   const virtualGroups = loadProjectGroups().map((g) => ({
     id: `vgroup_${g.id}`,
     convType: "vgroup",
-    title: g.name,
-    subtitle: g.lastMsg || "",
+    title: displayGroupName(g),
+    subtitle: translateVirtualLastMsgPreview(g.lastMsg || ""),
     time: g.lastTime || new Date(0).toISOString(),
     unread: Number(g.unread) || 0,
     navigate: {
       mode: "virtual",
       kind: "group",
       id: g.id,
-      title: g.name,
+      title: displayGroupName(g),
     },
   }));
 
   const virtualAgents = loadDigitalAgents().map((a) => ({
     id: `vagent_${a.id}`,
     convType: "vagent",
-    title: `${a.name}（${a.role}）`,
-    subtitle: a.lastMsg || "",
+    title: formatAgentNavTitle(a),
+    subtitle: translateVirtualLastMsgPreview(a.lastMsg || ""),
     time: a.lastTime || new Date(0).toISOString(),
     unread: Number(a.unread) || 0,
     navigate: {
       mode: "virtual",
       kind: "agent",
       id: a.id,
-      title: `${a.name}（${a.role}）`,
+      title: formatAgentNavTitle(a),
     },
   }));
 

@@ -3,8 +3,8 @@
 	<scroll-view scroll-y class="page">
 		<view class="hero eng">
 			<text class="eyebrow">研发交付</text>
-			<text class="title">{{ cleanDeptLabel(department.name) }}</text>
-			<text class="desc">{{ department.desc }}</text>
+			<text class="title">{{ cleanDeptLabel(translatedDepartment.name) }}</text>
+			<text class="desc">{{ translatedDepartment.desc }}</text>
 		</view>
 
 		<view class="card">
@@ -38,7 +38,7 @@
 			<text class="sub">点选成员（可多选）</text>
 			<view class="chip-grid">
 				<view
-					v-for="s in department.services"
+					v-for="s in translatedDepartment.services"
 					:key="s.id"
 					class="chip"
 					:class="{ on: squad.has(s.id) }"
@@ -59,6 +59,7 @@
 
 <script>
 	import { cleanDeptLabel } from "@/utils/deptUi";
+	import { t, getLanguage, translateDepartment } from "@/utils/lang";
 
 	export default {
 		name: "DeptEngineering",
@@ -75,7 +76,15 @@
 				squad: new Set(),
 			};
 		},
+		computed: {
+			translatedDepartment() {
+				return translateDepartment(this.department, getLanguage());
+			},
+		},
 		methods: {
+			t(key, params = {}) {
+				return t(key, getLanguage(), params);
+			},
 			cleanDeptLabel,
 			onRelease(e) {
 				this.releaseIdx = Number(e.detail.value);
@@ -100,14 +109,14 @@
 			},
 			submit() {
 				if (!this.sprintGoal.trim()) {
-					uni.showToast({ title: "请填写迭代目标", icon: "none" });
+					uni.showToast({ title: this.t("dept_eng_err_goal"), icon: "none" });
 					return;
 				}
 				if (this.squad.size === 0) {
-					uni.showToast({ title: "请至少编入一名队友", icon: "none" });
+					uni.showToast({ title: this.t("dept_eng_err_peer"), icon: "none" });
 					return;
 				}
-				uni.showToast({ title: "迭代单已生成（待接后端）", icon: "success" });
+				uni.showToast({ title: this.t("dept_eng_ok"), icon: "success" });
 			},
 		},
 	};

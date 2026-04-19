@@ -3,8 +3,8 @@
 	<scroll-view scroll-y class="page dark">
 		<view class="hero">
 			<text class="eyebrow">空间体验</text>
-			<text class="title">{{ cleanDeptLabel(department.name) }}</text>
-			<text class="desc">{{ department.desc }}</text>
+			<text class="title">{{ cleanDeptLabel(translatedDepartment.name) }}</text>
+			<text class="desc">{{ translatedDepartment.desc }}</text>
 		</view>
 
 		<view class="card">
@@ -28,7 +28,7 @@
 		<view class="card">
 			<text class="h">空间技术编组</text>
 			<view class="chips">
-				<text v-for="s in department.services" :key="s.id" class="c" :class="{ on: set.has(s.id) }" @click="tog(s.id)">{{ cleanDeptLabel(s.name) }}</text>
+				<text v-for="s in translatedDepartment.services" :key="s.id" class="c" :class="{ on: set.has(s.id) }" @click="tog(s.id)">{{ cleanDeptLabel(s.name) }}</text>
 			</view>
 		</view>
 
@@ -42,6 +42,7 @@
 
 <script>
 	import { cleanDeptLabel } from "@/utils/deptUi";
+	import { t, getLanguage, translateDepartment } from "@/utils/lang";
 
 	export default {
 		name: "DeptSpatial",
@@ -59,7 +60,15 @@
 				set: new Set(),
 			};
 		},
+		computed: {
+			translatedDepartment() {
+				return translateDepartment(this.department, getLanguage());
+			},
+		},
 		methods: {
+			t(key, params = {}) {
+				return t(key, getLanguage(), params);
+			},
 			cleanDeptLabel,
 			tog(id) {
 				const n = new Set(this.set);
@@ -75,14 +84,14 @@
 			},
 			submit() {
 				if (!this.goal.trim()) {
-					uni.showToast({ title: "请填写体验目标", icon: "none" });
+					uni.showToast({ title: this.t("dept_spa_err_goal"), icon: "none" });
 					return;
 				}
 				if (this.set.size === 0) {
-					uni.showToast({ title: "请选择技术编组", icon: "none" });
+					uni.showToast({ title: this.t("dept_spa_err_team"), icon: "none" });
 					return;
 				}
-				uni.showToast({ title: "空间交付单已生成（待接后端）", icon: "success" });
+				uni.showToast({ title: this.t("dept_spa_ok"), icon: "success" });
 			},
 		},
 	};

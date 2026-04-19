@@ -20,12 +20,12 @@
 			<!-- 单条：工作流（类似「服务」单独成组） -->
 			<view class="cell-group">
 				<view class="cell" @click="goPage('/pages/project/project')">
-					<view class="cell-icon bg-wf">
-						<text class="iconfont cell-glyph">&#xe620;</text>
-					</view>
-					<text class="cell-title">工作流</text>
-					<text class="cell-arrow">›</text>
+				<view class="cell-icon bg-wf">
+					<text class="iconfont cell-glyph">&#xe620;</text>
 				</view>
+				<text class="cell-title">{{ t('workflow') }}</text>
+				<text class="cell-arrow">›</text>
+			</view>
 			</view>
 
 			<view class="group-spacer" />
@@ -33,12 +33,12 @@
 			<!-- 功能列表（消息 / 首页已在底部 Tab，此处不再重复） -->
 			<view class="cell-group">
 				<view class="cell" @click="goPage('/pages/add/add')">
-					<view class="cell-icon bg-add">
-						<text class="iconfont cell-glyph">&#xe727;</text>
-					</view>
-					<text class="cell-title">布置任务</text>
-					<text class="cell-arrow">›</text>
+				<view class="cell-icon bg-add">
+					<text class="iconfont cell-glyph">&#xe727;</text>
 				</view>
+				<text class="cell-title">{{ t('add') }}</text>
+				<text class="cell-arrow">›</text>
+			</view>
 			</view>
 
 			<view class="group-spacer" />
@@ -46,43 +46,43 @@
 			<!-- 账号 -->
 			<view v-if="!loggedIn" class="cell-group">
 				<view class="cell cell-border" @click="goLogin">
-					<view class="cell-icon bg-account">
-						<text class="iconfont cell-glyph">&#xe654;</text>
-					</view>
-					<text class="cell-title">登录</text>
-					<text class="cell-arrow">›</text>
+				<view class="cell-icon bg-account">
+					<text class="iconfont cell-glyph">&#xe654;</text>
 				</view>
-				<view class="cell" @click="goRegister">
-					<view class="cell-icon bg-reg">
-						<text class="iconfont cell-glyph">&#xe727;</text>
-					</view>
-					<text class="cell-title">注册</text>
-					<text class="cell-arrow">›</text>
+				<text class="cell-title">{{ t('login') }}</text>
+				<text class="cell-arrow">›</text>
+			</view>
+			<view class="cell" @click="goRegister">
+				<view class="cell-icon bg-reg">
+					<text class="iconfont cell-glyph">&#xe727;</text>
 				</view>
+				<text class="cell-title">{{ t('register') }}</text>
+				<text class="cell-arrow">›</text>
+			</view>
 			</view>
 
 			<view v-else class="cell-group">
 				<view class="cell cell-border" @click="goPage('/pages/profile/model-settings')">
-					<view class="cell-icon bg-pwd">
-						<text class="iconfont cell-glyph">&#xe727;</text>
-					</view>
-					<text class="cell-title">模型与 API</text>
-					<text class="cell-arrow">›</text>
+				<view class="cell-icon bg-pwd">
+					<text class="iconfont cell-glyph">&#xe727;</text>
 				</view>
-				<view class="cell cell-border" @click="goChangePassword">
-					<view class="cell-icon bg-pwd">
-						<text class="iconfont cell-glyph">&#xe78f;</text>
-					</view>
-					<text class="cell-title">修改密码</text>
-					<text class="cell-arrow">›</text>
+				<text class="cell-title">{{ t('model_api') }}</text>
+				<text class="cell-arrow">›</text>
+			</view>
+			<view class="cell cell-border" @click="goChangePassword">
+				<view class="cell-icon bg-pwd">
+					<text class="iconfont cell-glyph">&#xe78f;</text>
 				</view>
-				<view class="cell" @click="goSettings">
-					<view class="cell-icon bg-settings">
-						<text class="iconfont cell-glyph">&#xe654;</text>
-					</view>
-					<text class="cell-title">设置</text>
-					<text class="cell-arrow">›</text>
+				<text class="cell-title">{{ t('change_password') }}</text>
+				<text class="cell-arrow">›</text>
+			</view>
+			<view class="cell" @click="goSettings">
+				<view class="cell-icon bg-settings">
+					<text class="iconfont cell-glyph">&#xe654;</text>
 				</view>
+				<text class="cell-title">{{ t('settings') }}</text>
+				<text class="cell-arrow">›</text>
+			</view>
 			</view>
 
 			<view class="group-spacer" />
@@ -90,12 +90,12 @@
 			<!-- 关于 -->
 			<view class="cell-group">
 				<view class="cell cell-static">
-					<text class="cell-title">关于</text>
-					<text class="cell-extra">v1.0</text>
+					<text class="cell-title">{{ t('about') }}</text>
+					<text class="cell-extra">{{ t('version') }}</text>
 				</view>
 				<view class="about-desc">
-					<text class="about-line">协作工作台 · 竞赛项目</text>
-					<text class="about-line sub">界面以实际接口文档为准</text>
+					<text class="about-line">{{ t('collaboration_workbench') }}</text>
+					<text class="about-line sub">{{ t('interface_based_on_api') }}</text>
 				</view>
 			</view>
 
@@ -108,6 +108,7 @@
 <script>
 	import { getToken, getUserInfo, setUserInfo } from "@/utils/index";
 	import { switchMainTab } from "@/utils/tabNav";
+	import { t, getLanguage } from "@/utils/lang";
 	import AppTabBar from "@/components/AppTabBar.vue";
 	import { getAuthProfile, mergeProfileIntoUser, resolveAvatarDisplayUrl } from "@/clientApi/authApi";
 
@@ -121,7 +122,7 @@
 		},
 		computed: {
 			displayName() {
-				if (!this.loggedIn) return "未登录";
+				if (!this.loggedIn) return this.t('not_logged_in');
 				const u = this.user || {};
 				const nick = u.nickname != null ? String(u.nickname).trim() : "";
 				if (nick) return nick;
@@ -130,23 +131,23 @@
 					const p = String(phone);
 					return `${p.slice(0, 3)}****${p.slice(-4)}`;
 				}
-				return u.name || "我的账号";
+				return u.name || this.t('my_account');
 			},
 			accountSubLine() {
-				if (!this.loggedIn) return "账号: 点击登录";
+				if (!this.loggedIn) return this.t('click_to_login');
 				const u = this.user || {};
 				const phone = u.phone || u.mobile || u.username || "";
 				if (phone && String(phone).length >= 7) {
 					const p = String(phone);
 					const masked = `${p.slice(0, 3)}****${p.slice(-4)}`;
-					return `手机号: ${masked}`;
+					return `${this.t('phone')}${masked}`;
 				}
-				return "账号: 已登录";
+				return this.t('logged_in');
 			},
 			avatarChar() {
 				const n = this.displayName;
-				if (!this.loggedIn) return "用";
-				return n && n.length ? n.slice(0, 1) : "用";
+				if (!this.loggedIn) return this.t("profile_avatar_guest");
+				return n && n.length ? n.slice(0, 1) : this.t("profile_avatar_guest");
 			},
 			avatarImg() {
 				if (!this.loggedIn || !this.user) return "";
@@ -158,9 +159,17 @@
 		},
 		onShow() {
 			uni.hideTabBar({ animation: false });
+			try {
+				uni.setNavigationBarTitle({ title: t("profile", getLanguage()) });
+			} catch (e) {
+				//
+			}
 			this.refreshAuth();
 		},
 		methods: {
+			t(key) {
+				return t(key);
+			},
 			refreshAuth() {
 				const token = getToken();
 				this.loggedIn = !!token;

@@ -1,11 +1,12 @@
 <template>
 	<view class="nav-back-root" hover-class="nav-back-hover" @click.stop="handleBack">
 		<text class="nav-back-arrow">←</text>
-		<text v-if="showLabel" class="nav-back-label">返回</text>
+		<text v-if="showLabel" class="nav-back-label">{{ backLabel }}</text>
 	</view>
 </template>
 
 <script>
+	import { t, getLanguage } from "@/utils/lang";
 	/**
 	 * 自定义导航页用：不依赖 iconfont，避免字形缺失导致「有热区无图标」。
 	 * navigateBack 失败时（无上一页）可配置 fallbackTab 跳转到 Tab。
@@ -18,6 +19,11 @@
 			showLabel: { type: Boolean, default: true },
 			/** 无栈可退时跳转的 tabBar 路径，如 /pages/message/message */
 			fallbackTab: { type: String, default: "/pages/message/message" },
+		},
+		computed: {
+			backLabel() {
+				return t("nav_back", getLanguage());
+			},
 		},
 		methods: {
 			handleBack() {

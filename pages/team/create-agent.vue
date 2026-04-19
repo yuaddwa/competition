@@ -1,56 +1,57 @@
 <template>
 	<scroll-view scroll-y class="page">
-		<view class="section-t">身份与角色</view>
+		<view class="section-t">{{ t('identity_role') }}</view>
 		<view class="card">
-			<text class="label"><text class="req">*</text>称呼</text>
-			<input class="inp" v-model="name" placeholder="例如：小艾、阿强、陈经理" placeholder-class="ph" />
+			<text class="label"><text class="req">*</text>{{ t('name_title') }}</text>
+			<input class="inp" v-model="name" :placeholder="t('name_placeholder')" placeholder-class="ph" />
 		</view>
 		<view class="card">
-			<text class="label"><text class="req">*</text>岗位 / 职责</text>
-			<input class="inp" v-model="role" placeholder="例如：项目经理、前端、后端、运维、测试" placeholder-class="ph" />
+			<text class="label"><text class="req">*</text>{{ t('position_responsibility') }}</text>
+			<input class="inp" v-model="role" :placeholder="t('position_placeholder')" placeholder-class="ph" />
 		</view>
 		<view class="card">
-			<text class="label">性别（展示用）</text>
+			<text class="label">{{ t('gender_display') }}</text>
 			<picker mode="selector" :range="genderOptions" :value="genderIdx" @change="onGender">
 				<view class="picker-line">{{ genderOptions[genderIdx] }}</view>
 			</picker>
 		</view>
 
-		<view class="section-t">人设与经历</view>
+		<view class="section-t">{{ t('personality_experience') }}</view>
 		<view class="card">
-			<text class="label">性格关键词</text>
-			<input class="inp" v-model="personality" placeholder="例如：稳重、偏细节、沟通直接" placeholder-class="ph" />
+			<text class="label">{{ t('personality_keywords') }}</text>
+			<input class="inp" v-model="personality" :placeholder="t('personality_placeholder')" placeholder-class="ph" />
 		</view>
 		<view class="card">
-			<text class="label">爱好 / 口头禅（可选）</text>
-			<input class="inp" v-model="hobbies" placeholder="用于让对话更自然" placeholder-class="ph" />
+			<text class="label">{{ t('hobbies_catchphrases') }}</text>
+			<input class="inp" v-model="hobbies" :placeholder="t('hobbies_placeholder')" placeholder-class="ph" />
 		</view>
 		<view class="card">
-			<text class="label">项目经历摘要</text>
-			<textarea class="ta" v-model="experience" placeholder="例如：做过 3 个电商小程序、熟悉支付与订单" placeholder-class="ph" />
+			<text class="label">{{ t('project_experience_summary') }}</text>
+			<textarea class="ta" v-model="experience" :placeholder="t('experience_placeholder')" placeholder-class="ph" />
 		</view>
 
-		<view class="section-t">协作偏好</view>
+		<view class="section-t">{{ t('collaboration_preference') }}</view>
 		<view class="card">
-			<text class="label">回复风格</text>
+			<text class="label">{{ t('reply_style') }}</text>
 			<picker mode="selector" :range="replyOptions" :value="replyIdx" @change="onReply">
 				<view class="picker-line">{{ replyOptions[replyIdx] }}</view>
 			</picker>
-			<text class="hint">后续对接 AI 时，将优先按此风格生成回复与日报。</text>
+			<text class="hint">{{ t('reply_style_hint') }}</text>
 		</view>
 		<view class="card">
-			<text class="label">补充说明</text>
-			<textarea class="ta" v-model="remark" placeholder="对老板的工作习惯、禁忌、对接方式等" placeholder-class="ph" />
+			<text class="label">{{ t('additional_notes') }}</text>
+			<textarea class="ta" v-model="remark" :placeholder="t('additional_notes_placeholder')" placeholder-class="ph" />
 		</view>
 
-		<text class="foot-note">创建后为本地数字员工；可一键「裁员」停用（后续版本）。</text>
-		<button class="btn" type="primary" :loading="busy" @click="submit">创建数字员工</button>
+		<text class="foot-note">{{ t('agent_creation_note') }}</text>
+		<button class="btn" type="primary" :loading="busy" @click="submit">{{ t('create_digital_agent') }}</button>
 		<view class="foot-pad" />
 	</scroll-view>
 </template>
 
 <script>
-	import { addDigitalAgent } from "@/utils/virtualTeamStore";
+	import { addAgent } from "@/utils/virtualTeamStore";
+	import { t, getLanguage } from "@/utils/lang";
 
 	export default {
 		data() {
@@ -69,6 +70,9 @@
 			};
 		},
 		methods: {
+			t(key, params = {}) {
+				return t(key, getLanguage(), params);
+			},
 			onGender(e) {
 				this.genderIdx = Number(e.detail.value) || 0;
 			},
@@ -79,26 +83,26 @@
 				const n = (this.name || "").trim();
 				const r = (this.role || "").trim();
 				if (!n) {
-					uni.showToast({ title: "请填写称呼", icon: "none" });
-					return;
-				}
-				if (!r) {
-					uni.showToast({ title: "请填写岗位", icon: "none" });
-					return;
-				}
-				this.busy = true;
-				try {
-					addDigitalAgent({
-						name: n,
-						role: r,
-						gender: this.genderOptions[this.genderIdx] || "保密",
-						personality: this.personality,
-						hobbies: this.hobbies,
-						experience: this.experience,
-						replyStyle: this.replyOptions[this.replyIdx] || "详细",
-						remark: this.remark,
-					});
-					uni.showToast({ title: "已创建", icon: "success" });
+				uni.showToast({ title: this.t('please_enter_name'), icon: "none" });
+				return;
+			}
+			if (!r) {
+				uni.showToast({ title: this.t('please_enter_position'), icon: "none" });
+				return;
+			}
+			this.busy = true;
+			try {
+				addAgent({
+					name: n,
+					role: r,
+					gender: this.genderOptions[this.genderIdx] || "男",
+					personality: this.personality,
+					hobbies: this.hobbies,
+					experience: this.experience,
+					replyStyle: this.replyOptions[this.replyIdx] || "详细",
+					remark: this.remark,
+				});
+				uni.showToast({ title: this.t('created'), icon: "success" });
 					setTimeout(() => uni.navigateBack(), 400);
 				} finally {
 					this.busy = false;

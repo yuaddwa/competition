@@ -3,8 +3,8 @@
 	<scroll-view scroll-y class="page">
 		<view class="hero">
 			<text class="eyebrow">叙事与世界观</text>
-			<text class="title">{{ cleanDeptLabel(department.name) }}</text>
-			<text class="desc">{{ department.desc }}</text>
+			<text class="title">{{ cleanDeptLabel(translatedDepartment.name) }}</text>
+			<text class="desc">{{ translatedDepartment.desc }}</text>
 		</view>
 
 		<view class="card">
@@ -23,7 +23,7 @@
 		<view class="card">
 			<text class="h">首席学者（单选）</text>
 			<view class="sch">
-				<view v-for="s in department.services" :key="s.id" class="sch-i" :class="{ on: lead === s.id }" @click="lead = s.id">
+				<view v-for="s in translatedDepartment.services" :key="s.id" class="sch-i" :class="{ on: lead === s.id }" @click="lead = s.id">
 					<text class="sn">{{ cleanDeptLabel(s.name) }}</text>
 					<text class="si">{{ s.intro }}</text>
 				</view>
@@ -40,6 +40,7 @@
 
 <script>
 	import { cleanDeptLabel } from "@/utils/deptUi";
+	import { t, getLanguage, translateDepartment } from "@/utils/lang";
 
 	export default {
 		name: "DeptAcademic",
@@ -56,7 +57,15 @@
 				lead: "",
 			};
 		},
+		computed: {
+			translatedDepartment() {
+				return translateDepartment(this.department, getLanguage());
+			},
+		},
 		methods: {
+			t(key, params = {}) {
+				return t(key, getLanguage(), params);
+			},
 			cleanDeptLabel,
 			reset() {
 				this.disc = "anthro";
@@ -65,14 +74,14 @@
 			},
 			submit() {
 				if (!this.task.trim()) {
-					uni.showToast({ title: "请填写论证任务", icon: "none" });
+					uni.showToast({ title: this.t("dept_aca_err_task"), icon: "none" });
 					return;
 				}
 				if (!this.lead) {
-					uni.showToast({ title: "请选择首席学者", icon: "none" });
+					uni.showToast({ title: this.t("dept_aca_err_lead"), icon: "none" });
 					return;
 				}
-				uni.showToast({ title: "任务书已生成（待接后端）", icon: "success" });
+				uni.showToast({ title: this.t("dept_aca_ok"), icon: "success" });
 			},
 		},
 	};

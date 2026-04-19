@@ -3,19 +3,20 @@
 		<view class="drawer-panel" @click.stop>
 			<view class="drawer-head">
 				<text class="drawer-title">{{ cleanLabel(service.name || '') }}</text>
-				<text class="drawer-close" @click="$emit('close')">关闭</text>
+				<text class="drawer-close" @click="$emit('close')">{{ t('agent_drawer_close') }}</text>
 			</view>
 			<text class="drawer-description">{{ service.detail }}</text>
 			<view class="drawer-meta">
-				<text>专业：{{ service.expertise }}</text>
-				<text>使用时机：{{ service.whenToUse }}</text>
+				<text>{{ t('agent_drawer_expertise') }}{{ service.expertise }}</text>
+				<text>{{ t('agent_drawer_when') }}{{ service.whenToUse }}</text>
 			</view>
-			<button class="drawer-action" @click="$emit('create-task')">发起任务</button>
+			<button class="drawer-action" @click="$emit('create-task')">{{ t('agent_drawer_create_task') }}</button>
 		</view>
 	</view>
 </template>
 
 <script>
+	import { t, getLanguage } from "@/utils/lang";
 	export default {
 		name: "AgentDrawer",
 		props: {
@@ -29,6 +30,9 @@
 			}
 		},
 		methods: {
+			t(key, params = {}) {
+				return t(key, getLanguage(), params);
+			},
 			cleanLabel(label = "") {
 				return label.replace(/^[^\u4e00-\u9fa5A-Za-z0-9]+/, "").trim();
 			}

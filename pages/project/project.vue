@@ -6,26 +6,26 @@
 		<scroll-view scroll-y class="scroll" refresher-enabled :refresher-triggered="refreshing" @refresherrefresh="onRefresh">
 			<view class="hero-header">
 				<view class="hero-left">
-					<text class="page-title">工作流</text>
-					<text class="page-sub">选择已有项目进入工作台，或新建一条协作流水线</text>
+					<text class="page-title">{{ t('workflow') }}</text>
+					<text class="page-sub">{{ t('project_subtitle') }}</text>
 				</view>
 				<view class="stat-chip">
 					<text class="stat-num">{{ workflows.length }}</text>
-					<text class="stat-lab">个</text>
+					<text class="stat-lab">{{ t('count_unit') }}</text>
 				</view>
 			</view>
 
 			<view v-if="loading" class="loading-row">
 				<view class="loading-dot"></view>
-				<text class="loading-t">加载中…</text>
+				<text class="loading-t">{{ t('loading') }}</text>
 			</view>
 
 			<view v-else-if="workflows.length === 0" class="empty">
 				<text class="empty-emoji">📂</text>
-				<text class="empty-title">还没有工作流</text>
-				<text class="empty-desc">创建一个工作流后，可在「布置任务」里关联下发，或直接进入工作台查看任务与沟通。</text>
-				<button class="empty-primary" type="primary" @click="openCreate">创建工作流</button>
-				<button class="empty-secondary" @click="goAdd">去布置任务</button>
+				<text class="empty-title">{{ t('no_workflow') }}</text>
+				<text class="empty-desc">{{ t('no_workflow_desc') }}</text>
+				<button class="empty-primary" type="primary" @click="openCreate">{{ t('create_workflow') }}</button>
+				<button class="empty-secondary" @click="goAdd">{{ t('go_assign_task') }}</button>
 			</view>
 
 			<view
@@ -50,7 +50,7 @@
 		</view>
 
 		<view class="fab-row">
-			<button class="fab-btn" type="primary" @click="openCreate">＋ 新建工作流</button>
+			<button class="fab-btn" type="primary" @click="openCreate">＋ {{ t('create_workflow') }}</button>
 		</view>
 	</view>
 
@@ -59,12 +59,12 @@
 
 		<view v-if="showCreate" class="mask" @click.self="showCreate = false">
 			<view class="dialog" @click.stop>
-				<text class="dialog-title">新建工作流</text>
-				<input class="dialog-input" v-model="newTitle" placeholder="名称（必填）" placeholder-class="ph" />
-				<input class="dialog-input" v-model="newDesc" placeholder="描述（可选）" placeholder-class="ph" />
+				<text class="dialog-title">{{ t('create_workflow') }}</text>
+				<input class="dialog-input" v-model="newTitle" :placeholder="t('name_required')" placeholder-class="ph" />
+				<input class="dialog-input" v-model="newDesc" :placeholder="t('description_optional')" placeholder-class="ph" />
 				<view class="dialog-actions">
-					<button class="btn ghost" @click="showCreate = false">取消</button>
-					<button class="btn primary" type="primary" :loading="creating" @click="submitCreate">创建</button>
+					<button class="btn ghost" @click="showCreate = false">{{ t('cancel') }}</button>
+					<button class="btn primary" type="primary" :loading="creating" @click="submitCreate">{{ t('create') }}</button>
 				</view>
 			</view>
 		</view>
@@ -75,6 +75,7 @@
 	import * as workflowApi from "@/clientApi/workflowApi";
 	import { pickId } from "@/utils/apiHelpers";
 	import { switchMainTab } from "@/utils/tabNav";
+	import { t, getLanguage } from "@/utils/lang";
 	import AppTabBar from "@/components/AppTabBar.vue";
 
 	export default {
@@ -95,15 +96,23 @@
 		},
 		onShow() {
 			uni.hideTabBar({ animation: false });
+			try {
+				uni.setNavigationBarTitle({ title: this.t("workflow") });
+			} catch (e) {
+				//
+			}
 			this.loadList();
 		},
 		methods: {
+			t(key, params = {}) {
+				return t(key, getLanguage(), params);
+			},
 			pickId,
 			workflowKey(w) {
 				return pickId(w) || w?.workflowId || "";
 			},
 			workflowTitle(w) {
-				return w?.title || w?.name || "未命名工作流";
+				return w?.title || w?.name || this.t("unnamed_workflow");
 			},
 			workflowDesc(w) {
 				return w?.description || w?.desc || "";
@@ -127,7 +136,7 @@
 			openWorkbench(w) {
 				const id = this.workflowKey(w);
 				if (!id) {
-					uni.showToast({ title: "缺少工作流 ID", icon: "none" });
+					uni.showToast({ title: this.t("missing_workflow_id"), icon: "none" });
 					return;
 				}
 				try {
@@ -150,7 +159,7 @@
 			async submitCreate() {
 				const title = (this.newTitle || "").trim();
 				if (!title) {
-					uni.showToast({ title: "请输入名称", icon: "none" });
+					uni.showToast({ title: this.t("please_enter_workflow_name"), icon: "none" });
 					return;
 				}
 				this.creating = true;
@@ -165,7 +174,7 @@
 					this.showCreate = false;
 					this.newTitle = "";
 					this.newDesc = "";
-					uni.showToast({ title: "已创建", icon: "success" });
+					uni.showToast({ title: this.t("created"), icon: "success" });
 					await this.loadList();
 					if (id) {
 						uni.navigateTo({

@@ -3,8 +3,8 @@
 	<scroll-view scroll-y class="page">
 		<view class="hero">
 			<text class="eyebrow">增长与传播</text>
-			<text class="title">{{ cleanDeptLabel(department.name) }}</text>
-			<text class="desc">{{ department.desc }}</text>
+			<text class="title">{{ cleanDeptLabel(translatedDepartment.name) }}</text>
+			<text class="desc">{{ translatedDepartment.desc }}</text>
 		</view>
 
 		<view class="card">
@@ -31,7 +31,7 @@
 			<text class="h">编组（可多选）</text>
 			<view class="tags">
 				<text
-					v-for="s in department.services"
+					v-for="s in translatedDepartment.services"
 					:key="s.id"
 					class="tag"
 					:class="{ on: bag.has(s.id) }"
@@ -50,6 +50,7 @@
 
 <script>
 	import { cleanDeptLabel } from "@/utils/deptUi";
+	import { t, getLanguage, translateDepartment } from "@/utils/lang";
 
 	export default {
 		name: "DeptMarketing",
@@ -68,7 +69,15 @@
 				bag: new Set(),
 			};
 		},
+		computed: {
+			translatedDepartment() {
+				return translateDepartment(this.department, getLanguage());
+			},
+		},
 		methods: {
+			t(key, params = {}) {
+				return t(key, getLanguage(), params);
+			},
 			cleanDeptLabel,
 			flip(k) {
 				const n = new Set(this.mx);
@@ -90,14 +99,14 @@
 			},
 			submit() {
 				if (!this.campaign.trim()) {
-					uni.showToast({ title: "请填写战役主题", icon: "none" });
+					uni.showToast({ title: this.t("dept_mkt_err_theme"), icon: "none" });
 					return;
 				}
 				if (this.bag.size === 0) {
-					uni.showToast({ title: "请至少选择一名角色", icon: "none" });
+					uni.showToast({ title: this.t("dept_mkt_err_role"), icon: "none" });
 					return;
 				}
-				uni.showToast({ title: "简报已生成（待接后端）", icon: "success" });
+				uni.showToast({ title: this.t("dept_mkt_ok"), icon: "success" });
 			},
 		},
 	};

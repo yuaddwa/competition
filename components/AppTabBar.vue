@@ -2,11 +2,11 @@
 	<view class="app-tab-bar">
 		<view class="tab-item" :class="{ active: current === 'home' }" @click="go('home')">
 			<text class="tab-icon iconfont">&#xe64f;</text>
-			<text class="tab-text">首页</text>
+			<text class="tab-text">{{ t('home') }}</text>
 		</view>
 		<view class="tab-item" :class="{ active: current === 'project' }" @click="go('project')">
 			<text class="tab-icon iconfont">&#xe620;</text>
-			<text class="tab-text">项目</text>
+			<text class="tab-text">{{ t('project') }}</text>
 		</view>
 		<view class="tab-item center-item">
 			<view class="center-button" :class="{ active: current === 'add' }" @click.stop="go('add')">
@@ -19,17 +19,18 @@
 		</view>
 		<view class="tab-item" :class="{ active: current === 'message' }" @click="go('message')">
 			<text class="tab-icon iconfont">&#xe87c;</text>
-			<text class="tab-text">消息</text>
+			<text class="tab-text">{{ t('message') }}</text>
 		</view>
 		<view class="tab-item" :class="{ active: current === 'profile' }" @click="go('profile')">
 			<text class="tab-icon iconfont">&#xe654;</text>
-			<text class="tab-text">个人</text>
+			<text class="tab-text">{{ t('profile') }}</text>
 		</view>
 	</view>
 </template>
 
 <script>
 	import { switchMainTab } from "@/utils/tabNav";
+	import { t } from "@/utils/lang";
 
 	export default {
 		name: "AppTabBar",
@@ -41,6 +42,9 @@
 			},
 		},
 		methods: {
+			t(key) {
+				return t(key);
+			},
 			go(page) {
 				switchMainTab(page);
 			},

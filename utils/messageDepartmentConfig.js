@@ -3,6 +3,11 @@
  */
 import agentDepartments from "@/data/agentDepartments";
 import { cleanDeptLabel } from "@/utils/deptUi";
+import { t, getLanguage } from "@/utils/lang";
+
+function msgDeptI18nKey(slug, suffix) {
+  return `msg_dept_${String(slug).replace(/-/g, "_")}_${suffix}`;
+}
 
 /** 与后端/统计约定的 slug 顺序与人数（可改为接口返回） */
 export const MESSAGE_DEPARTMENT_STATS = [
@@ -82,12 +87,21 @@ const SLUG_TITLE_ZH = {
  * @returns {{ slug: string, agentDeptId: string, title: string, desc: string, count: number, icon: string }[]}
  */
 export function buildMessageDepartmentBlocks() {
+  const lang = getLanguage();
   return MESSAGE_DEPARTMENT_STATS.map((row) => {
     const slug = row.name;
     const agentDeptId = MESSAGE_SLUG_TO_AGENT_ID[slug];
     const dept = agentDeptId ? agentDepartments.find((d) => d.id === agentDeptId) : null;
-    const title = dept ? cleanDeptLabel(dept.name) : SLUG_TITLE_ZH[slug] || slug.replace(/-/g, " ");
-    const desc = dept?.desc || "";
+    const titleKey = msgDeptI18nKey(slug, "title");
+    const descKey = msgDeptI18nKey(slug, "desc");
+    let title = t(titleKey, lang);
+    if (title === titleKey) {
+      title = dept ? cleanDeptLabel(dept.name) : SLUG_TITLE_ZH[slug] || slug.replace(/-/g, " ");
+    }
+    let desc = t(descKey, lang);
+    if (desc === descKey) {
+      desc = dept?.desc || "";
+    }
     return {
       slug,
       agentDeptId,

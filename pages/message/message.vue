@@ -3,7 +3,7 @@
 		<view class="navbar-wrap" :style="{ paddingTop: statusBarPx + 'px' }">
 			<view class="navbar">
 				<view class="navbar-side"></view>
-				<text class="navbar-title">消息</text>
+				<text class="navbar-title">{{ t('message') }}</text>
 				<view class="navbar-side navbar-side-right" @click="showAddMenu">
 					<text class="navbar-plus">＋</text>
 				</view>
@@ -16,7 +16,7 @@
 				:class="{ 'msg-tab-active': messageTab === 0 }"
 				@tap="messageTab = 0"
 			>
-				<text class="msg-tab-text">会话</text>
+				<text class="msg-tab-text">{{ t('conversation') }}</text>
 				<view v-if="messageTab === 0" class="msg-tab-underline"></view>
 			</view>
 			<view
@@ -24,25 +24,25 @@
 				:class="{ 'msg-tab-active': messageTab === 1 }"
 				@tap="messageTab = 1"
 			>
-				<text class="msg-tab-text">协作与部门</text>
+				<text class="msg-tab-text">{{ t('collaboration') }}</text>
 				<view v-if="messageTab === 1" class="msg-tab-underline"></view>
 			</view>
 		</view>
 
 		<scroll-view scroll-y class="feed-scroll" :refresher-enabled="true" :refresher-triggered="refreshing" @refresherrefresh="onRefresh">
 			<view v-if="messageTab === 0" class="tip-line">
-				<text class="tip-t">经理总览、项目群与工作流会话</text>
+				<text class="tip-t">{{ t('conversation_tip') }}</text>
 			</view>
 			<view v-if="messageTab === 1" class="tip-line">
-				<text class="tip-t">按部门浏览岗位角色，进入人格对话</text>
+				<text class="tip-t">{{ t('department_tip') }}</text>
 			</view>
 
-			<view v-if="loading" class="wx-loading"><text>加载中...</text></view>
+			<view v-if="loading" class="wx-loading"><text>{{ t('loading') }}</text></view>
 			<template v-else>
 				<template v-if="messageTab === 0">
 					<view v-if="feedRows.length === 0" class="wx-empty wx-empty-inline wx-empty-first">
-						<text class="wx-empty-t">暂无会话</text>
-						<text class="wx-empty-sub">点击右上角「＋」创建项目群或数字员工</text>
+						<text class="wx-empty-t">{{ t('no_conversation') }}</text>
+						<text class="wx-empty-sub">{{ t('create_group_agent') }}</text>
 					</view>
 					<view v-else>
 						<view
@@ -89,7 +89,7 @@
 									<view class="wx-title-wrap">
 										<text class="wx-title">{{ block.title }}</text>
 									</view>
-									<text class="wx-dept-count">{{ block.count }} 岗</text>
+									<text class="wx-dept-count">{{ block.count }}{{ t('role_count_suffix') }}</text>
 								</view>
 								<text v-if="block.desc" class="wx-sub wx-sub-dept">{{ block.desc }}</text>
 							</view>
@@ -107,11 +107,14 @@
 
 <script>
 	import AppTabBar from "@/components/AppTabBar.vue";
+	import { t, getLanguage } from "@/utils/lang";
 	import {
 		getDailyBriefing,
 		buildMessageFeedRows,
 		loadProjectGroups,
 		loadDigitalAgents,
+		displayGroupName,
+		formatAgentNavTitle,
 		MANAGER_ID,
 	} from "@/utils/virtualTeamStore";
 	import { loadUnifiedConversationList } from "@/utils/conversationInbox";
@@ -144,9 +147,17 @@
 		},
 		onShow() {
 			uni.hideTabBar({ animation: false });
+			try {
+				uni.setNavigationBarTitle({ title: this.t("message") });
+			} catch (e) {
+				//
+			}
 			this.loadList();
 		},
 		methods: {
+			t(key, params = {}) {
+				return t(key, getLanguage(), params);
+			},
 			rebuildDepartmentBlocks() {
 				this.departmentBlocks = buildMessageDepartmentBlocks();
 			},
@@ -197,7 +208,7 @@
 			},
 			showAddMenu() {
 				uni.showActionSheet({
-					itemList: ["创建项目群", "创建数字员工"],
+					itemList: [this.t('create_project_group'), this.t('create_digital_employee')],
 					success: (res) => {
 						if (res.tapIndex === 0) {
 							uni.navigateTo({ url: "/pages/team/create-group" });
@@ -215,11 +226,11 @@
 				return colors[h % colors.length];
 			},
 			avatarLetter(row) {
-				if (row.rowKind === "manager") return "经";
-				if (row.rowKind === "group") return "群";
-				if (row.rowKind === "unified" && row.convType === "workflow") return "项";
-				const t = (row.title || "?").trim();
-				return t.slice(0, 1);
+				if (row.rowKind === "manager") return this.t("abbr_manager");
+				if (row.rowKind === "group") return this.t("abbr_group");
+				if (row.rowKind === "unified" && row.convType === "workflow") return this.t("abbr_project");
+				const tit = (row.title || "?").trim();
+				return tit.slice(0, 1);
 			},
 			formatWxTime(iso) {
 				const d = new Date(iso);
@@ -230,8 +241,8 @@
 				if (sameDay) return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 				const yest = new Date(now);
 				yest.setDate(yest.getDate() - 1);
-				if (d.toDateString() === yest.toDateString()) return "昨天";
-				return `${d.getMonth() + 1}月${d.getDate()}日`;
+				if (d.toDateString() === yest.toDateString()) return this.t("time_yesterday");
+				return this.t("date_month_day", { month: d.getMonth() + 1, day: d.getDate() });
 			},
 			formatRowTime(t) {
 				if (t == null || t === "") return "";
@@ -261,14 +272,14 @@
 				}
 				if (row.rowKind === "manager") {
 					uni.navigateTo({
-						url: `/pages/chat/chat?mode=virtual&kind=manager&id=${encodeURIComponent(MANAGER_ID)}&title=${encodeURIComponent("经理总览")}`,
+						url: `/pages/chat/chat?mode=virtual&kind=manager&id=${encodeURIComponent(MANAGER_ID)}&title=${encodeURIComponent(this.t("manager_overview_title"))}`,
 					});
 					return;
 				}
 				if (row.rowKind === "daily_agent" && row.agentId) {
 					const agents = loadDigitalAgents();
 					const a = agents.find((x) => x.id === row.agentId);
-					const title = a ? `${a.name}（${a.role}）` : "数字员工";
+					const title = a ? formatAgentNavTitle(a) : this.t("digital_employee_fallback");
 					uni.navigateTo({
 						url: `/pages/chat/chat?mode=virtual&kind=agent&id=${encodeURIComponent(row.agentId)}&title=${encodeURIComponent(title)}`,
 					});
@@ -277,7 +288,7 @@
 				if (row.rowKind === "group" && row.groupId) {
 					const groups = loadProjectGroups();
 					const g = groups.find((x) => x.id === row.groupId);
-					const name = g ? g.name : "项目群";
+					const name = g ? displayGroupName(g) : this.t("project_group_fallback");
 					uni.navigateTo({
 						url: `/pages/chat/chat?mode=virtual&kind=group&id=${encodeURIComponent(row.groupId)}&title=${encodeURIComponent(name)}`,
 					});

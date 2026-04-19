@@ -4,46 +4,46 @@
 		<!-- 同 home：小程序原生 scroll-view 会盖住 fixed 自定义 Tab -->
 		<view class="scroll">
 			<view class="auth-card">
-				<text class="brand">创建账号</text>
-				<text class="sub">手机号注册；验证码用于防止机器批量注册（本地图形校验）</text>
+				<text class="brand">{{ t('create_account') }}</text>
+			<text class="sub">{{ t('register_subtitle') }}</text>
 
-				<view class="field">
-					<text class="lab">手机号</text>
-					<input class="inp" type="number" maxlength="11" v-model="phone" placeholder="请输入手机号" placeholder-class="ph" />
-				</view>
+			<view class="field">
+				<text class="lab">{{ t('phone') }}</text>
+				<input class="inp" type="number" maxlength="11" v-model="phone" :placeholder="t('input_phone')" placeholder-class="ph" />
+			</view>
 
-				<view class="field captcha-field">
-					<text class="lab">验证码</text>
-					<view class="captcha-row">
-						<input
-							class="inp captcha-inp"
-							v-model="inputCode"
-							placeholder="请输入图中数字"
-							placeholder-class="ph"
-							maxlength="6"
-						/>
-						<view class="captcha-img-wrap" @click="drawCaptcha">
-							<canvas canvas-id="captchaCanvas" class="captcha-canvas"></canvas>
-						</view>
+			<view class="field captcha-field">
+				<text class="lab">{{ t('verification_code') }}</text>
+				<view class="captcha-row">
+					<input
+						class="inp captcha-inp"
+						v-model="inputCode"
+						:placeholder="t('input_captcha')"
+						placeholder-class="ph"
+						maxlength="6"
+					/>
+					<view class="captcha-img-wrap" @click="drawCaptcha">
+						<canvas canvas-id="captchaCanvas" class="captcha-canvas"></canvas>
 					</view>
-					<text class="captcha-tip" @click="drawCaptcha">看不清？点击图片刷新</text>
 				</view>
+				<text class="captcha-tip" @click="drawCaptcha">{{ t('captcha_refresh') }}</text>
+			</view>
 
-				<view class="field">
-					<text class="lab">密码</text>
-					<input class="inp" password v-model="password" placeholder="至少 6 位" placeholder-class="ph" />
-				</view>
+			<view class="field">
+				<text class="lab">{{ t('password') }}</text>
+				<input class="inp" password v-model="password" :placeholder="t('password_min_length')" placeholder-class="ph" />
+			</view>
 
-				<view class="field">
-					<text class="lab">确认密码</text>
-					<input class="inp" password v-model="confirmPassword" placeholder="再次输入密码" placeholder-class="ph" />
-				</view>
+			<view class="field">
+				<text class="lab">{{ t('confirm_password') }}</text>
+				<input class="inp" password v-model="confirmPassword" :placeholder="t('input_confirm_password')" placeholder-class="ph" />
+			</view>
 
-				<button class="submit primary" type="primary" :loading="loading" @click="register">注册</button>
+			<button class="submit primary" type="primary" :loading="loading" @click="register">{{ t('register') }}</button>
 
-				<view class="foot">
-					<text class="link" @click="goLogin">已有账号？去登录</text>
-				</view>
+			<view class="foot">
+				<text class="link" @click="goLogin">{{ t('have_account') }}</text>
+			</view>
 			</view>
 			<view class="bottom-pad" />
 		</view>
@@ -55,6 +55,7 @@
 <script>
 	import { setToken, setUserInfo } from "@/utils/index";
 	import * as authApi from "@/clientApi/authApi";
+	import { t, getLanguage } from "@/utils/lang";
 	import AppTabBar from "@/components/AppTabBar.vue";
 
 	export default {
@@ -79,7 +80,17 @@
 				this.drawCaptcha();
 			});
 		},
+		onShow() {
+			try {
+				uni.setNavigationBarTitle({ title: t("register", getLanguage()) });
+			} catch (e) {
+				//
+			}
+		},
 		methods: {
+			t(key, params = {}) {
+				return t(key, getLanguage(), params);
+			},
 			generateCode() {
 				let code = "";
 				for (let i = 0; i < 4; i++) {
@@ -130,49 +141,49 @@
 			async register() {
 				const phone = (this.phone || "").trim();
 				if (!phone) {
-					uni.showToast({ title: "请输入手机号", icon: "none" });
-					return;
-				}
-				if (!this.inputCode || this.inputCode.trim() !== this.realCode) {
-					uni.showToast({ title: "验证码错误", icon: "none" });
-					this.drawCaptcha();
-					return;
-				}
-				if (!this.password || this.password.length < 6) {
-					uni.showToast({ title: "密码至少 6 位", icon: "none" });
-					return;
-				}
-				if (this.password !== this.confirmPassword) {
-					uni.showToast({ title: "两次密码不一致", icon: "none" });
-					return;
-				}
+				uni.showToast({ title: this.t('please_input_phone'), icon: "none" });
+				return;
+			}
+			if (!this.inputCode || this.inputCode.trim() !== this.realCode) {
+				uni.showToast({ title: this.t('captcha_error'), icon: "none" });
+				this.drawCaptcha();
+				return;
+			}
+			if (!this.password || this.password.length < 6) {
+				uni.showToast({ title: this.t('password_min_length'), icon: "none" });
+				return;
+			}
+			if (this.password !== this.confirmPassword) {
+				uni.showToast({ title: this.t('passwords_not_match'), icon: "none" });
+				return;
+			}
 
-				this.loading = true;
-				try {
-					const { token, user } = await authApi.register({
-						phone,
-						password: this.password,
-					});
-					if (token) {
-						setToken(token);
-						setUserInfo(user || { phone });
-						uni.showToast({ title: "注册成功", icon: "success" });
-						setTimeout(() => {
-							/* 登录页 often 用 redirectTo 打开注册，栈里可能没有上一页，navigateBack 易失败；
-							   进入 Tab 页必须用 switchTab，比 reLaunch 更稳 */
-							uni.switchTab({
-								url: "/pages/profile/profile",
-								fail: () => {
-									uni.reLaunch({ url: "/pages/profile/profile" });
-								},
-							});
-						}, 400);
-					} else {
-						uni.showToast({ title: "注册成功，请登录", icon: "success" });
-						setTimeout(() => {
-							uni.redirectTo({ url: "/pages/login/login" });
-						}, 500);
-					}
+			this.loading = true;
+			try {
+				const { token, user } = await authApi.register({
+					phone,
+					password: this.password,
+				});
+				if (token) {
+					setToken(token);
+					setUserInfo(user || { phone });
+					uni.showToast({ title: this.t('register_success'), icon: "success" });
+					setTimeout(() => {
+						/* 登录页 often 用 redirectTo 打开注册，栈里可能没有上一页，navigateBack 易失败；
+						   进入 Tab 页必须用 switchTab，比 reLaunch 更稳 */
+						uni.switchTab({
+							url: "/pages/profile/profile",
+							fail: () => {
+								uni.reLaunch({ url: "/pages/profile/profile" });
+							},
+						});
+					}, 400);
+				} else {
+					uni.showToast({ title: this.t('register_success_login'), icon: "success" });
+					setTimeout(() => {
+						uni.redirectTo({ url: "/pages/login/login" });
+					}, 500);
+				}
 				} catch {
 					this.drawCaptcha();
 				} finally {
