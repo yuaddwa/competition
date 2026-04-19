@@ -52,7 +52,7 @@
 | 沟通 | POST | `/api/workflows/{id}/comms/broadcast` | 播报 |
 | 沟通 | POST | `/api/workflows/{id}/comms/messages/{messageId}/link-task` | 消息关联任务 |
 
-前端封装见：`api/authApi.js`、`api/workflowApi.js`；统一请求：`utils/request.js`。
+前端封装见：`clientApi/authApi.js`、`clientApi/workflowApi.js`（目录名勿以 `/api` 开头：Vite 的 `proxy['/api']` 会匹配 `/apiClient/…` 等路径并转发到后端）；统一请求：`utils/request.js`。
 
 ---
 
@@ -67,4 +67,4 @@
 
 ## 四、Swagger
 
-以后端部署的 Swagger / OpenAPI 文档为准，路径与字段名若有出入，以 `workflowApi.js` / `authApi.js` 中注释「兼容多种包装」的解析逻辑为准。
+以后端部署的 Swagger / OpenAPI 文档为准，路径与字段名若有出入，以 `clientApi/workflowApi.js` / `clientApi/authApi.js` 中注释「兼容多种包装」的解析逻辑为准。

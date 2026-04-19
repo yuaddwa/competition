@@ -54,7 +54,7 @@
 
 <script>
 	import { setToken, setUserInfo } from "@/utils/index";
-	import * as authApi from "@/api/authApi";
+	import * as authApi from "@/clientApi/authApi";
 	import AppTabBar from "@/components/AppTabBar.vue";
 
 	export default {

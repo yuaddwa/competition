@@ -50,7 +50,7 @@
 		uploadAuthAvatar,
 		mergeProfileIntoUser,
 		resolveAvatarDisplayUrl,
-	} from "@/api/authApi";
+	} from "@/clientApi/authApi";
 
 	export default {
 		data() {

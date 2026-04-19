@@ -121,7 +121,7 @@
 	import { getToken, getUserInfo, setUserInfo, clearSession } from "@/utils/index";
 	import { switchMainTab } from "@/utils/tabNav";
 	import AppTabBar from "@/components/AppTabBar.vue";
-	import { getAuthProfile, mergeProfileIntoUser, resolveAvatarDisplayUrl } from "@/api/authApi";
+	import { getAuthProfile, mergeProfileIntoUser, resolveAvatarDisplayUrl } from "@/clientApi/authApi";
 
 	export default {
 		components: { AppTabBar },

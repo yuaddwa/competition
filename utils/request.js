@@ -34,9 +34,10 @@ function resolveBaseUrl() {
 			? normalizeApiOrigin(fromEnv.trim())
 			: normalizeApiOrigin("http://120.27.137.241:8081");
 	// #ifdef H5
-	//if (isH5Development()) {
-	//	base = "";
-	//}
+	/** 与 .env 中 VITE_H5_USE_PROXY=1 配合：请求发到当前页 origin，由 vite.config.js 代理到 VITE_PROXY_TARGET */
+	if (import.meta.env.VITE_H5_USE_PROXY === "1" && isH5Development()) {
+		base = "";
+	}
 	// #endif
 	return base;
 }

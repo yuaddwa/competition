@@ -81,7 +81,7 @@
 </template>
 
 <script>
-	import * as workflowApi from "@/api/workflowApi";
+	import * as workflowApi from "@/clientApi/workflowApi";
 	import { pickId } from "@/utils/apiHelpers";
 	import { switchMainTab } from "@/utils/tabNav";
 	import AppTabBar from "@/components/AppTabBar.vue";

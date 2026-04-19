@@ -1,7 +1,7 @@
 /**
  * 将「消息」Tab 与工作流 comms（threads + messages）对齐：登录后从 API 聚合会话列表。
  */
-import * as workflowApi from "@/api/workflowApi";
+import * as workflowApi from "@/clientApi/workflowApi";
 import { getToken } from "@/utils/index";
 import { pickId } from "@/utils/apiHelpers";
 

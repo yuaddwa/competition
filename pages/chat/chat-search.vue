@@ -24,7 +24,7 @@
 <script>
 	import { loadChatMessages } from "@/utils/messageUtils";
 	import { loadVirtualChatMessages } from "@/utils/virtualTeamStore";
-	import * as workflowApi from "@/api/workflowApi";
+	import * as workflowApi from "@/clientApi/workflowApi";
 	import { pickId } from "@/utils/apiHelpers";
 	import { getUserInfo } from "@/utils/index";
 

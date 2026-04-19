@@ -234,7 +234,7 @@
 
 <script>
 	import agentDepartments from "@/data/agentDepartments";
-	import * as workflowApi from "@/api/workflowApi";
+	import * as workflowApi from "@/clientApi/workflowApi";
 	import { pickId } from "@/utils/apiHelpers";
 	import { subscribeWorkflowChannel } from "@/utils/realtime";
 

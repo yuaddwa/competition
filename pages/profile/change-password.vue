@@ -23,7 +23,7 @@
 </template>
 
 <script>
-	import * as authApi from "@/api/authApi";
+	import * as authApi from "@/clientApi/authApi";
 	import { getToken } from "@/utils/index";
 
 	export default {

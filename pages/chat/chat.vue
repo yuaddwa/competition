@@ -92,10 +92,10 @@ ensureManagerChatSeed,
 removeVirtualChatMessage,
 removeVirtualChatMessagesByIds,
 } from "@/utils/virtualTeamStore";
-import * as workflowApi from "@/api/workflowApi";
+import * as workflowApi from "@/clientApi/workflowApi";
 import { pickId } from "@/utils/apiHelpers";
 import { getUserInfo } from "@/utils/index";
-import { getAgentById } from "@/api/agentsApi";
+import { getAgentById } from "@/clientApi/agentsApi";
 import { getPersonaById } from "@/utils/agentPersonaCatalog";
 import { getLlmSettings } from "@/utils/llmSettings";
 import { chatCompletion } from "@/utils/openaiCompatible";

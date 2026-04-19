@@ -34,7 +34,8 @@ export default defineConfig(({ mode }) => {
 		});
 	};
 
-	/* 使用 '/api' 前缀键（与 Vite 文档一致）；'^/api' 在个别版本/环境下匹配异常会导致仍打本地 → 404 */
+	/* 使用 '/api' 前缀键（与 Vite 文档一致）。注意：会匹配任意以 /api 开头的路径，
+	 * 故前端源码目录勿命名为 api、apiClient 等（否则 /apiClient/… 会被误代理到后端 → 404）。 */
 	const proxy = stripApi
 		? {
 				"/auth": { target, changeOrigin: true, secure: false, configure: logProxy },
