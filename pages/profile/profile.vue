@@ -105,21 +105,6 @@
 
 			<view class="group-spacer" />
 
-			<view class="cell-group">
-				<view class="cell" @click="goPage('/pages/add/add')">
-					<view class="cell-icon bg-add">
-						<text class="iconfont cell-glyph">&#xe727;</text>
-					</view>
-					<view class="cell-text-wrap">
-						<text class="cell-title">{{ t('profile_assign_task') }}</text>
-						<text class="cell-sub">{{ t('profile_assign_task_sub') }}</text>
-					</view>
-					<text class="cell-arrow">›</text>
-				</view>
-			</view>
-
-			<view class="group-spacer" />
-
 			<view v-if="!loggedIn" class="cell-group">
 				<view class="cell" @click="goLogin">
 					<view class="cell-icon bg-account">
@@ -143,6 +128,13 @@
 						<text class="cell-glyph-text cell-glyph-emoji">⚙</text>
 					</view>
 					<text class="cell-title">{{ t('model_api') }}</text>
+					<text class="cell-arrow">›</text>
+				</view>
+				<view class="cell" @click="goPage('/pages/profile/agent-model-assign')">
+					<view class="cell-icon bg-font">
+						<text class="cell-glyph-text cell-glyph-emoji">🔗</text>
+					</view>
+					<text class="cell-title">{{ t('agent_model_assign_nav') }}</text>
 					<text class="cell-arrow">›</text>
 				</view>
 				<view class="cell" @click="goChangePassword">
@@ -1289,6 +1281,231 @@
 		font-weight: 700;
 		border-radius: 44rpx;
 		border: none;
+	}
+</style>
+
+<style>
+	/*
+	 * 「我的」页大量样式在 scoped 内写死浅色；全局 App.vue 的 .page .cell 等选择器无法命中本页。
+	 * 在深色模式下用 html[data-theme=dark] 下的选择器 + !important 统一覆盖。
+	 */
+	[data-theme="dark"] .profile-page {
+		background-color: var(--bg-primary) !important;
+	}
+
+	[data-theme="dark"] .header-section {
+		background: linear-gradient(165deg, #1e293b 0%, #0f172a 48%, #020617 100%) !important;
+	}
+
+	[data-theme="dark"] .header-arrow {
+		color: var(--text-tertiary) !important;
+	}
+
+	[data-theme="dark"] .nick {
+		color: var(--text-primary) !important;
+	}
+
+	[data-theme="dark"] .account-line {
+		color: var(--text-secondary) !important;
+	}
+
+	[data-theme="dark"] .ceo-badge-text {
+		color: #fbbf24 !important;
+		background: rgba(251, 191, 36, 0.12) !important;
+	}
+
+	[data-theme="dark"] .stat-card {
+		background: rgba(30, 41, 59, 0.92) !important;
+		border: 1rpx solid var(--border-color) !important;
+		box-shadow: var(--card-shadow) !important;
+	}
+
+	[data-theme="dark"] .stat-card-hover {
+		background: var(--cell-hover) !important;
+	}
+
+	[data-theme="dark"] .bg-agents,
+	[data-theme="dark"] .bg-groups,
+	[data-theme="dark"] .bg-workflows {
+		background: var(--bg-tertiary) !important;
+	}
+
+	[data-theme="dark"] .team-stat-num {
+		color: var(--text-primary) !important;
+	}
+
+	[data-theme="dark"] .team-stat-label {
+		color: var(--text-secondary) !important;
+	}
+
+	[data-theme="dark"] .group-spacer {
+		background-color: var(--bg-primary) !important;
+	}
+
+	[data-theme="dark"] .quick-tile {
+		background: var(--bg-secondary) !important;
+		box-shadow: var(--card-shadow) !important;
+	}
+
+	[data-theme="dark"] .quick-tile-hover {
+		background: var(--cell-hover) !important;
+	}
+
+	[data-theme="dark"] .quick-ico-hire {
+		background: var(--bg-tertiary) !important;
+	}
+
+	[data-theme="dark"] .quick-ico-group {
+		background: linear-gradient(145deg, #38bdf8, #2563eb) !important;
+	}
+
+	[data-theme="dark"] .quick-tile-title {
+		color: var(--text-primary) !important;
+	}
+
+	[data-theme="dark"] .quick-tile-sub {
+		color: var(--text-secondary) !important;
+	}
+
+	[data-theme="dark"] .quick-tile-arrow {
+		color: var(--text-tertiary) !important;
+	}
+
+	[data-theme="dark"] .cell-group .cell {
+		background: var(--bg-secondary) !important;
+		box-shadow: var(--card-shadow) !important;
+	}
+
+	[data-theme="dark"] .cell:active {
+		background-color: var(--cell-hover) !important;
+	}
+
+	[data-theme="dark"] .cell-static:active {
+		background-color: var(--bg-secondary) !important;
+	}
+
+	[data-theme="dark"] .cell-title {
+		color: var(--text-primary) !important;
+	}
+
+	[data-theme="dark"] .cell-sub {
+		color: var(--text-secondary) !important;
+	}
+
+	[data-theme="dark"] .cell-extra {
+		color: var(--text-secondary) !important;
+	}
+
+	[data-theme="dark"] .cell-arrow {
+		color: var(--text-tertiary) !important;
+	}
+
+	[data-theme="dark"] .about-desc {
+		background: var(--bg-secondary) !important;
+		box-shadow: var(--card-shadow) !important;
+	}
+
+	[data-theme="dark"] .about-line {
+		color: var(--text-secondary) !important;
+	}
+
+	[data-theme="dark"] .about-line.sub {
+		color: var(--text-tertiary) !important;
+	}
+
+	[data-theme="dark"] .scroll-pad {
+		background-color: var(--bg-primary) !important;
+	}
+
+	[data-theme="dark"] .agent-popup,
+	[data-theme="dark"] .report-popup {
+		background: var(--bg-secondary) !important;
+	}
+
+	[data-theme="dark"] .popup-header {
+		border-bottom-color: var(--border-color) !important;
+	}
+
+	[data-theme="dark"] .popup-title {
+		color: var(--text-primary) !important;
+	}
+
+	[data-theme="dark"] .popup-close,
+	[data-theme="dark"] .popup-count {
+		color: var(--text-secondary) !important;
+	}
+
+	[data-theme="dark"] .agent-empty-text {
+		color: var(--text-primary) !important;
+	}
+
+	[data-theme="dark"] .agent-empty-sub {
+		color: var(--text-secondary) !important;
+	}
+
+	[data-theme="dark"] .agent-item {
+		border-bottom-color: var(--border-color) !important;
+	}
+
+	[data-theme="dark"] .agent-item-hover {
+		background: var(--cell-hover) !important;
+	}
+
+	[data-theme="dark"] .agent-name {
+		color: var(--text-primary) !important;
+	}
+
+	[data-theme="dark"] .agent-role {
+		color: var(--text-secondary) !important;
+		background: var(--bg-tertiary) !important;
+	}
+
+	[data-theme="dark"] .agent-last-msg {
+		color: var(--text-tertiary) !important;
+	}
+
+	[data-theme="dark"] .agent-arrow {
+		color: var(--text-tertiary) !important;
+	}
+
+	[data-theme="dark"] .popup-footer {
+		border-top-color: var(--border-color) !important;
+	}
+
+	[data-theme="dark"] .summary-item {
+		background: rgba(37, 99, 235, 0.14) !important;
+	}
+
+	[data-theme="dark"] .summary-num {
+		color: #93c5fd !important;
+	}
+
+	[data-theme="dark"] .summary-label {
+		color: var(--text-secondary) !important;
+	}
+
+	[data-theme="dark"] .report-divider {
+		background: var(--border-color) !important;
+	}
+
+	[data-theme="dark"] .section-title {
+		color: var(--text-primary) !important;
+	}
+
+	[data-theme="dark"] .report-empty-text {
+		color: var(--text-secondary) !important;
+	}
+
+	[data-theme="dark"] .report-agent {
+		border-bottom-color: var(--border-color) !important;
+	}
+
+	[data-theme="dark"] .report-agent-name {
+		color: var(--text-primary) !important;
+	}
+
+	[data-theme="dark"] .report-agent-role {
+		color: var(--text-secondary) !important;
 	}
 </style>
 

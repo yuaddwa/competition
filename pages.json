@@ -114,6 +114,14 @@
 			}
 		},
 		{
+			"path": "pages/profile/agent-model-assign",
+			"style": {
+				"navigationBarTitleText": "员工与模型",
+				"navigationBarBackgroundColor": "#f1f5f9",
+				"navigationBarTextStyle": "black"
+			}
+		},
+		{
 			"path": "pages/profile/settings",
 			"style": {
 				"navigationBarTitleText": "设置",

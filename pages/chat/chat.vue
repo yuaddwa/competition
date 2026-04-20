@@ -1,5 +1,5 @@
 <template>
-<view class="chat-page">
+<view class="chat-page" :class="{ 'theme-dark': isDarkMode }">
 <view class="chat-header-wrap" :style="{ paddingTop: statusBarPx + 'px' }">
 <view class="chat-header">
 <NavBackClick />
@@ -91,6 +91,10 @@ ensureAgentChatSeed,
 ensureManagerChatSeed,
 removeVirtualChatMessage,
 removeVirtualChatMessagesByIds,
+getDigitalAgentById,
+displayAgentName,
+displayAgentRole,
+formatAgentNavTitle,
 } from "@/utils/virtualTeamStore";
 import * as workflowApi from "@/clientApi/workflowApi";
 import { pickId } from "@/utils/apiHelpers";
@@ -98,6 +102,7 @@ import { getUserInfo } from "@/utils/index";
 import { getAgentById } from "@/clientApi/agentsApi";
 import { getPersonaById } from "@/utils/agentPersonaCatalog";
 import { getLlmSettings } from "@/utils/llmSettings";
+import { getAgentModelOrDefault } from "@/utils/agentModelMap";
 import { chatCompletion } from "@/utils/openaiCompatible";
 import { extractAssistantText } from "@/utils/openaiResponse";
 import NavBackClick from "@/components/NavBackClick.vue";
@@ -157,6 +162,7 @@ showStickBottom: false,
 multiSelectMode: false,
 selectedIds: [],
 personaSystemPrompt: "",
+isDarkMode: false,
 };
 },
 computed: {
@@ -180,6 +186,7 @@ return n === t("boss_chat_name", "zh") || n === t("boss_chat_name", "en") || n =
 },
 },
 onLoad(options) {
+this.loadDarkMode();
 try {
 const sys = uni.getSystemInfoSync();
 this.statusBarPx = sys.statusBarHeight || 20;
@@ -221,6 +228,7 @@ this.markAsRead();
 }
 },
 onShow() {
+this.loadDarkMode();
 if (this.mode === "virtual" && this.virtualId) {
 if (this.virtualKind === "group") clearGroupUnread(this.virtualId);
 if (this.virtualKind === "agent") clearAgentUnread(this.virtualId);
@@ -239,6 +247,21 @@ this.markAsRead();
 }
 },
 methods: {
+loadDarkMode() {
+try {
+const settings = uni.getStorageSync("userSettings");
+let parsed = {};
+if (settings) {
+parsed = typeof settings === "string" ? JSON.parse(settings) : settings;
+}
+this.isDarkMode = !!parsed.isDarkMode;
+} catch {
+this.isDarkMode = false;
+}
+},
+updateTheme(isDark) {
+this.isDarkMode = !!isDark;
+},
 t(key, params = {}) {
 return t(key, getLanguage(), params);
 },
@@ -532,6 +555,77 @@ if (local && local.snippet) {
 this.personaSystemPrompt = String(local.snippet).trim();
 }
 },
+async sendAgentMessage() {
+const body = (this.inputText || "").trim();
+if (!body || this.sending) return;
+const { apiKey, baseUrl, model: globalModel } = getLlmSettings();
+if (!apiKey) {
+uni.showToast({ title: this.t("toast_set_api_key_in_profile"), icon: "none" });
+return;
+}
+const model = getAgentModelOrDefault(this.virtualId) || globalModel;
+const agent = getDigitalAgentById(this.virtualId);
+const name = agent
+? displayAgentName(agent)
+: (this.virtualTitle || "").trim() || this.t("digital_employee_fallback");
+const role = agent ? displayAgentRole(agent) : "";
+const system = this.t("agent_llm_system_prompt", {
+name,
+role: role || this.t("agent_seed_role_fallback"),
+});
+this.sending = true;
+appendVirtualChat("agent", this.virtualId, {
+content: body,
+isMine: true,
+senderName: "",
+});
+this.inputText = "";
+this.loadVirtualMessages(false);
+try {
+const slice = this.chatMessages
+.filter((m) => m.content && String(m.content).trim())
+.slice(-24);
+const apiMsgs = slice.map((m) => ({
+role: m.isMine ? "user" : "assistant",
+content: String(m.content).trim(),
+}));
+const res = await chatCompletion({
+apiKey,
+baseUrl,
+model,
+system,
+messages: apiMsgs,
+});
+const text = extractAssistantText(res);
+if (!text) throw new Error("empty reply");
+const navTitle = agent
+? formatAgentNavTitle(agent)
+: name;
+const senderName = (navTitle || name).slice(0, 24);
+appendVirtualChat("agent", this.virtualId, {
+content: text,
+isMine: false,
+senderName,
+});
+} catch (e) {
+console.warn("[chat] agent llm", e);
+const errMsg = (e && e.message) || String(e || "");
+uni.showToast({
+title: errMsg.length > 36 ? this.t("model_err_title") : errMsg,
+icon: "none",
+duration: 2800,
+});
+appendVirtualChat("agent", this.virtualId, {
+content: this.t("model_err_body"),
+isMine: false,
+senderName: this.t("sender_system_name"),
+});
+} finally {
+this.sending = false;
+this.loadVirtualMessages(false);
+this.$nextTick(() => this.scrollToBottom());
+}
+},
 async sendPersonaMessage() {
 const body = (this.inputText || "").trim();
 if (!body || this.sending) return;
@@ -602,6 +696,10 @@ if (!userContent) return;
 if (this.mode === "virtual") {
 if (this.virtualKind === "persona") {
 this.sendPersonaMessage();
+return;
+}
+if (this.virtualKind === "agent") {
+this.sendAgentMessage();
 return;
 }
 const body = userContent;
@@ -713,48 +811,54 @@ font-size: 36rpx;
 display: flex;
 flex-direction: column;
 height: 100vh;
-background-color: #ededed;
+background: linear-gradient(180deg, #dce4f0 0%, #e8edf4 32%, #eef2f7 100%) !important;
+background-color: #eef2f7 !important;
 }
 
 .chat-header-wrap {
-background-color: #ededed;
 flex-shrink: 0;
-border-bottom: 1rpx solid #d9d9d9;
+background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+border-bottom: 1rpx solid rgba(148, 163, 184, 0.35);
+box-shadow: 0 4rpx 20rpx rgba(15, 23, 42, 0.05);
 }
 
 .chat-header {
-min-height: 88rpx;
-background-color: #ededed;
+min-height: 92rpx;
+background: transparent;
 display: flex;
 align-items: center;
-padding: 8rpx 24rpx 12rpx;
+padding: 10rpx 20rpx 14rpx;
 box-sizing: border-box;
 }
 
 .avatar-icon {
 font-family: "iconfont" !important;
-font-size: 40rpx;
-margin-right: 16rpx;
+font-size: 42rpx;
+margin-right: 12rpx;
+color: #2563eb;
 }
 
 .chat-title {
-font-size: 34rpx;
+font-size: 32rpx;
 font-weight: 600;
 flex: 1;
 overflow: hidden;
 text-overflow: ellipsis;
 white-space: nowrap;
 text-align: center;
-padding: 0 8rpx;
+padding: 0 12rpx;
+color: #0f172a;
+letter-spacing: 0.2rpx;
 }
 
 .chat-more {
-font-size: 44rpx;
+font-size: 40rpx;
 line-height: 1;
-color: #111;
-padding: 8rpx 0 8rpx 16rpx;
+color: #475569;
+padding: 8rpx 4rpx 8rpx 20rpx;
 font-weight: 600;
-letter-spacing: 2rpx;
+letter-spacing: 0;
+opacity: 0.9;
 }
 
 .chat-scroll-wrap {
@@ -771,6 +875,7 @@ height: 100%;
 min-height: 0;
 width: 100%;
 box-sizing: border-box;
+background: transparent !important;
 }
 
 .employee-panel {
@@ -809,8 +914,7 @@ padding: 12rpx 0;
 }
 
 .chat-scroll-inner {
-padding: 20rpx;
-padding-bottom: 24rpx;
+padding: 28rpx 24rpx 36rpx;
 }
 
 .bottom-anchor {
@@ -822,23 +926,23 @@ width: 100%;
 position: absolute;
 right: 28rpx;
 bottom: 32rpx;
-width: 72rpx;
-height: 72rpx;
+width: 76rpx;
+height: 76rpx;
 border-radius: 50%;
-background: rgba(255, 255, 255, 0.96);
-box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.12);
+background: #ffffff;
+box-shadow: 0 8rpx 28rpx rgba(15, 23, 42, 0.12);
 display: flex;
 align-items: center;
 justify-content: center;
 z-index: 50;
-border: 1rpx solid #e0e0e0;
+border: 1rpx solid rgba(148, 163, 184, 0.35);
 }
 
 .float-to-bottom-icon {
-font-size: 40rpx;
-color: #576b95;
+font-size: 36rpx;
+color: #2563eb;
 line-height: 1;
-font-weight: 600;
+font-weight: 700;
 }
 
 .chat-empty {
@@ -846,7 +950,7 @@ flex: 1;
 display: flex;
 align-items: center;
 justify-content: center;
-color: #999;
+color: #64748b;
 font-size: 28rpx;
 min-height: 0;
 }
@@ -859,7 +963,7 @@ min-height: 0;
 .bubble-row {
 display: flex;
 flex-direction: column;
-margin-bottom: 20rpx;
+margin-bottom: 28rpx;
 align-items: flex-start;
 width: 100%;
 box-sizing: border-box;
@@ -870,14 +974,15 @@ align-items: flex-end;
 }
 
 .bubble-row.multi-on.msg-selected .message-bubble {
-box-shadow: 0 0 0 4rpx #07c160;
+box-shadow: 0 0 0 4rpx rgba(34, 197, 94, 0.45) !important;
 }
 
 .bubble-sender {
 font-size: 22rpx;
-color: #888;
-margin-bottom: 6rpx;
-margin-left: 4rpx;
+color: #64748b;
+margin-bottom: 8rpx;
+margin-left: 6rpx;
+font-weight: 500;
 }
 
 .bubble-row.my-message .bubble-sender {
@@ -885,33 +990,40 @@ display: none;
 }
 
 .message-bubble {
-max-width: 70%;
-padding: 16rpx 20rpx;
-border-radius: 16rpx;
-background-color: #fff;
-box-shadow: 0 2rpx 4rpx rgba(0, 0, 0, 0.1);
+max-width: 76%;
+padding: 20rpx 24rpx;
+border-radius: 18rpx 18rpx 18rpx 6rpx;
+background-color: #ffffff;
+border: 1rpx solid rgba(148, 163, 184, 0.28);
+box-shadow: 0 4rpx 20rpx rgba(15, 23, 42, 0.07);
 box-sizing: border-box;
 word-break: break-word;
 }
 
 .message-bubble.my-message {
-background-color: #007aff;
-color: #fff;
+border-radius: 18rpx 18rpx 6rpx 18rpx;
+background: linear-gradient(145deg, #a3f08f 0%, #95ec69 52%, #8edd62 100%);
+border: 1rpx solid rgba(34, 197, 94, 0.35);
+box-shadow: 0 4rpx 18rpx rgba(34, 197, 94, 0.2);
+color: #191919;
 }
 
 .bubble-text {
-font-size: 24rpx;
-line-height: 1.5;
+font-size: 28rpx;
+line-height: 1.55;
+letter-spacing: 0.2rpx;
+color: #1e293b;
 }
 
 .message-bubble.my-message .bubble-text {
-color: #fff;
+color: #191919;
 }
 
 .bubble-meta-time {
-font-size: 20rpx;
-color: #999;
+font-size: 22rpx;
+color: #94a3b8;
 margin-top: 8rpx;
+opacity: 0.95;
 }
 
 .safe-bottom {
@@ -920,35 +1032,44 @@ padding-bottom: env(safe-area-inset-bottom);
 
 .chat-input {
 min-height: 100rpx;
-background-color: #fff;
-border-top: 1rpx solid #e8e8e8;
+background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+border-top: 1rpx solid rgba(148, 163, 184, 0.28);
 display: flex;
 align-items: center;
-padding-left: 30rpx;
-padding-right: 30rpx;
-padding-top: 20rpx;
+padding-left: 24rpx;
+padding-right: 24rpx;
+padding-top: 16rpx;
+padding-bottom: 16rpx;
 flex-shrink: 0;
-gap: 20rpx;
+gap: 16rpx;
 z-index: 100;
 box-sizing: border-box;
 }
 
 .input-field {
 flex: 1;
-height: 60rpx;
-border: 1rpx solid #e8e8e8;
-border-radius: 30rpx;
-padding: 0 20rpx;
-font-size: 24rpx;
+height: 72rpx;
+border: 1rpx solid #e2e8f0;
+border-radius: 36rpx;
+padding: 0 28rpx;
+font-size: 28rpx;
+background-color: #f1f5f9;
+color: #0f172a;
+box-sizing: border-box;
 }
 
 .send-button {
-padding: 12rpx 30rpx;
-background-color: #007aff;
+display: flex;
+align-items: center;
+justify-content: center;
+min-height: 72rpx;
+padding: 0 32rpx;
+background: linear-gradient(135deg, #2563eb 0%, #4f46e5 100%);
 color: #fff;
-border-radius: 30rpx;
-font-size: 24rpx;
+border-radius: 36rpx;
+font-size: 28rpx;
 font-weight: 600;
+box-shadow: 0 8rpx 24rpx rgba(37, 99, 235, 0.28);
 }
 
 .send-disabled {
@@ -958,8 +1079,8 @@ pointer-events: none;
 
 .multi-bar {
 min-height: 100rpx;
-background: #f7f7f7;
-border-top: 1rpx solid #e0e0e0;
+background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+border-top: 1rpx solid rgba(148, 163, 184, 0.28);
 display: flex;
 flex-direction: row;
 align-items: center;
@@ -971,27 +1092,147 @@ gap: 16rpx;
 
 .multi-cancel {
 font-size: 28rpx;
-color: #576b95;
+color: #2563eb;
+font-weight: 500;
 }
 
 .multi-count {
 flex: 1;
 font-size: 26rpx;
-color: #888;
+color: #64748b;
 }
 
 .multi-actions {
 display: flex;
 flex-direction: row;
-gap: 24rpx;
+gap: 28rpx;
 }
 
 .multi-link {
 font-size: 28rpx;
-color: #576b95;
+color: #2563eb;
+font-weight: 500;
 }
 
 .multi-link-danger {
-color: #fa5151;
+color: #dc2626;
+}
+
+/* 深色：小程序无 document，需根节点 .theme-dark；对方气泡避免白底/白边 */
+.chat-page.theme-dark {
+--bg-primary: #0f172a;
+--bg-secondary: #1e293b;
+--text-primary: #f8fafc;
+--text-secondary: #94a3b8;
+--text-tertiary: #64748b;
+--border-color: #334155;
+--input-bg: #1a2332;
+--input-border: #3f4f63;
+--primary-color: #2563eb;
+background-image: linear-gradient(180deg, #0c1222 0%, #0f172a 40%, #111c2e 100%) !important;
+background-color: #0f172a !important;
+}
+
+.chat-page.theme-dark .chat-header-wrap {
+background: linear-gradient(180deg, #1e293b 0%, #172033 100%) !important;
+box-shadow: 0 4rpx 24rpx rgba(0, 0, 0, 0.25) !important;
+}
+
+.chat-page.theme-dark,
+.chat-page.theme-dark .chat-header {
+background-color: transparent !important;
+border-bottom-color: var(--border-color) !important;
+}
+
+.chat-page.theme-dark .chat-title {
+color: var(--text-primary) !important;
+}
+
+.chat-page.theme-dark .chat-more {
+color: var(--text-primary) !important;
+}
+
+.chat-page.theme-dark .chat-header .avatar-icon {
+color: #7dd3fc !important;
+}
+
+.chat-page.theme-dark .message-bubble:not(.my-message) {
+border-radius: 18rpx 18rpx 18rpx 6rpx !important;
+background: linear-gradient(180deg, #243146 0%, #1e293b 100%) !important;
+border: 1rpx solid rgba(51, 65, 85, 0.95) !important;
+box-shadow: 0 6rpx 24rpx rgba(0, 0, 0, 0.22) !important;
+}
+
+.chat-page.theme-dark .message-bubble:not(.my-message) .bubble-text {
+color: var(--text-primary) !important;
+}
+
+.chat-page.theme-dark .message-bubble.my-message {
+background: linear-gradient(145deg, #86efac 0%, #95ec69 55%, #7dd87a 100%) !important;
+border: 1rpx solid rgba(34, 197, 94, 0.45) !important;
+box-shadow: 0 6rpx 22rpx rgba(34, 197, 94, 0.18) !important;
+}
+
+.chat-page.theme-dark .bubble-sender,
+.chat-page.theme-dark .bubble-meta-time {
+color: var(--text-tertiary) !important;
+}
+
+.chat-page.theme-dark .chat-empty {
+color: var(--text-tertiary) !important;
+}
+
+.chat-page.theme-dark .chat-input {
+background: linear-gradient(180deg, #1a2332 0%, #1e293b 100%) !important;
+border-top-color: var(--border-color) !important;
+}
+
+.chat-page.theme-dark .input-field {
+background-color: var(--input-bg) !important;
+color: var(--text-primary) !important;
+border-color: var(--input-border) !important;
+box-shadow: inset 0 1rpx 3rpx rgba(0, 0, 0, 0.25) !important;
+}
+
+.chat-page.theme-dark .send-button {
+background: linear-gradient(135deg, #2563eb 0%, #6366f1 100%) !important;
+box-shadow: 0 8rpx 24rpx rgba(37, 99, 235, 0.35) !important;
+}
+
+.chat-page.theme-dark .multi-bar {
+background: linear-gradient(180deg, #1a2332 0%, #1e293b 100%) !important;
+border-top-color: var(--border-color) !important;
+}
+
+.chat-page.theme-dark .multi-count {
+color: var(--text-secondary) !important;
+}
+
+.chat-page.theme-dark .float-to-bottom {
+background: rgba(30, 41, 59, 0.92) !important;
+border-color: var(--border-color) !important;
+}
+
+.chat-page.theme-dark .float-to-bottom-icon {
+color: var(--text-secondary) !important;
+}
+
+.chat-page.theme-dark .employee-panel {
+background: var(--bg-primary) !important;
+border-bottom-color: var(--border-color) !important;
+}
+
+.chat-page.theme-dark .employee-item {
+background: var(--bg-secondary) !important;
+border: 1rpx solid var(--border-color) !important;
+}
+
+.chat-page.theme-dark .employee-id {
+color: var(--text-primary) !important;
+}
+
+.chat-page.theme-dark .employee-raw,
+.chat-page.theme-dark .employee-empty {
+color: var(--text-tertiary) !important;
 }
 </style>

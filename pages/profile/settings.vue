@@ -128,6 +128,7 @@
 	export default {
 		data() {
 			return {
+				currentLanguage: getLanguage(),
 				readReceipt: true,
 				onlineStatus: true,
 				isDarkMode: false,
@@ -137,7 +138,7 @@
 		},
 		computed: {
 			languageRowLabel() {
-				return getLanguage() === "en" ? this.t("language_name_en") : this.t("language_name_zh");
+				return this.currentLanguage === "en" ? this.t("language_name_en") : this.t("language_name_zh");
 			},
 			fontSizeRowLabel() {
 				return this.fontSizeToLabel(this.currentFontSize);
@@ -154,6 +155,7 @@
 			this.calculateCacheSize();
 		},
 		onShow() {
+			this.currentLanguage = getLanguage();
 			try {
 				uni.setNavigationBarTitle({ title: translate("settings", getLanguage()) });
 			} catch (e) {
@@ -200,6 +202,7 @@
 					if (!hasAppLang && fromSettings && legacyLabelToCode[fromSettings]) {
 						setLanguage(legacyLabelToCode[fromSettings]);
 					}
+					this.currentLanguage = getLanguage();
 				} catch {
 					//
 				}
@@ -311,12 +314,15 @@
 				}
 			},
 			showLanguagePicker() {
-				const itemList = [this.t("language_name_zh"), this.t("language_name_en")];
+				// 固定双语标签，避免随当前语言变化造成认知混淆
+				const itemList = ["简体中文", "English"];
 				uni.showActionSheet({
 					itemList,
 					success: (res) => {
 						if (res.tapIndex < 0) return;
-						setLanguage(res.tapIndex === 1 ? "en" : "zh");
+						const nextLang = res.tapIndex === 1 ? "en" : "zh";
+						setLanguage(nextLang);
+						this.currentLanguage = nextLang;
 						this.saveSettings();
 						try {
 							uni.setNavigationBarTitle({ title: translate("settings", getLanguage()) });
@@ -339,6 +345,12 @@
 						if (res.tapIndex >= 0) {
 							this.currentFontSize = FONT_SIZE_KEYS[res.tapIndex];
 							this.saveSettings();
+							try {
+								const app = getApp && getApp();
+								app && app.applyFontSize && app.applyFontSize(this.currentFontSize);
+							} catch (e) {
+								//
+							}
 							uni.showToast({
 								title: this.t("toast_font_changed", { size: this.fontSizeToLabel(this.currentFontSize) }),
 								icon: "none",
@@ -357,22 +369,14 @@
 				});
 			},
 			applyDarkMode(isDark) {
-				const theme = isDark ? 'dark' : 'light';
-				uni.setStorageSync('currentTheme', theme);
 				try {
-					if (typeof document !== 'undefined') {
-						document.documentElement.setAttribute('data-theme', theme);
-						document.body && document.body.setAttribute('data-theme', theme);
+					const app = getApp && getApp();
+					if (app && typeof app.applyDarkMode === "function") {
+						app.applyDarkMode(isDark);
 					}
 				} catch (e) {
-					console.warn('[settings] applyDarkMode', e);
+					console.warn("[settings] applyDarkMode", e);
 				}
-				const pages = getCurrentPages();
-				pages.forEach(page => {
-					if (page && page.$vm && page.$vm.updateTheme) {
-						page.$vm.updateTheme(isDark);
-					}
-				});
 			},
 			toggleReadReceipt() {
 				this.readReceipt = !this.readReceipt;

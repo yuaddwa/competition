@@ -1,5 +1,5 @@
 <template>
-	<view class="page">
+	<view class="page chat-settings-page" :class="{ 'theme-dark': isDarkMode }">
 		<view v-if="mode === 'virtual' && kind === 'group' && groupDetail" class="hero">
 			<text class="hero-title">{{ displayGroupName(groupDetail) }}</text>
 			<text class="hero-desc">{{ groupHeroDesc }}</text>
@@ -115,6 +115,7 @@
 				agentDetail: null,
 				pinned: false,
 				muted: false,
+				isDarkMode: false,
 			};
 		},
 		created() {
@@ -134,9 +135,11 @@
 			},
 		},
 		onShow() {
+			this.loadDarkMode();
 			this.$forceUpdate();
 		},
 		onLoad(options) {
+			this.loadDarkMode();
 			this.mode = (options && options.mode) || "local";
 			if (this.mode === "virtual") {
 				this.kind = options.kind ? decodeURIComponent(options.kind) : "";
@@ -168,6 +171,21 @@
 			}
 		},
 		methods: {
+			loadDarkMode() {
+				try {
+					const settings = uni.getStorageSync("userSettings");
+					let parsed = {};
+					if (settings) {
+						parsed = typeof settings === "string" ? JSON.parse(settings) : settings;
+					}
+					this.isDarkMode = !!parsed.isDarkMode;
+				} catch {
+					this.isDarkMode = false;
+				}
+			},
+			updateTheme(isDark) {
+				this.isDarkMode = !!isDark;
+			},
 			displayGroupName,
 			displayAgentName,
 			t(key, params = {}) {
@@ -376,5 +394,74 @@
 		font-size: 24rpx;
 		color: #999;
 		line-height: 1.5;
+	}
+</style>
+
+<style>
+	/* 小程序无 html[data-theme]：用根节点 .theme-dark；H5 双写 [data-theme="dark"] */
+	.chat-settings-page.theme-dark {
+		--bg-primary: #0f172a;
+		--bg-secondary: #1e293b;
+		--text-primary: #f8fafc;
+		--text-secondary: #94a3b8;
+		--text-tertiary: #64748b;
+		--border-color: #334155;
+		--cell-hover: #334155;
+	}
+
+	.chat-settings-page.theme-dark,
+	[data-theme="dark"] .chat-settings-page {
+		background: var(--bg-primary) !important;
+	}
+
+	.chat-settings-page.theme-dark .hero,
+	.chat-settings-page.theme-dark .group,
+	[data-theme="dark"] .chat-settings-page .hero,
+	[data-theme="dark"] .chat-settings-page .group {
+		background: var(--bg-secondary) !important;
+		border-top-color: var(--border-color) !important;
+		border-bottom-color: var(--border-color) !important;
+	}
+
+	.chat-settings-page.theme-dark .hero-title,
+	.chat-settings-page.theme-dark .cell,
+	[data-theme="dark"] .chat-settings-page .hero-title,
+	[data-theme="dark"] .chat-settings-page .cell {
+		color: var(--text-primary) !important;
+	}
+
+	.chat-settings-page.theme-dark .hero-desc,
+	[data-theme="dark"] .chat-settings-page .hero-desc {
+		color: var(--text-secondary) !important;
+	}
+
+	.chat-settings-page.theme-dark .hero-meta,
+	[data-theme="dark"] .chat-settings-page .hero-meta {
+		color: var(--text-tertiary) !important;
+	}
+
+	.chat-settings-page.theme-dark .cell,
+	[data-theme="dark"] .chat-settings-page .cell {
+		border-bottom-color: rgba(51, 65, 85, 0.85) !important;
+	}
+
+	.chat-settings-page.theme-dark .cell-hover,
+	[data-theme="dark"] .chat-settings-page .cell-hover {
+		background: var(--cell-hover) !important;
+	}
+
+	.chat-settings-page.theme-dark .cell-arrow,
+	[data-theme="dark"] .chat-settings-page .cell-arrow {
+		color: var(--text-tertiary) !important;
+	}
+
+	.chat-settings-page.theme-dark .foot-tip,
+	[data-theme="dark"] .chat-settings-page .foot-tip {
+		color: var(--text-tertiary) !important;
+	}
+
+	.chat-settings-page.theme-dark .cell-danger .cell-main,
+	[data-theme="dark"] .chat-settings-page .cell-danger .cell-main {
+		color: #f87171 !important;
 	}
 </style>

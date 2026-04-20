@@ -218,13 +218,17 @@
 				});
 			},
 			avatarBg(row) {
+				/* 项目群：固定偏亮渐变，避免哈希到深蓝/紫导致「图案」发暗难辨 */
+				if (row && row.rowKind === "group") {
+					return "linear-gradient(145deg, #38bdf8, #2563eb)";
+				}
 				const colors = [
-					"linear-gradient(145deg, #2563eb, #1d4ed8)",
-					"linear-gradient(145deg, #7c3aed, #6d28d9)",
-					"linear-gradient(145deg, #059669, #047857)",
-					"linear-gradient(145deg, #d97706, #b45309)",
-					"linear-gradient(145deg, #db2777, #be185d)",
-					"linear-gradient(145deg, #0891b2, #0e7490)",
+					"linear-gradient(145deg, #3b82f6, #2563eb)",
+					"linear-gradient(145deg, #8b5cf6, #7c3aed)",
+					"linear-gradient(145deg, #10b981, #059669)",
+					"linear-gradient(145deg, #f59e0b, #d97706)",
+					"linear-gradient(145deg, #ec4899, #db2777)",
+					"linear-gradient(145deg, #22d3ee, #0891b2)",
 				];
 				const s = row.id || row.title || "";
 				let h = 0;

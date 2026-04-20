@@ -1,5 +1,5 @@
 <template>
-	<view class="page">
+	<view class="page chat-search-page" :class="{ 'theme-dark': isDarkMode }">
 		<view class="search-bar">
 			<input
 				class="search-input"
@@ -70,6 +70,7 @@
 				keyword: "",
 				rawRows: [],
 				loading: false,
+				isDarkMode: false,
 			};
 		},
 		computed: {
@@ -80,6 +81,7 @@
 			},
 		},
 		onShow() {
+			this.loadDarkMode();
 			try {
 				uni.setNavigationBarTitle({ title: this.t("chat_search_nav") });
 			} catch (e) {
@@ -87,6 +89,7 @@
 			}
 		},
 		onLoad(options) {
+			this.loadDarkMode();
 			this.mode = (options && options.mode) || "local";
 			if (this.mode === "virtual") {
 				this.kind = options.kind ? decodeURIComponent(options.kind) : "";
@@ -102,6 +105,21 @@
 			}
 		},
 		methods: {
+			loadDarkMode() {
+				try {
+					const settings = uni.getStorageSync("userSettings");
+					let parsed = {};
+					if (settings) {
+						parsed = typeof settings === "string" ? JSON.parse(settings) : settings;
+					}
+					this.isDarkMode = !!parsed.isDarkMode;
+				} catch {
+					this.isDarkMode = false;
+				}
+			},
+			updateTheme(isDark) {
+				this.isDarkMode = !!isDark;
+			},
 			t(key, params = {}) {
 				return t(key, getLanguage(), params);
 			},
@@ -212,5 +230,56 @@
 		color: #111;
 		line-height: 1.45;
 		word-break: break-all;
+	}
+</style>
+
+<style>
+	.chat-search-page.theme-dark {
+		--bg-primary: #0f172a;
+		--bg-secondary: #1e293b;
+		--text-primary: #f8fafc;
+		--text-secondary: #94a3b8;
+		--text-tertiary: #64748b;
+		--border-color: #334155;
+		--input-bg: #1a2332;
+	}
+
+	.chat-search-page.theme-dark,
+	[data-theme="dark"] .chat-search-page {
+		background: var(--bg-primary) !important;
+	}
+
+	.chat-search-page.theme-dark .search-bar,
+	[data-theme="dark"] .chat-search-page .search-bar {
+		background: var(--bg-secondary) !important;
+		border-bottom-color: var(--border-color) !important;
+	}
+
+	.chat-search-page.theme-dark .search-input,
+	[data-theme="dark"] .chat-search-page .search-input {
+		background: var(--input-bg) !important;
+		color: var(--text-primary) !important;
+		border: 1rpx solid var(--border-color) !important;
+	}
+
+	.chat-search-page.theme-dark .state,
+	[data-theme="dark"] .chat-search-page .state {
+		color: var(--text-tertiary) !important;
+	}
+
+	.chat-search-page.theme-dark .hit,
+	[data-theme="dark"] .chat-search-page .hit {
+		background: var(--bg-secondary) !important;
+		border-bottom-color: var(--border-color) !important;
+	}
+
+	.chat-search-page.theme-dark .hit-time,
+	[data-theme="dark"] .chat-search-page .hit-time {
+		color: var(--text-tertiary) !important;
+	}
+
+	.chat-search-page.theme-dark .hit-body,
+	[data-theme="dark"] .chat-search-page .hit-body {
+		color: var(--text-primary) !important;
 	}
 </style>

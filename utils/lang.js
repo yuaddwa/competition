@@ -12,6 +12,7 @@ export const LANGUAGES = {
 
 // 语言存储键名
 export const LANG_STORAGE_KEY = 'app_language';
+export const LANGUAGE_CHANGED_EVENT = 'app:language-changed';
 
 // 获取当前语言（仅 zh / en；与语言包 translations 键一致）
 export function getLanguage() {
@@ -21,8 +22,14 @@ export function getLanguage() {
 
 // 设置语言（写入 app_language，供全站 t() 使用）
 export function setLanguage(lang) {
+  const prev = getLanguage();
   const code = lang === 'en' ? 'en' : 'zh';
+  if (prev === code) return false;
   uni.setStorageSync(LANG_STORAGE_KEY, code);
+  if (typeof uni !== 'undefined' && typeof uni.$emit === 'function') {
+    uni.$emit(LANGUAGE_CHANGED_EVENT, code);
+  }
+  return true;
 }
 
 // 语言翻译函数
@@ -155,6 +162,7 @@ export function t(key, lang = getLanguage(), params = {}) {
       'update_progress': '更新进度',
       'remark_optional': '备注（可选）',
       'save': '保存',
+      'saving': '保存中…',
       'command_broadcast': '指令播报',
       'title_optional': '标题（可选）',
       'broadcast_content': '播报内容',
@@ -359,7 +367,7 @@ export function t(key, lang = getLanguage(), params = {}) {
       'please_complete_phone': '请完善手机号',
       'uploading': '上传中',
       'avatar_updated': '头像已更新',
-      'model_settings_tip': '密钥仅保存在本机。对话时直接向「接口地址」发起聊天补全请求（OpenAI 兼容）。微信小程序需在公众平台配置该域名为合法 request 域名；或使用与后端同域的代理。',
+      'model_settings_tip': '密钥仅保存在本机。保存时会校验接口是否可用（先请求 models，不支持时再发一条最小聊天）。对话时直接向「接口地址」发起聊天补全（OpenAI 兼容）。微信小程序需在公众平台配置该域名为合法 request 域名；或使用与后端同域的代理。',
       'model_settings_tip_title': '安全说明',
       'model_section_connection': '连接',
       'model_section_model': '模型',
@@ -367,6 +375,33 @@ export function t(key, lang = getLanguage(), params = {}) {
       'model_label_base_url': '接口根地址（含 /v1）',
       'model_label_model_name': '模型名',
       'model_placeholder_key': 'sk-… 或服务商密钥',
+      'model_validate_key_required': '请填写 API Key',
+      'model_validate_url_required': '请填写接口根地址',
+      'model_validate_url_invalid': '接口地址格式不正确，需为有效的 http(s) 链接',
+      'model_validate_url_protocol': '接口地址仅支持 http 或 https',
+      'model_validate_url_need_v1': '路径须以 /v1 结尾（如 https://api.openai.com/v1）',
+      'model_validate_model_required': '请填写模型名',
+      'model_validate_model_too_long': '模型名过长（最多 128 个字符）',
+      'model_verify_loading': '正在验证连接…',
+      'model_verify_auth_failed': '密钥无效或无权访问',
+      'model_verify_chat_failed': '聊天接口拒绝请求',
+      'model_verify_http': '接口返回错误',
+      'model_verify_network': '网络异常或服务不可达',
+      'model_verify_failed': '连接验证失败',
+      'agent_model_assign_nav': '员工与模型',
+      'agent_model_assign_tip_title': '说明',
+      'agent_model_assign_tip': '为每位数字员工指定聊天时使用的模型；留空则使用「模型与 API」中的默认模型。可勾选多名员工后批量填入同一模型。',
+      'agent_model_batch_placeholder': '批量：输入模型名',
+      'agent_model_apply_batch': '应用到选中',
+      'agent_model_select_all': '全选',
+      'agent_model_save_all': '保存全部',
+      'agent_model_save_one': '保存本条',
+      'agent_model_saved': '已保存',
+      'agent_model_empty': '暂无数字员工。请在「消息」页右上角创建数字员工后再来分配模型。',
+      'agent_model_row_placeholder': '留空则用默认模型',
+      'agent_model_none_selected': '请先勾选要批量设置的员工',
+      'agent_model_batch_applied': '已为 {{count}} 名员工设置模型',
+      'agent_llm_system_prompt': '你是团队中的数字员工「{{name}}」，岗位：{{role}}。请用简洁、专业的口吻回复用户，保持角色一致。',
       'chat_search_nav': '查找聊天记录',
       'chat_search_placeholder': '搜索聊天内容',
       'chat_search_no_hits': '未找到相关内容',
@@ -892,6 +927,7 @@ export function t(key, lang = getLanguage(), params = {}) {
       'update_progress': 'Update Progress',
       'remark_optional': 'Remark (optional)',
       'save': 'Save',
+      'saving': 'Saving…',
       'command_broadcast': 'Command Broadcast',
       'title_optional': 'Title (optional)',
       'broadcast_content': 'Broadcast content',
@@ -1096,7 +1132,7 @@ export function t(key, lang = getLanguage(), params = {}) {
       'please_complete_phone': 'Please add a valid phone number',
       'uploading': 'Uploading',
       'avatar_updated': 'Avatar updated',
-      'model_settings_tip': 'Keys are stored on this device only. Chat calls go to the base URL (OpenAI-compatible). For WeChat mini programs, add the domain as an allowed request domain, or use a same-origin proxy.',
+      'model_settings_tip': 'Keys stay on this device. Saving runs a live check (GET /models, or a minimal chat if unavailable). Chat calls use the base URL (OpenAI-compatible). For WeChat mini programs, add the domain as an allowed request domain, or use a same-origin proxy.',
       'model_settings_tip_title': 'Security',
       'model_section_connection': 'Connection',
       'model_section_model': 'Model',
@@ -1104,6 +1140,33 @@ export function t(key, lang = getLanguage(), params = {}) {
       'model_label_base_url': 'API base URL (incl. /v1)',
       'model_label_model_name': 'Model name',
       'model_placeholder_key': 'sk-… or provider key',
+      'model_validate_key_required': 'Please enter your API key',
+      'model_validate_url_required': 'Please enter the API base URL',
+      'model_validate_url_invalid': 'Invalid URL — use a valid http(s) address',
+      'model_validate_url_protocol': 'Only http and https are allowed',
+      'model_validate_url_need_v1': 'Path must end with /v1 (e.g. https://api.openai.com/v1)',
+      'model_validate_model_required': 'Please enter a model name',
+      'model_validate_model_too_long': 'Model name is too long (max 128 characters)',
+      'model_verify_loading': 'Verifying connection…',
+      'model_verify_auth_failed': 'Invalid API key or access denied',
+      'model_verify_chat_failed': 'Chat endpoint rejected the request',
+      'model_verify_http': 'Server returned an error',
+      'model_verify_network': 'Network error or service unreachable',
+      'model_verify_failed': 'Connection check failed',
+      'agent_model_assign_nav': 'Staff & models',
+      'agent_model_assign_tip_title': 'About',
+      'agent_model_assign_tip': 'Set the chat model for each digital employee. Leave blank to use the default from Model & API. Select multiple rows to apply one model in batch.',
+      'agent_model_batch_placeholder': 'Batch: model name',
+      'agent_model_apply_batch': 'Apply to selected',
+      'agent_model_select_all': 'Select all',
+      'agent_model_save_all': 'Save all',
+      'agent_model_save_one': 'Save row',
+      'agent_model_saved': 'Saved',
+      'agent_model_empty': 'No digital employees yet. Create one from the Messages tab (＋) first.',
+      'agent_model_row_placeholder': 'Blank = default model',
+      'agent_model_none_selected': 'Select employees first',
+      'agent_model_batch_applied': 'Applied model to {{count}} staff',
+      'agent_llm_system_prompt': 'You are digital employee "{{name}}" ({{role}}). Reply concisely and professionally, in character.',
       'chat_search_nav': 'Search chats',
       'chat_search_placeholder': 'Search messages',
       'chat_search_no_hits': 'No results',
