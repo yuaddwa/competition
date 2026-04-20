@@ -123,13 +123,6 @@
 			</view>
 
 			<view v-else class="cell-group">
-				<view class="cell" @click="goPage('/pages/profile/model-settings')">
-					<view class="cell-icon bg-model">
-						<text class="cell-glyph-text cell-glyph-emoji">⚙</text>
-					</view>
-					<text class="cell-title">{{ t('model_api') }}</text>
-					<text class="cell-arrow">›</text>
-				</view>
 				<view class="cell" @click="goPage('/pages/profile/agent-model-assign')">
 					<view class="cell-icon bg-font">
 						<text class="cell-glyph-text cell-glyph-emoji">🔗</text>

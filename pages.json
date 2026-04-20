@@ -108,7 +108,15 @@
 		{
 			"path": "pages/profile/model-settings",
 			"style": {
-				"navigationBarTitleText": "模型与 API",
+				"navigationBarTitleText": "员工与模型",
+				"navigationBarBackgroundColor": "#f1f5f9",
+				"navigationBarTextStyle": "black"
+			}
+		},
+		{
+			"path": "pages/profile/staff-api-models",
+			"style": {
+				"navigationBarTitleText": "员工与模型",
 				"navigationBarBackgroundColor": "#f1f5f9",
 				"navigationBarTextStyle": "black"
 			}

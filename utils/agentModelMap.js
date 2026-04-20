@@ -1,5 +1,5 @@
 /**
- * 数字员工 id → 聊天使用的模型名（OpenAI 兼容）；留空则沿用「模型与 API」全局默认。
+ * 数字员工 id → 聊天使用的模型名（OpenAI 兼容）；留空则沿用「员工与模型」页中的全局默认。
  */
 import { getLlmSettings } from "@/utils/llmSettings";
 
