@@ -8,6 +8,7 @@ export const TAB_PAGE = {
 	home: "/pages/home/home",
 	project: "/pages/project/project",
 	add: "/pages/add/add",
+	recommend: "/pages/recommend/recommend",
 	message: "/pages/message/message",
 	profile: "/pages/profile/profile",
 };
