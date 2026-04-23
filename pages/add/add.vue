@@ -27,14 +27,14 @@
 			</view>
 		</view>
 
-			<view class="wf-bar" @click="pickWorkflow">
-			<view class="wf-info">
-				<text class="wf-label">选择项目</text>
+			<view class="wf-bar">
+			<view class="wf-info" @tap="pickWorkflow">
+				<text class="wf-label">{{ t('add_select_project') }}</text>
 				<text class="wf-name">{{ workflowTitle || t('click_to_select') }}</text>
 			</view>
 			<view class="wf-right">
-				<text class="wf-new" @click.stop="openCreateProject">＋ 新建项目</text>
-				<text class="wf-arrow">›</text>
+				<text class="wf-new" @tap.stop="openCreateProject">{{ t('add_picker_new_project') }}</text>
+				<text class="wf-arrow" @tap="pickWorkflow">›</text>
 			</view>
 		</view>
 
@@ -135,23 +135,93 @@
 
 		<view v-if="showCreateProject" class="mask" @click.self="showCreateProject = false">
 			<view class="dialog" @click.stop>
-				<text class="dialog-title">新建项目</text>
-				<input class="dialog-input" v-model="newProjectTitle" placeholder="项目名称（必填）" placeholder-class="ph" />
-				<input class="dialog-input" v-model="newProjectDesc" placeholder="项目说明（可选）" placeholder-class="ph" />
+				<text class="dialog-title">{{ t('add_new_project_title') }}</text>
+				<input
+					class="dialog-input"
+					v-model="newProjectTitle"
+					:placeholder="t('add_new_project_name_ph')"
+					placeholder-class="ph"
+					:adjust-position="true"
+					:hold-keyboard="false"
+					confirm-type="next"
+				/>
+				<input
+					class="dialog-input"
+					v-model="newProjectDesc"
+					:placeholder="t('add_new_project_desc_ph')"
+					placeholder-class="ph"
+					:adjust-position="true"
+					:hold-keyboard="false"
+					confirm-type="done"
+					@confirm="submitCreateProject"
+				/>
 				<view class="dialog-actions">
-					<button class="modal-btn modal-btn-ghost" @click="showCreateProject = false">取消</button>
-					<button class="modal-btn modal-btn-primary" type="primary" :loading="creatingProject" @click="submitCreateProject">创建</button>
+					<view class="modal-btn modal-btn-ghost" @tap.stop="showCreateProject = false">
+						<text class="modal-btn-t">{{ t('cancel') }}</text>
+					</view>
+					<view
+						class="modal-btn modal-btn-primary"
+						:class="{
+							'is-loading': creatingProject,
+							'is-disabled': !canSubmitNewProject && !creatingProject,
+						}"
+						@tap.stop="submitCreateProject"
+					>
+						<text v-if="creatingProject" class="modal-btn-t">{{ t('loading') }}…</text>
+						<text v-else class="modal-btn-t">{{ t('create') }}</text>
+					</view>
 				</view>
 			</view>
 		</view>
 
-		<AppTabBar current="add" />
+		<!-- 自绘项目选择器：比原生 showActionSheet 遮罩更轻，避免全屏发灰 -->
+		<view
+			v-if="showWorkflowPicker"
+			class="wf-picker-mask"
+			@tap.self="showWorkflowPicker = false"
+		>
+			<view class="wf-picker-panel" @tap.stop>
+				<view class="wf-picker-handle" />
+				<text class="wf-picker-title">{{ t('add_select_project') }}</text>
+				<!-- 小程序里 scroll-y 多直接子节点时，常只有第一个能点到；包一层保整表可点 -->
+				<scroll-view scroll-y class="wf-picker-scroll" :show-scrollbar="true">
+					<view class="wf-picker-list-inner">
+						<view
+							class="wf-picker-row wf-picker-row--new"
+							@tap="onWorkflowPickerItem(0)"
+						>
+							<text class="wf-picker-new">{{ t('add_picker_new_project') }}</text>
+						</view>
+						<view
+							v-for="(w, i) in workflowList"
+							:key="wfPickerItemKey(w, i)"
+							class="wf-picker-row"
+							@tap="onWorkflowPickerItem(i + 1)"
+						>
+							<text class="wf-picker-name">{{ wfLabel(w) }}</text>
+						</view>
+						<view v-if="loadingWorkflows" class="wf-picker-empty">
+							<text class="wf-picker-empty-t">正在加载项目…</text>
+						</view>
+						<view v-else-if="!workflowList.length" class="wf-picker-empty">
+							<text class="wf-picker-empty-t">暂无项目，可先点上方“新建项目”</text>
+						</view>
+					</view>
+				</scroll-view>
+				<view class="wf-picker-footer" @tap="showWorkflowPicker = false">
+					<text class="wf-picker-cancel-t">{{ t('cancel') }}</text>
+				</view>
+			</view>
+		</view>
+
+		<!-- 弹窗打开时隐藏底栏，避免小程序里底栏/穿透抢点击，导致「创建」无反应 -->
+		<AppTabBar v-if="!showCreateProject && !showWorkflowPicker" current="add" />
 	</view>
 </template>
 
 <script>
 	import * as workflowApi from "@/clientApi/workflowApi";
-	import { pickId } from "@/utils/apiHelpers";
+	import { pickId, getApiErrorMessage } from "@/utils/apiHelpers";
 	import { getUserInfo } from "@/utils/index";
 	import { switchMainTab } from "@/utils/tabNav";
 	import { t, getLanguage, translateDepartment } from "@/utils/lang";
@@ -173,6 +243,8 @@ const STORAGE_WF_LIST = "cachedWorkflowList";
 				priorityIdx: 1,
 				submitting: false,
 				showCreateProject: false,
+				showWorkflowPicker: false,
+				loadingWorkflows: false,
 				newProjectTitle: "",
 				newProjectDesc: "",
 				creatingProject: false,
@@ -243,6 +315,10 @@ const STORAGE_WF_LIST = "cachedWorkflowList";
 			priorityLabel() {
 				return this.t(`priority_${this.priorities[this.priorityIdx]?.key || "mid"}`);
 			},
+			/** 仅项目名称必填；说明可选 */
+			canSubmitNewProject() {
+				return (this.newProjectTitle || "").trim().length > 0;
+			},
 		},
 		onLoad() {
 			uni.hideTabBar({ animation: false });
@@ -279,7 +355,9 @@ const STORAGE_WF_LIST = "cachedWorkflowList";
 			t(key, params = {}) {
 				return t(key, getLanguage(), params);
 			},
-			async prefetchWorkflows() {
+			async prefetchWorkflows(options = {}) {
+				const keepExisting = options.keepExisting !== false;
+				const prevList = Array.isArray(this.workflowList) ? this.workflowList : [];
 				try {
 					const list = await workflowApi.listWorkflows();
 					this.workflowList = Array.isArray(list) ? list : [];
@@ -299,7 +377,7 @@ const STORAGE_WF_LIST = "cachedWorkflowList";
 						}
 					}
 				} catch {
-					this.workflowList = [];
+					this.workflowList = keepExisting ? prevList : [];
 				}
 			},
 			wfLabel(w) {
@@ -307,59 +385,113 @@ const STORAGE_WF_LIST = "cachedWorkflowList";
 				const name = w.title || w.name || this.t("workflow");
 				return id ? `${name}` : name;
 			},
-			pickWorkflow() {
-				const list = this.workflowList;
-				if (!list.length) {
-					this.openCreateProject();
+			async pickWorkflow() {
+				this.showWorkflowPicker = true;
+				this.loadingWorkflows = true;
+				try {
+					await this.prefetchWorkflows({ keepExisting: true });
+				} finally {
+					this.loadingWorkflows = false;
+				}
+			},
+			wfPickerItemKey(w, i) {
+				return pickId(w) || `w-${i}`;
+			},
+			onWorkflowPickerItem(index) {
+				if (index === 0) {
+					this.showWorkflowPicker = false;
+					this.$nextTick(() => {
+						this.openCreateProject();
+					});
 					return;
 				}
-				const labels = list.map((w) => this.wfLabel(w));
-				uni.showActionSheet({
-					itemList: labels,
-					success: (res) => {
-						const w = list[res.tapIndex];
-						const id = pickId(w);
-						if (!id) return;
-						this.workflowId = id;
-						this.workflowTitle = w.title || w.name || this.t("workflow");
-						try {
-							uni.setStorageSync(STORAGE_WF, id);
-							uni.setStorageSync(STORAGE_WF_TITLE, this.workflowTitle);
-						} catch {
-							//
-						}
-					},
-				});
+				const w = this.workflowList[index - 1];
+				if (!w) return;
+				const id = pickId(w);
+				if (!id) {
+					uni.showToast({ title: "项目数据缺少ID，请刷新后重试", icon: "none" });
+					return;
+				}
+				this.showWorkflowPicker = false;
+				this.workflowId = id;
+				this.workflowTitle = w.title || w.name || this.t("workflow");
+				try {
+					uni.setStorageSync(STORAGE_WF, id);
+					uni.setStorageSync(STORAGE_WF_TITLE, this.workflowTitle);
+				} catch {
+					//
+				}
 			},
 			openCreateProject() {
 				this.newProjectTitle = "";
 				this.newProjectDesc = "";
 				this.showCreateProject = true;
 			},
+			mergeCreatedIntoList(created, title, id) {
+				if (!id) return;
+				const has = this.workflowList.some((w) => pickId(w) === id);
+				if (has) return;
+				const item = {
+					...(created && typeof created === "object" ? created : {}),
+					id,
+					title: (created && (created.title || created.name)) || title,
+					name: (created && (created.name || created.title)) || title,
+				};
+				this.workflowList = [item, ...this.workflowList];
+				try {
+					uni.setStorageSync(STORAGE_WF_LIST, this.workflowList);
+				} catch {
+					//
+				}
+			},
 			async submitCreateProject() {
+				if (this.creatingProject) return;
 				const title = (this.newProjectTitle || "").trim();
+				const desc = (this.newProjectDesc || "").trim();
 				if (!title) {
-					uni.showToast({ title: "请输入项目名称", icon: "none" });
+					uni.showToast({ title: this.t("please_enter_project_name"), icon: "none" });
 					return;
 				}
 				this.creatingProject = true;
 				try {
-					const payload = { title, name: title };
-					const desc = (this.newProjectDesc || "").trim();
-					if (desc) payload.description = desc;
-					const created = await workflowApi.createWorkflow(payload);
-					const id = pickId(created) || created?.workflowId;
-					await this.prefetchWorkflows();
-					if (id) {
-						this.workflowId = id;
-						this.workflowTitle = created?.title || created?.name || title;
-						uni.setStorageSync(STORAGE_WF, id);
-						uni.setStorageSync(STORAGE_WF_TITLE, this.workflowTitle);
+					const created = await workflowApi.createWorkflow(
+						desc ? { name: title, description: desc } : { name: title }
+					);
+					let id = pickId(created) || (created && created.workflowId) || "";
+					try {
+						await this.prefetchWorkflows();
+					} catch (e) {
+						console.warn("[add] prefetchWorkflows after create", e);
 					}
-					this.showCreateProject = false;
-					uni.showToast({ title: "项目已创建", icon: "success" });
-				} catch {
-					//
+					if (!id && this.workflowList.length) {
+						const found = this.workflowList.find(
+							(w) => (w.title || w.name) === title
+						);
+						if (found) id = pickId(found);
+					}
+					if (id) {
+						this.mergeCreatedIntoList(created, title, id);
+						this.workflowId = id;
+						this.workflowTitle = (created && (created.title || created.name)) || title;
+						try {
+							uni.setStorageSync(STORAGE_WF, id);
+							uni.setStorageSync(STORAGE_WF_TITLE, this.workflowTitle);
+						} catch {
+							//
+						}
+						this.showCreateProject = false;
+						uni.showToast({ title: this.t("add_new_project_success"), icon: "success" });
+					} else {
+						this.showCreateProject = false;
+						uni.showToast({ title: this.t("add_new_project_id_missing"), icon: "none" });
+					}
+				} catch (err) {
+					const detail = getApiErrorMessage(err);
+					uni.showToast({
+						title: detail || this.t("add_new_project_create_failed"),
+						icon: "none",
+						duration: 3200,
+					});
 				} finally {
 					this.creatingProject = false;
 				}
@@ -415,8 +547,13 @@ const STORAGE_WF_LIST = "cachedWorkflowList";
 					});
 					uni.showToast({ title: this.t("issued"), icon: "success" });
 					this.goal = "";
-				} catch {
-					//
+				} catch (err) {
+					const detail = getApiErrorMessage(err);
+					uni.showToast({
+						title: detail || "下发失败，请稍后重试",
+						icon: "none",
+						duration: 3200,
+					});
 				} finally {
 					this.submitting = false;
 				}
@@ -918,30 +1055,152 @@ const STORAGE_WF_LIST = "cachedWorkflowList";
 	.modal-btn {
 		flex: 1;
 		height: 76rpx;
-		line-height: 76rpx;
 		border-radius: 38rpx;
+		font-size: 28rpx;
+		font-weight: 700;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		box-sizing: border-box;
+	}
+
+	.modal-btn-t {
 		font-size: 28rpx;
 		font-weight: 700;
 	}
 
 	.modal-btn-ghost {
 		background: #f1f5f9 !important;
-		color: #475569 !important;
-		border: none !important;
+	}
+
+	.modal-btn-ghost .modal-btn-t {
+		color: #475569;
 	}
 
 	.modal-btn-primary {
 		background: linear-gradient(135deg, #2563eb, #4f46e5) !important;
-		color: #fff !important;
-		border: none !important;
 	}
 
-	.modal-btn::after {
-		border: none;
+	.modal-btn-primary .modal-btn-t {
+		color: #fff;
+	}
+
+	.modal-btn-primary.is-loading {
+		opacity: 0.8;
+	}
+
+	.modal-btn-primary.is-disabled {
+		opacity: 0.45;
+		pointer-events: none;
 	}
 
 	.pad-bottom {
 		height: 200rpx;
 		padding-bottom: env(safe-area-inset-bottom);
+	}
+
+	/* 项目选择：轻遮罩 + 底栏面板（替代 showActionSheet 的深色全屏层） */
+	.wf-picker-mask {
+		position: fixed;
+		left: 0;
+		right: 0;
+		top: 0;
+		bottom: 0;
+		background: rgba(15, 23, 42, 0.16);
+		z-index: 12000;
+		display: flex;
+		flex-direction: column;
+		justify-content: flex-end;
+		box-sizing: border-box;
+	}
+
+	.wf-picker-panel {
+		width: 100%;
+		max-height: 72vh;
+		background: #e2e8f0;
+		border-radius: 28rpx 28rpx 0 0;
+		padding-bottom: env(safe-area-inset-bottom);
+		box-sizing: border-box;
+		overflow: hidden;
+	}
+
+	.wf-picker-handle {
+		width: 64rpx;
+		height: 8rpx;
+		background: #cbd5e1;
+		border-radius: 999rpx;
+		margin: 16rpx auto 8rpx;
+	}
+
+	.wf-picker-title {
+		display: block;
+		text-align: center;
+		font-size: 26rpx;
+		color: #64748b;
+		padding: 0 24rpx 12rpx;
+	}
+
+	.wf-picker-scroll {
+		/* 小程序 scroll-y 需确定高度，否则不滚动 */
+		height: 480rpx;
+		max-height: 52vh;
+		background: #fff;
+		border-radius: 20rpx 20rpx 0 0;
+		margin: 0 0 0;
+	}
+
+	.wf-picker-list-inner {
+		width: 100%;
+		box-sizing: border-box;
+	}
+
+	.wf-picker-row {
+		display: flex;
+		align-items: center;
+		width: 100%;
+		box-sizing: border-box;
+		padding: 28rpx 32rpx;
+		border-bottom: 1rpx solid #f1f5f9;
+	}
+
+	.wf-picker-row--new {
+		border-bottom: 1rpx solid #e2e8f0;
+		background: #f8fafc;
+	}
+
+	.wf-picker-new {
+		font-size: 30rpx;
+		font-weight: 700;
+		color: #2563eb;
+	}
+
+	.wf-picker-name {
+		font-size: 30rpx;
+		color: #0f172a;
+	}
+
+	.wf-picker-empty {
+		padding: 28rpx 32rpx 36rpx;
+		display: flex;
+		justify-content: center;
+	}
+
+	.wf-picker-empty-t {
+		font-size: 26rpx;
+		color: #94a3b8;
+	}
+
+	.wf-picker-footer {
+		padding: 20rpx 32rpx 28rpx;
+		background: #e2e8f0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.wf-picker-cancel-t {
+		font-size: 30rpx;
+		color: #64748b;
+		font-weight: 600;
 	}
 </style>

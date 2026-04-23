@@ -14,7 +14,10 @@
 
 				<text class="navbar-title">{{ pageTitle }}</text>
 
-				<view class="navbar-side navbar-side-right" />
+				<view class="navbar-side navbar-side-right" @click="showAddMenu">
+					<text v-if="isDeletingRole" class="navbar-done">{{ t('done') }}</text>
+					<text v-else class="navbar-plus">＋</text>
+				</view>
 
 			</view>
 
@@ -41,35 +44,22 @@
 				</view>
 
 				<view
-
 					v-for="row in rows"
-
 					:key="row.id"
-
 					class="card"
-
+					:class="{ 'card-deleting': isDeletingRole }"
 					hover-class="card-hover"
-
-					@tap="openChat(row)"
-
+					@tap="isDeletingRole ? null : openChat(row)"
 				>
-
 					<view class="avatar" :style="{ background: avatarBg(row) }">
-
 						<text class="avatar-letter">{{ avatarLetter(row) }}</text>
-
 					</view>
-
 					<view class="card-body">
-
 						<text class="cell-title">{{ displayTitle(row) }}</text>
-
 						<text class="cell-sub">{{ snippetPreview(row) }}</text>
-
 					</view>
-
-					<text class="cell-arrow">›</text>
-
+					<text v-if="!isDeletingRole" class="cell-arrow">›</text>
+					<text v-else class="role-delete" @tap.stop="removeRole(row)">×</text>
 				</view>
 
 			</template>
@@ -78,6 +68,36 @@
 
 		</scroll-view>
 
+		<view v-if="showAddRolePopup" class="mask" @click="closeAddRolePopup">
+			<view class="add-role-popup" @click.stop>
+				<view class="popup-header">
+					<text class="popup-title">{{ t('add_role') }}</text>
+					<text class="popup-close" @click="closeAddRolePopup">×</text>
+				</view>
+				<scroll-view scroll-y class="add-role-list">
+					<view v-if="availableRoles.length === 0" class="add-role-empty">
+						<text>{{ t('no_role_to_add') }}</text>
+					</view>
+					<view
+						v-for="role in availableRoles"
+						:key="role.id"
+						class="add-role-item"
+						:class="{ 'add-role-selected': selectedAddRoles.includes(role.id) }"
+						@click="toggleAddRole(role.id)"
+					>
+						<view class="add-role-check-box">
+							<text v-if="selectedAddRoles.includes(role.id)" class="add-role-check">✓</text>
+						</view>
+						<text class="add-role-name">{{ role.title }}</text>
+					</view>
+				</scroll-view>
+				<view class="popup-footer">
+					<button class="popup-btn" :disabled="!selectedAddRoles.length" @click="confirmAddRoles">
+						{{ t('confirm_add') }} ({{ selectedAddRoles.length }})
+					</button>
+				</view>
+			</view>
+		</view>
 	</view>
 
 </template>
@@ -90,6 +110,9 @@
 		listPersonasByCategorySlug,
 		personaChatTitle,
 		personaSnippetLine,
+		getHiddenPersonaIds,
+		setHiddenPersonaIds,
+		getAvailablePersonasByCategorySlug,
 	} from "@/utils/agentPersonaCatalog";
 	import { t, getLanguage } from "@/utils/lang";
 	export default {
@@ -100,6 +123,10 @@
 				rows: [],
 				statusBarPx: 20,
 				pageTitle: "",
+				isDeletingRole: false,
+				showAddRolePopup: false,
+				availableRoles: [],
+				selectedAddRoles: [],
 			};
 		},
 		onLoad(options) {
@@ -177,6 +204,62 @@
 				uni.navigateTo({
 					url: `/pages/chat/chat?mode=virtual&kind=persona&id=${id}&title=${title}`,
 				});
+			},
+			showAddMenu() {
+				if (this.isDeletingRole) {
+					this.isDeletingRole = false;
+					return;
+				}
+				uni.showActionSheet({
+					itemList: [this.t('add_role'), this.t('remove_role')],
+					success: (res) => {
+						if (res.tapIndex === 0) {
+							this.addRole();
+						} else if (res.tapIndex === 1) {
+							this.isDeletingRole = true;
+						}
+					},
+				});
+			},
+			addRole() {
+				const available = getAvailablePersonasByCategorySlug(this.slug);
+				if (!available.length) {
+					uni.showToast({ title: this.t('no_role_to_add'), icon: 'none' });
+					return;
+				}
+				this.availableRoles = available;
+				this.selectedAddRoles = [];
+				this.showAddRolePopup = true;
+			},
+			closeAddRolePopup() {
+				this.showAddRolePopup = false;
+				this.selectedAddRoles = [];
+			},
+			toggleAddRole(id) {
+				const idx = this.selectedAddRoles.indexOf(id);
+				if (idx > -1) {
+					this.selectedAddRoles.splice(idx, 1);
+				} else {
+					this.selectedAddRoles.push(id);
+				}
+			},
+			confirmAddRoles() {
+				if (!this.selectedAddRoles.length) return;
+				const hidden = getHiddenPersonaIds().filter((id) => !this.selectedAddRoles.includes(id));
+				setHiddenPersonaIds(hidden);
+				this.reloadRows();
+				this.closeAddRolePopup();
+				uni.showToast({ title: this.t('added'), icon: 'success' });
+			},
+			removeRole(row) {
+				if (!row || !row.id) return;
+				const hidden = getHiddenPersonaIds();
+				if (!hidden.includes(row.id)) {
+					hidden.push(row.id);
+					setHiddenPersonaIds(hidden);
+				}
+				this.reloadRows();
+				uni.showToast({ title: this.t('deleted'), icon: 'success' });
 			},
 		},
 	};
@@ -520,6 +603,160 @@
 
 		height: calc(48rpx + env(safe-area-inset-bottom));
 
+	}
+
+	.navbar-plus {
+		font-size: 40rpx;
+		font-weight: 400;
+		color: #2563eb;
+		line-height: 1;
+	}
+
+	.navbar-done {
+		font-size: 28rpx;
+		font-weight: 500;
+		color: #2563eb;
+		line-height: 1;
+	}
+
+	.role-delete {
+		width: 48rpx;
+		height: 48rpx;
+		font-size: 32rpx;
+		color: #ef4444;
+		background: #fef2f2;
+		border-radius: 50%;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		flex-shrink: 0;
+		margin-left: 12rpx;
+		line-height: 1;
+	}
+
+	.mask {
+		position: fixed;
+		left: 0;
+		right: 0;
+		top: 0;
+		bottom: 0;
+		background: rgba(0, 0, 0, 0.45);
+		z-index: 100000;
+		display: flex;
+		flex-direction: column;
+		justify-content: flex-end;
+	}
+
+	.add-role-popup {
+		width: 100%;
+		max-height: 70vh;
+		background: #fff;
+		border-radius: 24rpx 24rpx 0 0;
+		display: flex;
+		flex-direction: column;
+		overflow: hidden;
+	}
+
+	.popup-header {
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		justify-content: space-between;
+		padding: 32rpx 28rpx 24rpx;
+		border-bottom: 1rpx solid #e2e8f0;
+	}
+
+	.popup-title {
+		font-size: 34rpx;
+		font-weight: 800;
+		color: #0f172a;
+	}
+
+	.popup-close {
+		font-size: 48rpx;
+		color: #94a3b8;
+		font-weight: 300;
+		line-height: 1;
+		padding: 0 8rpx;
+	}
+
+	.add-role-list {
+		flex: 1;
+		overflow-y: auto;
+		padding: 16rpx 28rpx;
+	}
+
+	.add-role-empty {
+		padding: 80rpx 0;
+		text-align: center;
+		color: #94a3b8;
+		font-size: 28rpx;
+	}
+
+	.add-role-item {
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		padding: 24rpx 16rpx;
+		border-radius: 16rpx;
+		margin-bottom: 12rpx;
+		background: #f8fafc;
+	}
+
+	.add-role-selected {
+		background: #eff6ff;
+	}
+
+	.add-role-check-box {
+		width: 40rpx;
+		height: 40rpx;
+		border-radius: 50%;
+		border: 2rpx solid #cbd5e1;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		margin-right: 20rpx;
+		flex-shrink: 0;
+		background: #fff;
+	}
+
+	.add-role-selected .add-role-check-box {
+		border-color: #2563eb;
+		background: #2563eb;
+	}
+
+	.add-role-check {
+		font-size: 24rpx;
+		color: #fff;
+		font-weight: 700;
+		line-height: 1;
+	}
+
+	.add-role-name {
+		font-size: 30rpx;
+		color: #0f172a;
+		flex: 1;
+	}
+
+	.popup-footer {
+		padding: 20rpx 28rpx;
+		padding-bottom: calc(20rpx + env(safe-area-inset-bottom));
+		border-top: 1rpx solid #e2e8f0;
+	}
+
+	.popup-btn {
+		width: 100%;
+		height: 88rpx;
+		line-height: 88rpx;
+		background: linear-gradient(135deg, #2563eb, #4f46e5) !important;
+		color: #fff;
+		font-size: 30rpx;
+		font-weight: 700;
+		border-radius: 44rpx;
+	}
+
+	.popup-btn[disabled] {
+		opacity: 0.5;
 	}
 
 </style>

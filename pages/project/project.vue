@@ -5,7 +5,8 @@
 		<view class="scroll-clip">
 		<scroll-view scroll-y class="scroll" refresher-enabled :refresher-triggered="refreshing" @refresherrefresh="onRefresh">
 			<view class="top-actions">
-				<text class="hero-new" @click.stop="goAdd">＋ 新建任务</text>
+				<text class="hero-new" @tap.stop="openCreate">＋ 创建项目</text>
+				<text class="hero-link" @tap.stop="goAdd">{{ t('go_assign_task') }}</text>
 			</view>
 
 			<view v-if="loading" class="loading-row">
@@ -16,7 +17,8 @@
 			<view v-else-if="workflows.length === 0" class="empty">
 				<text class="empty-emoji">📂</text>
 				<text class="empty-title">还没有项目</text>
-				<text class="empty-desc">点击右上角“新建任务”开始创建。</text>
+				<text class="empty-desc">点右上角「创建项目」，或下面按钮开始。</text>
+				<view class="empty-cta" @tap="openCreate">＋ 创建项目</view>
 			</view>
 
 			<view
@@ -46,12 +48,37 @@
 
 		<view v-if="showCreate" class="mask" @click.self="showCreate = false">
 			<view class="dialog" @click.stop>
-				<text class="dialog-title">创建项目</text>
-				<input class="dialog-input" v-model="newTitle" placeholder="项目名称（必填）" placeholder-class="ph" />
-				<input class="dialog-input" v-model="newDesc" placeholder="项目说明（可选）" placeholder-class="ph" />
+				<text class="dialog-title">{{ t('add_new_project_title') }}</text>
+				<input
+					class="dialog-input"
+					v-model="newTitle"
+					:placeholder="t('add_new_project_name_ph')"
+					placeholder-class="ph"
+					confirm-type="next"
+				/>
+				<input
+					class="dialog-input"
+					v-model="newDesc"
+					:placeholder="t('add_new_project_desc_ph')"
+					placeholder-class="ph"
+					confirm-type="done"
+					@confirm="submitCreate"
+				/>
 				<view class="dialog-actions">
-					<button class="btn ghost" @click="showCreate = false">{{ t('cancel') }}</button>
-					<button class="btn primary" type="primary" :loading="creating" @click="submitCreate">{{ t('create') }}</button>
+					<view class="dialog-btn dialog-btn-ghost" @tap.stop="showCreate = false">
+						<text class="dialog-btn-t">{{ t('cancel') }}</text>
+					</view>
+					<view
+						class="dialog-btn dialog-btn-primary"
+						:class="{
+							'is-loading': creating,
+							'is-disabled': !canSubmitCreate && !creating,
+						}"
+						@tap.stop="submitCreate"
+					>
+						<text v-if="creating" class="dialog-btn-t">{{ t('loading') }}…</text>
+						<text v-else class="dialog-btn-t">{{ t('create') }}</text>
+					</view>
 				</view>
 			</view>
 		</view>
@@ -60,7 +87,7 @@
 
 <script>
 	import * as workflowApi from "@/clientApi/workflowApi";
-	import { pickId } from "@/utils/apiHelpers";
+	import { pickId, getApiErrorMessage } from "@/utils/apiHelpers";
 	import { switchMainTab } from "@/utils/tabNav";
 	import { t, getLanguage } from "@/utils/lang";
 	import AppTabBar from "@/components/AppTabBar.vue";
@@ -77,6 +104,12 @@
 				newDesc: "",
 				creating: false,
 			};
+		},
+		computed: {
+			/** 仅项目名必填 */
+			canSubmitCreate() {
+				return (this.newTitle || "").trim().length > 0;
+			},
 		},
 		onLoad() {
 			uni.hideTabBar({ animation: false });
@@ -143,33 +176,46 @@
 				uni.hideTabBar({ animation: false });
 				this.showCreate = true;
 			},
+			mergeCreatedIfMissing(created, title, id) {
+				if (!id || this.workflows.some((w) => this.workflowKey(w) === id)) return;
+				const item = {
+					...(created && typeof created === "object" ? created : {}),
+					id,
+					title: (created && (created.title || created.name)) || title,
+					name: (created && (created.name || created.title)) || title,
+				};
+				this.workflows = [item, ...this.workflows];
+			},
 			async submitCreate() {
+				if (this.creating) return;
 				const title = (this.newTitle || "").trim();
+				const desc = (this.newDesc || "").trim();
 				if (!title) {
-					uni.showToast({ title: this.t("please_enter_workflow_name"), icon: "none" });
+					uni.showToast({ title: this.t("please_enter_project_name"), icon: "none" });
 					return;
 				}
 				this.creating = true;
 				try {
-					const payload = { title, name: title };
-					const desc = (this.newDesc || "").trim();
-					if (desc) {
-						payload.description = desc;
-					}
-					const created = await workflowApi.createWorkflow(payload);
-					const id = pickId(created) || created?.workflowId;
+					const created = await workflowApi.createWorkflow(
+						desc ? { name: title, description: desc } : { name: title }
+					);
+					const id = pickId(created) || (created && created.workflowId) || "";
 					this.showCreate = false;
 					this.newTitle = "";
 					this.newDesc = "";
 					uni.showToast({ title: this.t("created"), icon: "success" });
 					await this.loadList();
 					if (id) {
+						this.mergeCreatedIfMissing(created, title, id);
+					}
+					if (id) {
 						uni.navigateTo({
 							url: `/pages/workflow/workbench?id=${encodeURIComponent(id)}`,
 						});
 					}
-				} catch {
-					// toast由 request 处理
+				} catch (err) {
+					const detail = getApiErrorMessage(err);
+					uni.showToast({ title: detail || this.t("err_request_failed"), icon: "none", duration: 3200 });
 				} finally {
 					this.creating = false;
 				}
@@ -215,6 +261,9 @@
 	.top-actions {
 		display: flex;
 		justify-content: flex-end;
+		align-items: center;
+		flex-wrap: wrap;
+		gap: 16rpx;
 		margin-bottom: 20rpx;
 	}
 
@@ -226,6 +275,13 @@
 		border-radius: 999rpx;
 		background: rgba(37, 99, 235, 0.1);
 		border: 2rpx solid #bfdbfe;
+	}
+
+	.hero-link {
+		font-size: 28rpx;
+		font-weight: 600;
+		color: #64748b;
+		padding: 16rpx 20rpx;
 	}
 
 	.loading-row {
@@ -292,6 +348,22 @@
 		color: #64748b;
 		line-height: 1.55;
 		padding: 0 8rpx;
+	}
+
+	.empty-cta {
+		margin: 32rpx auto 0;
+		width: 100%;
+		max-width: 520rpx;
+		height: 88rpx;
+		border-radius: 44rpx;
+		font-size: 30rpx;
+		font-weight: 700;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		background: linear-gradient(135deg, #2563eb, #4f46e5);
+		color: #fff;
+		box-shadow: 0 12rpx 32rpx rgba(37, 99, 235, 0.28);
 	}
 
 	.empty-primary {
@@ -469,30 +541,46 @@
 		margin-top: 12rpx;
 	}
 
-	.btn {
+	.dialog-btn {
 		flex: 1;
 		height: 76rpx;
-		line-height: 76rpx;
+		border-radius: 38rpx;
 		font-size: 28rpx;
 		font-weight: 700;
-		border-radius: 38rpx;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		box-shadow: 0 8rpx 24rpx rgba(37, 99, 235, 0.15);
 	}
 
-	.btn.ghost {
-		background: #f1f5f9 !important;
-		color: #475569 !important;
-		border: none !important;
+	.dialog-btn-t {
+		font-size: 28rpx;
+		font-weight: 700;
 	}
 
-	.btn.primary {
-		background: linear-gradient(135deg, #2563eb, #4f46e5) !important;
-		color: #fff !important;
-		border: none !important;
-		padding: 0 32rpx;
-		box-shadow: 0 8rpx 24rpx rgba(37, 99, 235, 0.25);
+	.dialog-btn-ghost {
+		background: #f1f5f9;
+		box-shadow: none;
 	}
 
-	.btn::after {
-		border: none;
+	.dialog-btn-ghost .dialog-btn-t {
+		color: #475569;
+	}
+
+	.dialog-btn-primary {
+		background: linear-gradient(135deg, #2563eb, #4f46e5);
+	}
+
+	.dialog-btn-primary .dialog-btn-t {
+		color: #fff;
+	}
+
+	.dialog-btn-primary.is-loading {
+		opacity: 0.8;
+	}
+
+	.dialog-btn-primary.is-disabled {
+		opacity: 0.45;
+		pointer-events: none;
 	}
 </style>

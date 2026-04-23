@@ -63,7 +63,38 @@ export const MESSAGE_DEPT_ICON_BY_SLUG = {
   academic: "/static/一本书.png",
 };
 
-const FALLBACK_ICON = "/static/一本书.png";
+export const FALLBACK_ICON = "/static/一本书.png";
+
+const CUSTOM_DEPTS_KEY = "msg_custom_departments";
+const HIDDEN_DEPTS_KEY = "msg_hidden_departments";
+
+export function getCustomDepartments() {
+  try {
+    return uni.getStorageSync(CUSTOM_DEPTS_KEY) || [];
+  } catch {
+    return [];
+  }
+}
+
+export function setCustomDepartments(list) {
+  try {
+    uni.setStorageSync(CUSTOM_DEPTS_KEY, list);
+  } catch {}
+}
+
+export function getHiddenDepartments() {
+  try {
+    return uni.getStorageSync(HIDDEN_DEPTS_KEY) || [];
+  } catch {
+    return [];
+  }
+}
+
+export function setHiddenDepartments(list) {
+  try {
+    uni.setStorageSync(HIDDEN_DEPTS_KEY, list);
+  } catch {}
+}
 
 /** 英文 slug → 中文部门名（备用） */
 const SLUG_TITLE_ZH = {
@@ -88,7 +119,10 @@ const SLUG_TITLE_ZH = {
  */
 export function buildMessageDepartmentBlocks() {
   const lang = getLanguage();
-  return MESSAGE_DEPARTMENT_STATS.map((row) => {
+  const hidden = getHiddenDepartments();
+  const custom = getCustomDepartments();
+
+  const presetBlocks = MESSAGE_DEPARTMENT_STATS.filter((row) => !hidden.includes(row.name)).map((row) => {
     const slug = row.name;
     const agentDeptId = MESSAGE_SLUG_TO_AGENT_ID[slug];
     const dept = agentDeptId ? agentDepartments.find((d) => d.id === agentDeptId) : null;
@@ -109,6 +143,38 @@ export function buildMessageDepartmentBlocks() {
       desc,
       count: row.count,
       icon: MESSAGE_DEPT_ICON_BY_SLUG[slug] || FALLBACK_ICON,
+      isCustom: false,
     };
+  });
+
+  const customBlocks = custom.map((row) => ({
+    slug: row.slug || `custom_${Date.now()}`,
+    agentDeptId: "",
+    title: row.title || row.name || "自定义部门",
+    desc: row.desc || "",
+    count: row.count || 0,
+    icon: row.icon || FALLBACK_ICON,
+    isCustom: true,
+  }));
+
+  return [...presetBlocks, ...customBlocks];
+}
+
+/**
+ * @returns {{ slug: string, title: string }[]}
+ */
+export function getAvailablePresetDepartments() {
+  const lang = getLanguage();
+  const hidden = getHiddenDepartments();
+  return MESSAGE_DEPARTMENT_STATS.filter((row) => hidden.includes(row.name)).map((row) => {
+    const slug = row.name;
+    const agentDeptId = MESSAGE_SLUG_TO_AGENT_ID[slug];
+    const dept = agentDeptId ? agentDepartments.find((d) => d.id === agentDeptId) : null;
+    const titleKey = msgDeptI18nKey(slug, "title");
+    let title = t(titleKey, lang);
+    if (title === titleKey) {
+      title = dept ? cleanDeptLabel(dept.name) : SLUG_TITLE_ZH[slug] || slug.replace(/-/g, " ");
+    }
+    return { slug, title };
   });
 }

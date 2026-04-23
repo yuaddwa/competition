@@ -41,15 +41,6 @@
 						</view>
 						<text class="team-stat-label">{{ t('project_group_fallback') }}</text>
 					</view>
-					<view class="stat-card" hover-class="stat-card-hover" @click="goProject">
-						<view class="stat-card-top">
-							<view class="stat-ico bg-workflows">
-								<text class="stat-ico-emoji">📋</text>
-							</view>
-							<text class="team-stat-num">{{ workflowCount }}</text>
-						</view>
-						<text class="team-stat-label">{{ t('workflow') }}</text>
-					</view>
 				</view>
 			</view>
 
@@ -91,38 +82,11 @@
 					</view>
 					<text class="cell-arrow">›</text>
 				</view>
-				<view class="cell" @click="goPage('/pages/project/project')">
-					<view class="cell-icon bg-wf">
-						<text class="iconfont cell-glyph">&#xe620;</text>
-					</view>
-					<view class="cell-text-wrap">
-						<text class="cell-title">{{ t('workflow') }}</text>
-						<text class="cell-sub">{{ t('profile_workflow_sub') }}</text>
-					</view>
-					<text class="cell-arrow">›</text>
-				</view>
 			</view>
 
 			<view class="group-spacer" />
 
-			<view v-if="!loggedIn" class="cell-group">
-				<view class="cell" @click="goLogin">
-					<view class="cell-icon bg-account">
-						<text class="iconfont cell-glyph">&#xe654;</text>
-					</view>
-					<text class="cell-title">{{ t('login') }}</text>
-					<text class="cell-arrow">›</text>
-				</view>
-				<view class="cell" @click="goRegister">
-					<view class="cell-icon bg-reg">
-						<text class="iconfont cell-glyph">&#xe727;</text>
-					</view>
-					<text class="cell-title">{{ t('register') }}</text>
-					<text class="cell-arrow">›</text>
-				</view>
-			</view>
-
-			<view v-else class="cell-group">
+			<view v-if="loggedIn" class="cell-group">
 				<view class="cell" @click="goPage('/pages/profile/agent-model-assign')">
 					<view class="cell-icon bg-font">
 						<text class="cell-glyph-text cell-glyph-emoji">🔗</text>
@@ -227,10 +191,6 @@
 								<text class="summary-num">{{ dailyReport.groupCount }}</text>
 								<text class="summary-label">{{ t('project_group_fallback') }}</text>
 							</view>
-							<view class="summary-item">
-								<text class="summary-num">{{ dailyReport.workflowCount }}</text>
-								<text class="summary-label">{{ t('workflow') }}</text>
-							</view>
 						</view>
 						<view class="report-divider" />
 						<view class="report-section">
@@ -273,7 +233,6 @@
 				loggedIn: false,
 				user: null,
 				statusBarPx: 20,
-				workflowCount: 0,
 				showAgentPopup: false,
 				showDailyReportPopup: false,
 				dailyReport: null,
@@ -328,7 +287,6 @@
 				//
 			}
 			this.refreshAuth();
-			this.loadStats();
 		},
 		methods: {
 			t(key, params = {}) {
@@ -347,14 +305,6 @@
 						this.user = merged;
 					})
 					.catch(() => {});
-			},
-			loadStats() {
-				try {
-					const workflows = uni.getStorageSync("workflows") || [];
-					this.workflowCount = Array.isArray(workflows) ? workflows.length : 0;
-				} catch {
-					this.workflowCount = 0;
-				}
 			},
 			showAgentList() {
 				this.showAgentPopup = true;
@@ -379,12 +329,10 @@
 				const agents = loadDigitalAgents();
 				const groups = loadProjectGroups();
 				try {
-					const workflows = uni.getStorageSync("workflows") || [];
 					this.dailyReport = {
 						date: dateStr,
 						agentCount: agents.length,
 						groupCount: groups.length,
-						workflowCount: Array.isArray(workflows) ? workflows.length : 0,
 						agentList: agents.map(a => ({
 							name: a.name,
 							role: a.role,
@@ -396,7 +344,6 @@
 						date: dateStr,
 						agentCount: agents.length,
 						groupCount: groups.length,
-						workflowCount: 0,
 						agentList: agents.map(a => ({
 							name: a.name,
 							role: a.role,
@@ -466,9 +413,6 @@
 			},
 			goCreateGroup() {
 				uni.navigateTo({ url: "/pages/team/create-group" });
-			},
-			goProject() {
-				switchMainTab("project");
 			},
 		},
 	};
@@ -665,10 +609,6 @@
 		background: linear-gradient(145deg, #d1fae5 0%, #a7f3d0 100%);
 	}
 
-	.bg-workflows {
-		background: linear-gradient(145deg, #fef3c7 0%, #fde68a 100%);
-	}
-
 	.team-stat-num {
 		font-size: 34rpx;
 		font-weight: 800;
@@ -836,9 +776,6 @@
 		font-weight: 600;
 	}
 
-	.bg-wf {
-		background: linear-gradient(145deg, #2563eb, #1d4ed8);
-	}
 	.bg-add {
 		background: linear-gradient(145deg, #4f46e5, #4338ca);
 	}
@@ -1318,8 +1255,7 @@
 	}
 
 	[data-theme="dark"] .bg-agents,
-	[data-theme="dark"] .bg-groups,
-	[data-theme="dark"] .bg-workflows {
+	[data-theme="dark"] .bg-groups {
 		background: var(--bg-tertiary) !important;
 	}
 
