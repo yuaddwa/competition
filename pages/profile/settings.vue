@@ -2,7 +2,7 @@
 	<view class="page">
 		<view class="hint">{{ t('settings_section_account') }}</view>
 		<view class="cell-group">
-			<view class="cell" @click="switchAccount">
+			<view v-if="isLoggedIn" class="cell" @click="switchAccount">
 				<view class="cell-icon bg-switch">
 					<text class="iconfont cell-glyph">&#xe654;</text>
 				</view>
@@ -13,7 +13,7 @@
 				<view class="cell-icon bg-out">
 					<text class="iconfont cell-glyph">&#xe727;</text>
 				</view>
-				<text class="cell-title cell-danger">{{ t('logout') }}</text>
+				<text class="cell-title cell-danger">{{ logoutCellLabel }}</text>
 				<text class="cell-arrow">›</text>
 			</view>
 		</view>
@@ -113,12 +113,34 @@
 			</view>
 		</view>
 
+		<view
+			v-if="showSwitchAccountSheet"
+			class="switch-sheet-mask"
+			@tap.self="closeSwitchAccountSheet"
+		>
+			<view class="switch-sheet-panel" @tap.stop>
+				<view class="switch-sheet-handle" />
+				<view
+					v-for="item in switchAccountOptions"
+					:key="item.key"
+					class="switch-sheet-row"
+					@tap="selectSwitchAccount(item)"
+				>
+					<text class="switch-sheet-row-t">{{ item.label }}</text>
+					<text v-if="item.isCurrent" class="switch-sheet-current">当前账号</text>
+				</view>
+				<view class="switch-sheet-cancel" @tap="closeSwitchAccountSheet">
+					<text class="switch-sheet-cancel-t">{{ t('cancel') }}</text>
+				</view>
+			</view>
+		</view>
+
 		<text class="sub-hint">{{ t('settings_switch_logout_hint') }}</text>
 	</view>
 </template>
 
 <script>
-	import { clearSession } from "@/utils/index";
+	import { clearSession, getToken, getUserInfo, getLoginAccountHistory } from "@/utils/index";
 	import { LANG_STORAGE_KEY, getLanguage, setLanguage, t as translate } from "@/utils/lang";
 
 	/* 语言包仅 zh / en；切换时必须写入 app_language。字号存 xs/sm/md/xl，兼容旧版中文存盘 */
@@ -128,15 +150,22 @@
 	export default {
 		data() {
 			return {
+				isLoggedIn: false,
+				loginFlagFromRoute: "",
 				currentLanguage: getLanguage(),
 				readReceipt: true,
 				onlineStatus: true,
 				isDarkMode: false,
 				currentFontSize: "sm",
 				cacheSize: "0 KB",
+				showSwitchAccountSheet: false,
+				switchAccountOptions: [],
 			};
 		},
 		computed: {
+			logoutCellLabel() {
+				return this.isLoggedIn ? this.t("logout") : this.t("login");
+			},
 			languageRowLabel() {
 				return this.currentLanguage === "en" ? this.t("language_name_en") : this.t("language_name_zh");
 			},
@@ -150,11 +179,14 @@
 				return this.t("settings_clear_cache_sub", { size: this.cacheSize });
 			},
 		},
-		onLoad() {
+		onLoad(options = {}) {
+			this.loginFlagFromRoute = String(options.loggedIn || "").trim();
+			this.syncAuthState();
 			this.loadSettings();
 			this.calculateCacheSize();
 		},
 		onShow() {
+			this.syncAuthState();
 			this.currentLanguage = getLanguage();
 			try {
 				uni.setNavigationBarTitle({ title: translate("settings", getLanguage()) });
@@ -163,6 +195,23 @@
 			}
 		},
 		methods: {
+			syncAuthState() {
+				if (this.loginFlagFromRoute === "1") {
+					this.isLoggedIn = true;
+					return;
+				}
+				if (this.loginFlagFromRoute === "0") {
+					this.isLoggedIn = false;
+					return;
+				}
+				const token = getToken();
+				const user = getUserInfo();
+				const hasUser =
+					!!user &&
+					typeof user === "object" &&
+					(user.id != null || user.userId != null || user.phone || user.mobile || user.username);
+				this.isLoggedIn = !!token || hasUser;
+			},
 			fontSizeToLabel(size) {
 				const m = { xs: "font_size_xs", sm: "font_size_sm", md: "font_size_md", xl: "font_size_xl" };
 				return this.t(m[size] || "font_size_sm");
@@ -403,19 +452,72 @@
 				});
 			},
 			switchAccount() {
-				uni.showModal({
-					title: translate("switch_account", getLanguage()),
-					content: translate("switch_account_modal_body", getLanguage()),
-					confirmText: translate("go_to_login", getLanguage()),
-					cancelText: translate("cancel", getLanguage()),
-					success: (res) => {
-						if (!res.confirm) return;
-						clearSession();
-						uni.reLaunch({ url: "/pages/login/login" });
-					},
+				const history = getLoginAccountHistory().slice(0, 5);
+				const currentUser = getUserInfo();
+				const currentAccount = String(
+					(currentUser &&
+						(currentUser.phone ||
+							currentUser.mobile ||
+							currentUser.username ||
+							currentUser.account)) ||
+						""
+				).trim();
+				const mergedHistory = [...history];
+				if (
+					currentAccount &&
+					!mergedHistory.some((it) => String(it && it.account).trim() === currentAccount)
+				) {
+					mergedHistory.unshift({
+						account: currentAccount,
+						nickname: String(
+							(currentUser &&
+								(currentUser.nickname || currentUser.name || currentUser.username)) ||
+								""
+						).trim(),
+						lastLoginAt: Date.now(),
+					});
+				}
+				this.switchAccountOptions = mergedHistory.map((it, idx) => {
+					const account = String(it && it.account ? it.account : "").trim();
+					return {
+						key: `acc-${idx}`,
+						account,
+						isCurrent: !!currentAccount && account === currentAccount,
+						label:
+							it.nickname && it.nickname !== it.account
+								? `${it.account} (${it.nickname})`
+								: it.account,
+					};
 				});
+				if (!this.switchAccountOptions.length) {
+					uni.showToast({ title: "暂无可切换账号", icon: "none" });
+					return;
+				}
+				this.showSwitchAccountSheet = true;
+			},
+			closeSwitchAccountSheet() {
+				this.showSwitchAccountSheet = false;
+				this.switchAccountOptions = [];
+			},
+			selectSwitchAccount(item) {
+				const account = item && item.account ? String(item.account).trim() : "";
+				if (item && item.isCurrent) {
+					this.closeSwitchAccountSheet();
+					uni.showToast({ title: "当前登录账号", icon: "none" });
+					return;
+				}
+				this.closeSwitchAccountSheet();
+				clearSession();
+				if (account) {
+					uni.reLaunch({ url: `/pages/login/login?account=${encodeURIComponent(account)}` });
+					return;
+				}
 			},
 			logoutAccount() {
+				if (!this.isLoggedIn) {
+					uni.navigateTo({ url: "/pages/login/login" });
+					return;
+				}
 				uni.showModal({
 					title: translate("logout", getLanguage()),
 					content: translate("logout_confirm_body", getLanguage()),
@@ -628,6 +730,72 @@
 
 	.toggle-switch.on .toggle-knob {
 		transform: translateX(44rpx);
+	}
+
+	.switch-sheet-mask {
+		position: fixed;
+		left: 0;
+		right: 0;
+		top: 0;
+		bottom: 0;
+		background: rgba(15, 23, 42, 0.14);
+		z-index: 12000;
+		display: flex;
+		align-items: flex-end;
+	}
+
+	.switch-sheet-panel {
+		width: 100%;
+		background: #eef2ff;
+		border-radius: 24rpx 24rpx 0 0;
+		padding-bottom: env(safe-area-inset-bottom);
+		overflow: hidden;
+	}
+
+	.switch-sheet-handle {
+		width: 72rpx;
+		height: 8rpx;
+		border-radius: 999rpx;
+		background: #cbd5e1;
+		margin: 14rpx auto 12rpx;
+	}
+
+	.switch-sheet-row {
+		background: #fff;
+		padding: 30rpx 32rpx;
+		border-top: 1rpx solid #eef2f7;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+	}
+
+	.switch-sheet-row-t {
+		font-size: 30rpx;
+		color: #0f172a;
+		font-weight: 600;
+	}
+
+	.switch-sheet-current {
+		font-size: 22rpx;
+		color: #2563eb;
+		background: #eff6ff;
+		padding: 6rpx 14rpx;
+		border-radius: 999rpx;
+		border: 1rpx solid #bfdbfe;
+	}
+
+	.switch-sheet-cancel {
+		margin-top: 14rpx;
+		background: #fff;
+		padding: 28rpx 32rpx;
+		display: flex;
+		justify-content: center;
+	}
+
+	.switch-sheet-cancel-t {
+		font-size: 30rpx;
+		color: #64748b;
+		font-weight: 600;
 	}
 </style>
 

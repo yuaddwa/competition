@@ -86,7 +86,7 @@
 
 			<view class="group-spacer" />
 
-			<view v-if="loggedIn" class="cell-group">
+			<view class="cell-group">
 				<view class="cell" @click="goPage('/pages/profile/agent-model-assign')">
 					<view class="cell-icon bg-font">
 						<text class="cell-glyph-text cell-glyph-emoji">🔗</text>
@@ -94,7 +94,7 @@
 					<text class="cell-title">{{ t('agent_model_assign_nav') }}</text>
 					<text class="cell-arrow">›</text>
 				</view>
-				<view class="cell" @click="goChangePassword">
+				<view v-if="loggedIn" class="cell" @click="goChangePassword">
 					<view class="cell-icon bg-pwd">
 						<text class="iconfont cell-glyph">&#xe78f;</text>
 					</view>
@@ -380,6 +380,10 @@
 				}
 			},
 			goPage(url) {
+				if (url === "/pages/profile/agent-model-assign" && !this.loggedIn) {
+					uni.showToast({ title: "未登录时不可用", icon: "none" });
+					return;
+				}
 				const tabKey = {
 					"/pages/home/home": "home",
 					"/pages/project/project": "project",
@@ -402,7 +406,8 @@
 				uni.navigateTo({ url: "/pages/profile/change-password" });
 			},
 			goSettings() {
-				uni.navigateTo({ url: "/pages/profile/settings" });
+				const loginFlag = this.loggedIn ? "1" : "0";
+				uni.navigateTo({ url: `/pages/profile/settings?loggedIn=${loginFlag}` });
 			},
 			goProfileInfo() {
 				uni.navigateTo({ url: "/pages/profile/profile-info" });
