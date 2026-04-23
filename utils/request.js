@@ -1,5 +1,6 @@
 import { getToken, buildQuery, clearSession } from "./index";
 import { t, getLanguage } from "./lang";
+import { pickHttpBodyMessage } from "./apiHelpers";
 
 /** H5 是否走本地 Vite 代理（不要直连远程，避免跨域且易配错） */
 function isH5Development() {
@@ -89,6 +90,31 @@ function buildRequestUrl(path) {
   }
   // #endif
   return requestUrl;
+}
+
+function looksLikeAuthExpiredMessage(message = "") {
+  const m = String(message || "").toLowerCase();
+  if (!m) return false;
+  return (
+    m.includes("token") ||
+    m.includes("jwt") ||
+    m.includes("expired") ||
+    m.includes("expire") ||
+    m.includes("login expired") ||
+    m.includes("未登录") ||
+    m.includes("登录失效") ||
+    m.includes("登录已失效") ||
+    m.includes("登录过期") ||
+    m.includes("凭证失效")
+  );
+}
+
+function isAuthExpiredResponse(statusCode, resData, token) {
+  if (Number(statusCode) !== 401) return false;
+  // 本地已无 token，直接视为未登录
+  if (!token) return true;
+  const msg = pickHttpBodyMessage(resData);
+  return looksLikeAuthExpiredMessage(msg);
 }
 
 /**
@@ -192,10 +218,21 @@ function request(options = {}) {
     if (import.meta.env.MODE === "development") {
       console.log("[request]", finalMethod, requestUrl);
     }
+    let body = finalMethod === "GET" ? {} : data;
+    if (finalMethod !== "GET" && data && typeof data === "object" && !(data instanceof ArrayBuffer)) {
+      try {
+        body = JSON.parse(JSON.stringify(data));
+      } catch (e) {
+        body = data;
+      }
+    }
+    if (import.meta.env.MODE === "development" && finalMethod === "POST" && /\/workflows$/.test(path)) {
+      console.log("[request] POST /workflows body (clone)", body);
+    }
     uni.request({
       url: requestUrl,
       method: finalMethod,
-      data: finalMethod === "GET" ? {} : data,
+      data: body,
       timeout:
         typeof timeoutOpt === "number" && timeoutOpt > 0 ? timeoutOpt : defaultTimeoutMs(),
       header: {
@@ -205,7 +242,7 @@ function request(options = {}) {
       },
       success: (res) => {
         const { statusCode, data: resData } = res;
-        if (statusCode === 401 && needAuth) {
+        if (statusCode === 401 && needAuth && isAuthExpiredResponse(statusCode, resData, token)) {
           clearSession();
           if (showError) {
             uni.showToast({ title: t("err_login_expired", getLanguage()), icon: "none", duration: 2200 });
@@ -222,9 +259,9 @@ function request(options = {}) {
         }
 
         const lang = getLanguage();
-        let message = (resData && (resData.msg || resData.message)) || t("err_request_failed", lang);
+        let message = pickHttpBodyMessage(resData) || t("err_request_failed", lang);
         if (statusCode >= 500) {
-          message = t("err_service_unavailable", lang);
+          message = pickHttpBodyMessage(resData) || t("err_service_unavailable", lang);
         } else if (statusCode === 404 || Number(statusCode) === 404) {
           const bodyStr =
             typeof resData === "string"

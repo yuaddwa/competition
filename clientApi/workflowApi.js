@@ -1,14 +1,67 @@
 import request from "@/utils/request";
-import { unwrapData, unwrapList } from "@/utils/apiHelpers";
+import { unwrapData, unwrapList, unwrapDataOrThrowBusinessError } from "@/utils/apiHelpers";
+import { getUserInfo } from "@/utils/index";
+
+/** 与 Swagger `POST /api/workflows` 一致：每条约束任务需唯一 `clientTaskId` */
+function newClientTaskId() {
+  return `ct-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+/**
+ * POST /api/workflows 请求体（见 Swagger：创建工作流）
+ * 顶层：title, goal, routingRootLevel；tasks[] 内：clientTaskId, department, title, description, hierarchyLevel，可 parentClientTaskId / dependsOnClientTaskIds
+ * @param {{ name?: string, title?: string, description?: string, goal?: string }} input
+ */
+export function buildWorkflowCreatePayload(input) {
+  const nameRaw = (input && (input.name != null ? input.name : input.title)) || "";
+  const title = String(nameRaw).trim() || "未命名项目";
+  const desc = String((input && input.description) || "").trim();
+  const goalText =
+    (input && String(input.goal || "").trim()) ||
+    (desc
+      ? `项目：${title}。说明：${desc}`
+      : `项目「${title}」的协作目标可在工作台中继续完善。`);
+  const taskLineTitle = `【${title}】部门任务`;
+  const taskLineDesc = desc
+    ? `按项目说明执行：${desc.slice(0, 500)}${desc.length > 500 ? "…" : ""}`
+    : "由产品到工程的协同与落地，可在工作台继续细化。";
+
+  const out = {
+    title,
+    goal: goalText,
+    /** 与文档示例值一致（根路由层级/位标志，勿随意改为 1） */
+    routingRootLevel: 1073741824,
+    tasks: [
+      {
+        clientTaskId: newClientTaskId(),
+        /** 与布置任务/部门 ID 约定一致；若你们后端是中文部门名，再改此处 */
+        department: "engineering",
+        title: taskLineTitle,
+        description: taskLineDesc,
+        hierarchyLevel: 1,
+        dependsOnClientTaskIds: [],
+      },
+    ],
+  };
+  if (desc) {
+    out.description = desc;
+  }
+  if (import.meta.env.MODE === "development") {
+    console.log("[createWorkflow] POST /api/workflows", JSON.stringify(out));
+  }
+  return out;
+}
 
 export async function listWorkflows() {
   const r = await request.get("/api/workflows", {}, { needAuth: true, showError: false });
   return unwrapList(r);
 }
 
-export async function createWorkflow(payload) {
-  const r = await request.post("/api/workflows", payload, { needAuth: true });
-  return unwrapData(r);
+export async function createWorkflow(input) {
+  const payload =
+    input && typeof input === "object" ? buildWorkflowCreatePayload(input) : buildWorkflowCreatePayload({ name: String(input) });
+  const r = await request.post("/api/workflows", payload, { needAuth: true, showError: false });
+  return unwrapDataOrThrowBusinessError(r);
 }
 
 export async function getWorkflow(workflowId) {
@@ -22,16 +75,157 @@ export async function getWorkflow(workflowId) {
 
 /** 指令下发（字段名可按 Swagger 在调用处调整） */
 export async function postCommand(workflowId, body) {
+  const normalizeLevel = (raw, fallback = 0) => {
+    const n = Number(raw);
+    if (!Number.isFinite(n)) return fallback;
+    return Math.max(0, Math.min(10, Math.floor(n)));
+  };
+  const normalizeDepartmentId = (raw) => {
+    const s = String(raw || "").trim();
+    if (!s) return "";
+    const lc = s.toLowerCase();
+    const dict = {
+      engineering: "engineering",
+      eng: "engineering",
+      "工程": "engineering",
+      "研发": "engineering",
+      product: "product",
+      prd: "product",
+      "产品": "product",
+      pm: "pm",
+      "项目": "pm",
+      marketing: "marketing",
+      mkt: "marketing",
+      "市场": "marketing",
+      sales: "sales",
+      "销售": "sales",
+      design: "design",
+      "设计": "design",
+      qa: "qa",
+      test: "qa",
+      "测试": "qa",
+      support: "support",
+      "支援": "support",
+      "客服": "support",
+      finance: "finance",
+      fin: "finance",
+      "财务": "finance",
+      paid: "paid",
+      "付费": "paid",
+    };
+    if (dict[lc]) return dict[lc];
+    const compact = lc.replace(/\s+/g, "");
+    if (dict[compact]) return dict[compact];
+    for (const [k, v] of Object.entries(dict)) {
+      if (s.includes(k) || k.includes(s)) return v;
+    }
+    return lc;
+  };
+  const pickUserDepartment = () => {
+    const u = getUserInfo() || {};
+    const raw =
+      u.department ||
+      u.departmentId ||
+      u.dept ||
+      u.deptId ||
+      u.team ||
+      u.org ||
+      u.orgUnit ||
+      "";
+    return normalizeDepartmentId(raw);
+  };
+  const text =
+    String(
+      (body && (body.commandText || body.content || body.body || body.text || body.goal)) || ""
+    ).trim();
+  const normalizedBody = {
+    fromDepartment: (body && (body.fromDepartment || body.sourceDepartment)) || "product",
+    // Swagger 示例包含 fromLevel=0，范围按 0~10 兜底
+    fromLevel: normalizeLevel(body && (body.fromLevel ?? body.sourceLevel), 0),
+    toDepartment: (body && (body.toDepartment || body.targetDepartment)) || "engineering",
+    toLevel: normalizeLevel(body && (body.toLevel ?? body.hierarchyLevel), 1),
+    commandText: text,
+    createTaskTitle:
+      (body && body.createTaskTitle) || (text ? text.slice(0, 28) : "新任务"),
+    createTaskDescription:
+      (body && (body.createTaskDescription || body.content || body.body)) || text,
+    dependsOnTaskIds: Array.isArray(body && body.dependsOnTaskIds)
+      ? body.dependsOnTaskIds
+      : [],
+  };
+  if (body && body.parentTaskId) {
+    normalizedBody.parentTaskId = body.parentTaskId;
+  }
+  const isNoPermissionFromLevel = (err) => {
+    const msg = String(
+      (err && (err.message || (err.data && (err.data.message || err.data.msg)))) || ""
+    );
+    return Number(err && err.statusCode) === 401 && /(无权|forbidden|permission|层级|fromlevel)/i.test(msg);
+  };
+  const userDept = pickUserDepartment();
+  const deptCandidates = [
+    normalizeDepartmentId(normalizedBody.fromDepartment),
+    userDept,
+    "product",
+    "pm",
+    "engineering",
+  ].filter((d, i, arr) => d && arr.indexOf(d) === i);
+  const levelCandidates = [normalizedBody.fromLevel, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0].filter(
+    (n, idx, arr) => arr.indexOf(n) === idx
+  );
+  const tryWithPath = async (path) => {
+    let lastErr = null;
+    for (const dept of deptCandidates) {
+      for (const lvl of levelCandidates) {
+        try {
+          const payload = { ...normalizedBody, fromDepartment: dept, fromLevel: lvl };
+          if (import.meta.env.MODE === "development") {
+            console.log("[postCommand] try", path, {
+              workflowId,
+              fromDepartment: payload.fromDepartment,
+              fromLevel: payload.fromLevel,
+              toDepartment: payload.toDepartment,
+              toLevel: payload.toLevel,
+            });
+          }
+          const r = await request.post(path, payload, {
+            needAuth: true,
+            showError: false,
+          });
+          if (import.meta.env.MODE === "development") {
+            console.log("[postCommand] success", path, {
+              fromDepartment: payload.fromDepartment,
+              fromLevel: payload.fromLevel,
+            });
+          }
+          return unwrapData(r);
+        } catch (err) {
+          lastErr = err;
+          if (import.meta.env.MODE === "development") {
+            const msg =
+              (err && (err.message || (err.data && (err.data.message || err.data.msg)))) || "";
+            console.warn("[postCommand] failed", path, {
+              fromDepartment: dept,
+              fromLevel: lvl,
+              statusCode: err && err.statusCode,
+              message: String(msg || ""),
+            });
+          }
+          if (!isNoPermissionFromLevel(err)) break;
+        }
+      }
+    }
+    throw lastErr || new Error("post command failed");
+  };
   try {
-    const r = await request.post(`/api/workflows/${workflowId}/command`, body, { needAuth: true });
-    return unwrapData(r);
+    // Swagger: POST /api/workflows/{workflowId}/commands
+    return await tryWithPath(`/api/workflows/${workflowId}/commands`);
   } catch (err) {
-    // 兼容旧后端路径
-    const r = await request.post(`/api/workflows/${workflowId}/commands`, body, {
-      needAuth: true,
-      showError: false,
-    });
-    return unwrapData(r);
+    // 仅在新接口不存在时回退旧路径（单数）
+    if (Number(err && err.statusCode) === 404) {
+      return await tryWithPath(`/api/workflows/${workflowId}/command`);
+    }
+    throw err;
   }
 }
 

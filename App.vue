@@ -898,4 +898,27 @@
 	[data-theme="dark"] .chat-inner {
 		background: transparent !important;
 	}
+
+	/*
+	 * 系统 Toast / Loading / Modal 默认层级常低于页面内 fixed 蒙层（如 1e5～1e6），
+	 * 会导致提示被挡住；统一抬到浏览器可表示的较高 z-index。
+	 * 小程序端多为原生组件，下列选择器无效也可接受；H5/App 端生效。
+	 */
+	uni-toast,
+	.uni-toast,
+	.uni-toast__container,
+	.uni-simple-toast,
+	.uni-loading,
+	.uni-load,
+	.uni-load__mask,
+	uni-loading,
+	.open-type-toast,
+	.uni-system-preview,
+	uni-modal,
+	.uni-modal,
+	.uni-modal__mask,
+	.uni-modal__wrap,
+	.uni-mask {
+		z-index: 2147483000 !important;
+	}
 </style>
