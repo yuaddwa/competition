@@ -2,6 +2,9 @@ import { getToken, buildQuery, clearSession } from "./index";
 import { t, getLanguage } from "./lang";
 import { pickHttpBodyMessage } from "./apiHelpers";
 
+/** GET 并发去重：相同 URL 在飞行中只发一次 */
+const inflightGetRequests = new Map();
+
 /** H5 是否走本地 Vite 代理（不要直连远程，避免跨域且易配错） */
 function isH5Development() {
 	// uni-app / Vite 下 DEV 有时为 false，用 MODE 更稳
@@ -90,6 +93,11 @@ function buildRequestUrl(path) {
   }
   // #endif
   return requestUrl;
+}
+
+function isTimeoutError(err) {
+  const em = (err && err.errMsg) || "";
+  return em.includes("timeout") || em.includes("超时");
 }
 
 function looksLikeAuthExpiredMessage(message = "") {
@@ -214,99 +222,119 @@ function request(options = {}) {
   }
   // #endif
 
-  return new Promise((resolve, reject) => {
-    if (import.meta.env.MODE === "development") {
-      console.log("[request]", finalMethod, requestUrl);
-    }
-    let body = finalMethod === "GET" ? {} : data;
-    if (finalMethod !== "GET" && data && typeof data === "object" && !(data instanceof ArrayBuffer)) {
-      try {
-        body = JSON.parse(JSON.stringify(data));
-      } catch (e) {
-        body = data;
-      }
-    }
-    if (import.meta.env.MODE === "development" && finalMethod === "POST" && /\/workflows$/.test(path)) {
-      console.log("[request] POST /workflows body (clone)", body);
-    }
-    uni.request({
-      url: requestUrl,
-      method: finalMethod,
-      data: body,
-      timeout:
-        typeof timeoutOpt === "number" && timeoutOpt > 0 ? timeoutOpt : defaultTimeoutMs(),
-      header: {
-        "Content-Type": "application/json",
-        ...authHeader,
-        ...header,
-      },
-      success: (res) => {
-        const { statusCode, data: resData } = res;
-        if (statusCode === 401 && needAuth && isAuthExpiredResponse(statusCode, resData, token)) {
-          clearSession();
-          if (showError) {
-            uni.showToast({ title: t("err_login_expired", getLanguage()), icon: "none", duration: 2200 });
-          }
-          reject({ statusCode: 401, message: "未授权", data: resData });
-          setTimeout(() => {
-            uni.reLaunch({ url: "/pages/login/login" });
-          }, 400);
-          return;
-        }
-        if (statusCode >= 200 && statusCode < 300) {
-          resolve(resData);
-          return;
-        }
+  const dedupeKey = `${finalMethod} ${requestUrl}`;
+  const shouldDedupeGet = finalMethod === "GET";
+  if (shouldDedupeGet && inflightGetRequests.has(dedupeKey)) {
+    return inflightGetRequests.get(dedupeKey);
+  }
 
-        const lang = getLanguage();
-        let message = pickHttpBodyMessage(resData) || t("err_request_failed", lang);
-        if (statusCode >= 500) {
-          message = pickHttpBodyMessage(resData) || t("err_service_unavailable", lang);
-        } else if (statusCode === 404 || Number(statusCode) === 404) {
-          const bodyStr =
-            typeof resData === "string"
-              ? resData.slice(0, 120)
-              : JSON.stringify(resData || {}).slice(0, 120);
-          const looksLikeHtml = typeof resData === "string" && /<\s*html/i.test(resData);
-          const doubleApi = String(requestUrl).includes("/api/api/");
-          message = looksLikeHtml
-            ? t("err_404_frontend", lang)
-            : doubleApi
-              ? t("err_404_double_api", lang)
-              : t("err_404_api", lang);
-          console.warn("[request] 404", finalMethod, requestUrl);
-          console.warn("[request] 响应片段:", bodyStr);
-          if (doubleApi) {
+  const executeRequest = (retryLeft = 0) =>
+    new Promise((resolve, reject) => {
+      if (import.meta.env.MODE === "development") {
+        console.log("[request]", finalMethod, requestUrl);
+      }
+      let body = finalMethod === "GET" ? {} : data;
+      if (finalMethod !== "GET" && data && typeof data === "object" && !(data instanceof ArrayBuffer)) {
+        try {
+          body = JSON.parse(JSON.stringify(data));
+        } catch (e) {
+          body = data;
+        }
+      }
+      if (import.meta.env.MODE === "development" && finalMethod === "POST" && /\/workflows$/.test(path)) {
+        console.log("[request] POST /workflows body (clone)", body);
+      }
+      uni.request({
+        url: requestUrl,
+        method: finalMethod,
+        data: body,
+        timeout:
+          typeof timeoutOpt === "number" && timeoutOpt > 0 ? timeoutOpt : defaultTimeoutMs(),
+        header: {
+          "Content-Type": "application/json",
+          ...authHeader,
+          ...header,
+        },
+        success: (res) => {
+          const { statusCode, data: resData } = res;
+          if (statusCode === 401 && needAuth && isAuthExpiredResponse(statusCode, resData, token)) {
+            clearSession();
+            if (showError) {
+              uni.showToast({ title: t("err_login_expired", getLanguage()), icon: "none", duration: 2200 });
+            }
+            reject({ statusCode: 401, message: "未授权", data: resData });
+            setTimeout(() => {
+              uni.reLaunch({ url: "/pages/login/login" });
+            }, 400);
+            return;
+          }
+          if (statusCode >= 200 && statusCode < 300) {
+            resolve(resData);
+            return;
+          }
+
+          const lang = getLanguage();
+          let message = pickHttpBodyMessage(resData) || t("err_request_failed", lang);
+          if (statusCode >= 500) {
+            message = pickHttpBodyMessage(resData) || t("err_service_unavailable", lang);
+          } else if (statusCode === 404 || Number(statusCode) === 404) {
+            const bodyStr =
+              typeof resData === "string"
+                ? resData.slice(0, 120)
+                : JSON.stringify(resData || {}).slice(0, 120);
+            const looksLikeHtml = typeof resData === "string" && /<\s*html/i.test(resData);
+            const doubleApi = String(requestUrl).includes("/api/api/");
+            message = looksLikeHtml
+              ? t("err_404_frontend", lang)
+              : doubleApi
+                ? t("err_404_double_api", lang)
+                : t("err_404_api", lang);
+            console.warn("[request] 404", finalMethod, requestUrl);
+            console.warn("[request] 响应片段:", bodyStr);
+            if (doubleApi) {
+              console.warn(
+                "[request] VITE_PROXY_TARGET / VITE_API_BASE_URL 只能写到端口，不要带末尾 /api",
+              );
+            } else {
+              console.warn(
+                "[request] 排查：终端应有 [vite-proxy]→后端；用 Swagger 直接 POST 同一接口对比",
+              );
+            }
+          }
+          if (showError) {
+            const toastMsg = statusCode ? `${message}(${statusCode})` : message;
+            uni.showToast({ title: toastMsg, icon: "none", duration: 2600 });
+          }
+          reject({ statusCode, message, data: resData });
+        },
+        fail: (err) => {
+          if (finalMethod === "GET" && retryLeft > 0 && isTimeoutError(err)) {
+            console.warn("[request] timeout retry once", requestUrl);
+            resolve(executeRequest(retryLeft - 1));
+            return;
+          }
+          console.warn("[request] fail", finalMethod, requestUrl, err);
+          if (isTimeoutError(err)) {
             console.warn(
-              "[request] VITE_PROXY_TARGET / VITE_API_BASE_URL 只能写到端口，不要带末尾 /api",
-            );
-          } else {
-            console.warn(
-              "[request] 排查：终端应有 [vite-proxy]→后端；用 Swagger 直接 POST 同一接口对比",
+              "[request] 超时常见原因：对方网络慢/封禁出站、服务器 120.27…:8081 关机或安全组未放行、手机未开外网权限。可在 .env 增大 VITE_REQUEST_TIMEOUT_MS",
             );
           }
-        }
-        if (showError) {
-          const toastMsg = statusCode ? `${message}(${statusCode})` : message;
-          uni.showToast({ title: toastMsg, icon: "none", duration: 2600 });
-        }
-        reject({ statusCode, message, data: resData });
-      },
-      fail: (err) => {
-        console.warn("[request] fail", finalMethod, requestUrl, err);
-        const em = (err && err.errMsg) || "";
-        if (em.includes("timeout") || em.includes("超时")) {
-          console.warn(
-            "[request] 超时常见原因：对方网络慢/封禁出站、服务器 120.27…:8081 关机或安全组未放行、手机未开外网权限。可在 .env 增大 VITE_REQUEST_TIMEOUT_MS",
-          );
-        }
-        if (showError) {
-          toastNetworkMessage(err);
-        }
-        reject(err);
-      },
+          if (showError) {
+            toastNetworkMessage(err);
+          }
+          reject(err);
+        },
+      });
     });
-  });
+
+  const promise = executeRequest(finalMethod === "GET" ? 1 : 0);
+  if (shouldDedupeGet) {
+    inflightGetRequests.set(dedupeKey, promise);
+    promise.finally(() => {
+      inflightGetRequests.delete(dedupeKey);
+    });
+  }
+  return promise;
 }
 
 request.get = (url, data = {}, options = {}) =>

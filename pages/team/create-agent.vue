@@ -1,193 +1,198 @@
 <template>
 	<scroll-view scroll-y class="page">
-		<view class="section-t">{{ t('identity_role') }}</view>
+		<view class="section-t">创建 Agent</view>
 		<view class="card">
-			<text class="label"><text class="req">*</text>{{ t('name_title') }}</text>
-			<input class="inp" v-model="name" :placeholder="t('name_placeholder')" placeholder-class="ph" />
+			<text class="label"><text class="req">*</text>姓名</text>
+			<input class="inp" v-model="form.displayName" placeholder="例如：销售助手" placeholder-class="ph" />
 		</view>
 		<view class="card">
-			<text class="label"><text class="req">*</text>{{ t('position_responsibility') }}</text>
-			<input class="inp" v-model="role" :placeholder="t('position_placeholder')" placeholder-class="ph" />
-		</view>
-		<view class="card">
-			<text class="label">{{ t('gender_display') }}</text>
-			<picker mode="selector" :range="genderPickLabels" :value="genderIdx" @change="onGender">
-				<view class="picker-line">{{ genderPickLabels[genderIdx] }}</view>
+			<text class="label">部门</text>
+			<picker v-if="departments.length > 0" mode="selector" :range="departmentLabels" :value="safeDepartmentIdx" @change="onDepartment">
+				<view class="picker-line">{{ departmentLabels[safeDepartmentIdx] || "暂无部门，请先新增" }}</view>
 			</picker>
+			<view v-else class="picker-line">暂无部门，请先新增</view>
 		</view>
+		<view class="card">
+			<text class="label"><text class="req">*</text>职位</text>
+			<input class="inp" v-model="form.jobTitle" placeholder="例如：销售经理" placeholder-class="ph" />
+		</view>
+		<view class="card">
+			<text class="label">角色定位</text>
+			<input class="inp" v-model="form.rolePosition" placeholder="例如：客户关系推进者" placeholder-class="ph" />
+		</view>
+		<view class="card">
+			<text class="label">性格描述</text>
+			<input class="inp" v-model="form.personality" placeholder="例如：积极、结果导向" placeholder-class="ph" />
+		</view>
+		<view class="card">
+			<text class="label">主要工作</text>
+			<textarea class="ta" v-model="form.mainWork" placeholder="填写主要职责" placeholder-class="ph" />
+		</view>
+		<button class="btn" :loading="busy" @click="submit">创建 Agent</button>
 
-		<view class="section-t">{{ t('personality_experience') }}</view>
-		<view class="card">
-			<text class="label">{{ t('personality_keywords') }}</text>
-			<input class="inp" v-model="personality" :placeholder="t('personality_placeholder')" placeholder-class="ph" />
-		</view>
-		<view class="card">
-			<text class="label">{{ t('hobbies_catchphrases') }}</text>
-			<input class="inp" v-model="hobbies" :placeholder="t('hobbies_placeholder')" placeholder-class="ph" />
-		</view>
-		<view class="card">
-			<text class="label">{{ t('project_experience_summary') }}</text>
-			<textarea class="ta" v-model="experience" :placeholder="t('experience_placeholder')" placeholder-class="ph" />
-		</view>
-
-		<view class="section-t">{{ t('collaboration_preference') }}</view>
-		<view class="card">
-			<text class="label">{{ t('reply_style') }}</text>
-			<picker mode="selector" :range="replyPickLabels" :value="replyIdx" @change="onReply">
-				<view class="picker-line">{{ replyPickLabels[replyIdx] }}</view>
-			</picker>
-			<text class="hint">{{ t('reply_style_hint') }}</text>
-		</view>
-		<view class="card">
-			<text class="label">{{ t('additional_notes') }}</text>
-			<textarea class="ta" v-model="remark" :placeholder="t('additional_notes_placeholder')" placeholder-class="ph" />
-		</view>
-
-		<text class="foot-note">{{ t('agent_creation_note') }}</text>
-		<button class="btn" type="primary" :loading="busy" @click="submit">{{ t('create_digital_agent') }}</button>
 		<view class="foot-pad" />
 	</scroll-view>
 </template>
 
 <script>
-	import { addDigitalAgent } from "@/utils/virtualTeamStore";
-	import { t, getLanguage } from "@/utils/lang";
+import * as agentsApi from "@/clientApi/agentsApi";
+import { getApiErrorMessage } from "@/utils/apiHelpers";
 
-	const GENDER_VALUES = ["unspecified", "male", "female"];
-	const REPLY_VALUES = ["brief", "detailed", "bluf_first"];
+const DEPT_CACHE_KEY = "user_agent_departments_cache";
 
-	export default {
-		data() {
-			return {
-				name: "",
-				role: "",
+export default {
+	data() {
+		return {
+			busy: false,
+			form: {
+				displayName: "",
 				personality: "",
-				hobbies: "",
-				experience: "",
-				remark: "",
-				busy: false,
-				genderIdx: 0,
-				replyIdx: 1,
-			};
+				jobTitle: "",
+				mainWork: "",
+				rolePosition: "",
+			},
+			departments: [],
+			departmentIdx: 0,
+			prefillDepartment: "",
+		};
+	},
+	computed: {
+		departmentLabels() {
+			if (!this.departments.length) return ["暂无部门，请先新增"];
+			return this.departments.map((d) => {
+				if (typeof d === "string") return d || "";
+				return d.name || d.id || "";
+			});
 		},
-		computed: {
-			genderPickLabels() {
-				return [this.t("gender_option_private"), this.t("gender_option_male"), this.t("gender_option_female")];
-			},
-			replyPickLabels() {
-				return [this.t("reply_option_brief"), this.t("reply_option_detailed"), this.t("reply_option_bluf")];
-			},
+		selectedDepartment() {
+			if (!this.departments.length) return "";
+			const row = this.departments[this.departmentIdx];
+			if (typeof row === "string") return row;
+			return row?.name || row?.id || "";
 		},
-		methods: {
-			t(key, params = {}) {
-				return t(key, getLanguage(), params);
-			},
-			onGender(e) {
-				this.genderIdx = Number(e.detail.value) || 0;
-			},
-			onReply(e) {
-				this.replyIdx = Number(e.detail.value) || 0;
-			},
-			submit() {
-				const n = (this.name || "").trim();
-				const r = (this.role || "").trim();
-				if (!n) {
-				uni.showToast({ title: this.t('please_enter_name'), icon: "none" });
-				return;
+		safeDepartmentIdx() {
+			if (!this.departments.length) return 0;
+			if (typeof this.departmentIdx !== "number" || this.departmentIdx < 0) return 0;
+			if (this.departmentIdx >= this.departments.length) return 0;
+			return this.departmentIdx;
+		},
+	},
+	onShow() {
+		this.bootstrap();
+	},
+	onLoad(options) {
+		const raw = options?.department;
+		if (raw) {
+			try {
+				this.prefillDepartment = decodeURIComponent(String(raw));
+			} catch {
+				this.prefillDepartment = String(raw);
 			}
-			if (!r) {
-				uni.showToast({ title: this.t('please_enter_position'), icon: "none" });
-				return;
+		}
+	},
+	methods: {
+		async bootstrap() {
+			await this.loadDepartments();
+		},
+		async loadDepartments() {
+			try {
+				const list = await agentsApi.listUserAgentDepartments();
+				const rows = (Array.isArray(list) ? list : [])
+					.map((r) => {
+						if (typeof r === "string") {
+							const name = r.trim();
+							return name ? { id: name, name } : null;
+						}
+						const name = String(r?.name || r?.id || "").trim();
+						return name ? { id: String(r?.id || name), name } : null;
+					})
+					.filter((r) => {
+						const name = String(r?.name || "").trim();
+						return !!name && name !== "不设置部门";
+					})
+					.filter(Boolean);
+				try {
+					uni.setStorageSync(DEPT_CACHE_KEY, rows);
+				} catch {
+					//
+				}
+				this.departments = rows;
+				const preferred = String(this.prefillDepartment || "").trim().toLowerCase();
+				if (preferred && rows.length) {
+					const hitIdx = rows.findIndex((r) => {
+						const n = String(r?.name || r?.id || "").trim().toLowerCase();
+						return n === preferred || n.includes(preferred) || preferred.includes(n);
+					});
+					this.departmentIdx = hitIdx >= 0 ? hitIdx : 0;
+				} else {
+					this.departmentIdx = rows.length ? 0 : -1;
+				}
+			} catch (err) {
+				let cached = [];
+				try {
+					const raw = uni.getStorageSync(DEPT_CACHE_KEY);
+					cached = (Array.isArray(raw) ? raw : []).filter((r) => {
+						const name = String(r?.name || r?.id || "").trim();
+						return !!name && name !== "不设置部门";
+					});
+				} catch {
+					//
+				}
+				this.departments = cached;
+				this.departmentIdx = cached.length ? 0 : -1;
+				if (!cached.length) {
+					uni.showToast({ title: getApiErrorMessage(err) || "部门列表加载失败", icon: "none" });
+				}
 			}
+		},
+		onDepartment(e) {
+			if (!this.departments.length) return;
+			this.departmentIdx = Number(e.detail.value) || 0;
+		},
+		async submit() {
+			const n = String(this.form.displayName || "").trim();
+			const j = String(this.form.jobTitle || "").trim();
+			if (!n) return uni.showToast({ title: "请填写姓名", icon: "none" });
+			if (!j) return uni.showToast({ title: "请填写职位", icon: "none" });
 			this.busy = true;
 			try {
-				addDigitalAgent({
-					name: n,
-					role: r,
-					gender: GENDER_VALUES[this.genderIdx] || "unspecified",
-					personality: this.personality,
-					hobbies: this.hobbies,
-					experience: this.experience,
-					replyStyle: REPLY_VALUES[this.replyIdx] || "detailed",
-					remark: this.remark,
-				});
-				uni.showToast({ title: this.t('created'), icon: "success" });
-					setTimeout(() => uni.navigateBack(), 400);
-				} finally {
-					this.busy = false;
-				}
-			},
+				const payload = {
+					displayName: n,
+					jobTitle: j,
+				};
+				if (this.form.personality) payload.personality = this.form.personality;
+				if (this.form.mainWork) payload.mainWork = this.form.mainWork;
+				if (this.form.rolePosition) payload.rolePosition = this.form.rolePosition;
+				if (this.selectedDepartment) payload.department = this.selectedDepartment;
+				await agentsApi.createUserAgent(payload);
+				uni.showToast({ title: "创建成功", icon: "success" });
+				this.form = {
+					displayName: "",
+					personality: "",
+					jobTitle: "",
+					mainWork: "",
+					rolePosition: "",
+				};
+			} catch (err) {
+				uni.showToast({ title: getApiErrorMessage(err) || "创建失败", icon: "none" });
+			} finally {
+				this.busy = false;
+			}
 		},
-	};
+	},
+};
 </script>
 
 <style>
-	.page {
-		min-height: 100vh;
-		max-height: 100vh;
-		background: #ededed;
-		padding: 32rpx 24rpx 0;
-		box-sizing: border-box;
-	}
-	.section-t {
-		font-size: 28rpx;
-		font-weight: 700;
-		color: #888;
-		margin: 8rpx 0 16rpx 8rpx;
-	}
-	.card {
-		background: #fff;
-		border-radius: 12rpx;
-		padding: 28rpx;
-		margin-bottom: 20rpx;
-	}
-	.label {
-		display: block;
-		font-size: 26rpx;
-		color: #576b95;
-		margin-bottom: 16rpx;
-	}
-	.req {
-		color: #fa5151;
-		margin-right: 4rpx;
-	}
-	.inp {
-		font-size: 30rpx;
-		color: #111;
-	}
-	.ta {
-		width: 100%;
-		min-height: 140rpx;
-		font-size: 28rpx;
-		color: #111;
-	}
-	.ph {
-		color: #bbb;
-	}
-	.picker-line {
-		font-size: 30rpx;
-		color: #111;
-		padding: 8rpx 0;
-	}
-	.hint {
-		display: block;
-		margin-top: 12rpx;
-		font-size: 22rpx;
-		color: #b2b2b2;
-		line-height: 1.4;
-	}
-	.foot-note {
-		display: block;
-		font-size: 22rpx;
-		color: #999;
-		line-height: 1.5;
-		margin: 16rpx 8rpx 24rpx;
-	}
-	.btn {
-		margin-top: 8rpx;
-	}
-	.foot-pad {
-		height: 48rpx;
-		padding-bottom: env(safe-area-inset-bottom);
-	}
+.page { min-height: 100vh; background: #ededed; padding: 24rpx; box-sizing: border-box; }
+.section-t { font-size: 30rpx; font-weight: 700; color: #475569; margin: 8rpx 0 12rpx; }
+.card { background: #fff; border-radius: 14rpx; padding: 20rpx; margin-bottom: 12rpx; }
+.label { display: block; font-size: 26rpx; color: #64748b; margin-bottom: 10rpx; }
+.req { color: #ef4444; margin-right: 4rpx; }
+.inp { height: 72rpx; font-size: 28rpx; color: #111; }
+.ta { width: 100%; min-height: 120rpx; font-size: 26rpx; color: #111; }
+.ph { color: #bbb; }
+.picker-line { font-size: 28rpx; color: #111; padding: 10rpx 0; }
+.btn { margin-top: 10rpx; }
+.foot-pad { height: 40rpx; padding-bottom: env(safe-area-inset-bottom); }
 </style>
