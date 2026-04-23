@@ -1,20 +1,22 @@
 <template>
 	<view class="page">
-		<view class="hint">{{ t('settings_section_account') }}</view>
-		<view class="cell-group">
-			<view class="cell" @click="switchAccount">
-				<view class="cell-icon bg-switch">
-					<text class="iconfont cell-glyph">&#xe654;</text>
+		<view v-if="loggedIn">
+			<view class="hint">{{ t('settings_section_account') }}</view>
+			<view class="cell-group">
+				<view class="cell" @click="switchAccount">
+					<view class="cell-icon bg-switch">
+						<text class="iconfont cell-glyph">&#xe654;</text>
+					</view>
+					<text class="cell-title">{{ t('switch_account') }}</text>
+					<text class="cell-arrow">›</text>
 				</view>
-				<text class="cell-title">{{ t('switch_account') }}</text>
-				<text class="cell-arrow">›</text>
-			</view>
-			<view class="cell" @click="logoutAccount">
-				<view class="cell-icon bg-out">
-					<text class="iconfont cell-glyph">&#xe727;</text>
+				<view class="cell" @click="logoutAccount">
+					<view class="cell-icon bg-out">
+						<text class="iconfont cell-glyph">&#xe727;</text>
+					</view>
+					<text class="cell-title cell-danger">{{ t('logout') }}</text>
+					<text class="cell-arrow">›</text>
 				</view>
-				<text class="cell-title cell-danger">{{ t('logout') }}</text>
-				<text class="cell-arrow">›</text>
 			</view>
 		</view>
 
@@ -128,6 +130,7 @@
 	export default {
 		data() {
 			return {
+				loggedIn: false,
 				currentLanguage: getLanguage(),
 				readReceipt: true,
 				onlineStatus: true,
@@ -151,8 +154,17 @@
 			},
 		},
 		onLoad() {
+			this.checkLogin();
 			this.loadSettings();
 			this.calculateCacheSize();
+		},
+		checkLogin() {
+			try {
+				const token = uni.getStorageSync("token");
+				this.loggedIn = !!token;
+			} catch {
+				this.loggedIn = false;
+			}
 		},
 		onShow() {
 			this.currentLanguage = getLanguage();

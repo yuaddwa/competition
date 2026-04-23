@@ -101,6 +101,11 @@
 					<text class="cell-title">{{ t('change_password') }}</text>
 					<text class="cell-arrow">›</text>
 				</view>
+			</view>
+
+			<view class="group-spacer" />
+
+			<view class="cell-group">
 				<view class="cell" @click="goSettings">
 					<view class="cell-icon bg-settings">
 						<text class="iconfont cell-glyph">&#xe654;</text>
