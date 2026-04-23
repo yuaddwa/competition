@@ -179,7 +179,7 @@
 </template>
 
 <script>
-	import { loadDigitalAgents, displayAgentName } from "@/utils/virtualTeamStore";
+	import { listMyUserAgents } from "@/clientApi/agentsApi";
 	import { getAgentModel, setAgentModel } from "@/utils/agentModelMap";
 	import {
 		getModelPresets,
@@ -331,17 +331,21 @@
 				this.presets = getModelPresets();
 				this.savedModelsList = getSavedModels();
 			},
-			reloadList() {
+			async reloadList() {
 				this.reloadPresets();
-				const agents = loadDigitalAgents();
-				this.items = agents.map((a) => {
-					const displayName = displayAgentName(a);
-					return {
-						id: a.id,
-						displayName: displayName || this.t("digital_employee_fallback"),
-						model: getAgentModel(a.id),
-					};
-				});
+				try {
+					const rows = await listMyUserAgents();
+					this.items = (Array.isArray(rows) ? rows : []).map((a, idx) => {
+						const id = a.id || `agent-${idx}`;
+						return {
+							id,
+							displayName: a.displayName || a.name || this.t("digital_employee_fallback"),
+							model: getAgentModel(id),
+						};
+					});
+				} catch {
+					this.items = [];
+				}
 			},
 			pickerIndexForRow(row) {
 				const vals = this.pickRangeValues;

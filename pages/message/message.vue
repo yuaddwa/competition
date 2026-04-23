@@ -111,6 +111,10 @@
 					<text class="popup-title">{{ t('add_department') }}</text>
 					<text class="popup-close" @click="closeAddDeptPopup">×</text>
 				</view>
+				<view class="add-dept-create">
+					<input class="add-dept-input" v-model="newDeptName" placeholder="输入新部门名" placeholder-class="add-dept-input-ph" />
+					<button class="add-dept-create-btn" :loading="addingDept" @click="createDepartment">新增并添加</button>
+				</view>
 				<scroll-view scroll-y class="add-dept-list">
 					<view v-if="availableDepts.length === 0" class="add-dept-empty">
 						<text>{{ t('no_department_to_add') }}</text>
@@ -157,6 +161,9 @@
 
 <script>
 	import AppTabBar from "@/components/AppTabBar.vue";
+	import * as agentsApi from "@/clientApi/agentsApi";
+	import { listMyUserAgents } from "@/clientApi/agentsApi";
+	import { getApiErrorMessage } from "@/utils/apiHelpers";
 	import { t, getLanguage } from "@/utils/lang";
 	import {
 		getDailyBriefing,
@@ -174,7 +181,6 @@
 		setCustomDepartments,
 		getHiddenDepartments,
 		setHiddenDepartments,
-		getAvailablePresetDepartments,
 		FALLBACK_ICON,
 	} from "@/utils/messageDepartmentConfig";
 
@@ -201,13 +207,17 @@
 				quickMenuItems: [],
 				availableDepts: [],
 				selectedAddDepts: [],
+				newDeptName: "",
+				addingDept: false,
+				listReqId: 0,
+				lastLoadedAt: 0,
 			};
 		},
 		onLoad() {
 			const sys = uni.getSystemInfoSync();
 			this.statusBarPx = sys.statusBarHeight || 20;
 			uni.hideTabBar({ animation: false });
-			this.loadList();
+			this.loadList(true);
 		},
 		onShow() {
 			uni.hideTabBar({ animation: false });
@@ -216,7 +226,10 @@
 			} catch (e) {
 				//
 			}
-			this.loadList();
+			// 避免页面切回时短时间重复加载，降低“加载中”停留时间
+			if (Date.now() - this.lastLoadedAt > 3000) {
+				this.loadList();
+			}
 		},
 		methods: {
 			t(key, params = {}) {
@@ -225,6 +238,32 @@
 			rebuildDepartmentBlocks() {
 				this.departmentBlocks = buildMessageDepartmentBlocks();
 			},
+			normalizeDeptText(v) {
+				return String(v || "").trim().toLowerCase().replace(/\s+/g, "");
+			},
+			async refreshDepartmentCounts() {
+				try {
+					const list = await listMyUserAgents();
+					const rows = Array.isArray(list) ? list : [];
+					const countMap = new Map();
+					rows.forEach((a) => {
+						const key = this.normalizeDeptText(a?.department);
+						if (!key) return;
+						countMap.set(key, (countMap.get(key) || 0) + 1);
+					});
+					this.departmentBlocks = (this.departmentBlocks || []).map((b) => {
+						const slugKey = this.normalizeDeptText(b.slug);
+						const titleKey = this.normalizeDeptText(b.title);
+						const count =
+							countMap.get(slugKey) ??
+							countMap.get(titleKey) ??
+							0;
+						return { ...b, count };
+					});
+				} catch {
+					//
+				}
+			},
 			goDepartmentRoles(block) {
 				if (!block || !block.slug) return;
 				const title = block.title || block.slug;
@@ -232,12 +271,18 @@
 					url: `/pages/message/department-roles?slug=${encodeURIComponent(block.slug)}&title=${encodeURIComponent(title)}`,
 				});
 			},
-			async loadList() {
-				this.loading = true;
+			async loadList(force = false) {
+				const reqId = ++this.listReqId;
+				this.loading = force ? true : this.feedRows.length === 0;
 				try {
+					// 先用本地数据秒开页面，远程会话异步补充
 					this.briefing = getDailyBriefing();
 					this.rebuildDepartmentBlocks();
-					const feed = buildMessageFeedRows().filter((r) => r.rowKind !== "daily_agent");
+					this.refreshDepartmentCounts();
+					const baseFeed = buildMessageFeedRows().filter((r) => r.rowKind !== "daily_agent");
+					this.feedRows = baseFeed;
+					this.loading = false;
+
 					let mapped = [];
 					try {
 						const unified = await loadUnifiedConversationList();
@@ -256,14 +301,18 @@
 					} catch (e2) {
 						console.warn("[message] unified inbox", e2);
 					}
-					this.feedRows = [...feed, ...mapped];
+					if (reqId !== this.listReqId) return;
+					this.feedRows = [...baseFeed, ...mapped];
+					this.lastLoadedAt = Date.now();
 				} catch (e) {
 					console.warn("[message] load", e);
 					this.rebuildDepartmentBlocks();
 					this.feedRows = buildMessageFeedRows().filter((r) => r.rowKind !== "daily_agent");
 				} finally {
-					this.loading = false;
-					this.refreshing = false;
+					if (reqId === this.listReqId) {
+						this.loading = false;
+						this.refreshing = false;
+					}
 				}
 			},
 			async onRefresh() {
@@ -311,19 +360,35 @@
 					uni.navigateTo({ url: "/pages/team/create-agent" });
 				}
 			},
-			addDepartment() {
-				const available = getAvailablePresetDepartments();
-				if (!available.length) {
-					uni.showToast({ title: this.t('no_department_to_add'), icon: 'none' });
-					return;
-				}
-				this.availableDepts = available;
+			async addDepartment() {
+				await this.loadAvailableDepartments();
 				this.selectedAddDepts = [];
+				this.newDeptName = "";
 				this.showAddDeptPopup = true;
+			},
+			async loadAvailableDepartments() {
+				try {
+					const rows = await agentsApi.listUserAgentDepartments();
+					const custom = getCustomDepartments();
+					const existing = new Set(custom.map((c) => String(c.slug || "").trim()).filter(Boolean));
+					this.availableDepts = (Array.isArray(rows) ? rows : [])
+						.map((r) => {
+							const raw = typeof r === "string" ? r.trim() : String(r?.name || r?.id || "").trim();
+							return {
+								slug: raw,
+								title: raw,
+							};
+						})
+						.filter((d) => d.slug && !existing.has(d.slug));
+				} catch (e) {
+					this.availableDepts = [];
+					uni.showToast({ title: getApiErrorMessage(e) || "读取部门失败", icon: "none" });
+				}
 			},
 			closeAddDeptPopup() {
 				this.showAddDeptPopup = false;
 				this.selectedAddDepts = [];
+				this.newDeptName = "";
 			},
 			toggleAddDept(slug) {
 				const idx = this.selectedAddDepts.indexOf(slug);
@@ -335,11 +400,58 @@
 			},
 			confirmAddDepts() {
 				if (!this.selectedAddDepts.length) return;
+				const custom = getCustomDepartments();
+				const existed = new Set(custom.map((c) => String(c.slug || "").trim()));
+				const picked = this.availableDepts
+					.filter((d) => this.selectedAddDepts.includes(d.slug) && !existed.has(d.slug))
+					.map((d) => ({
+						slug: d.slug,
+						title: d.title,
+						icon: FALLBACK_ICON,
+						count: 0,
+						desc: "",
+					}));
+				if (picked.length > 0) {
+					setCustomDepartments([...custom, ...picked]);
+				}
 				const hidden = getHiddenDepartments().filter((s) => !this.selectedAddDepts.includes(s));
 				setHiddenDepartments(hidden);
 				this.rebuildDepartmentBlocks();
 				this.closeAddDeptPopup();
 				uni.showToast({ title: this.t('added'), icon: 'success' });
+			},
+			async createDepartment() {
+				const name = String(this.newDeptName || "").trim();
+				if (!name) {
+					uni.showToast({ title: "请输入部门名", icon: "none" });
+					return;
+				}
+				this.addingDept = true;
+				try {
+					await agentsApi.createUserAgentDepartment(name);
+					const custom = getCustomDepartments();
+					const exists = custom.some((c) => String(c.slug || "").trim() === name);
+					if (!exists) {
+						setCustomDepartments([
+							...custom,
+							{
+								slug: name,
+								title: name,
+								icon: FALLBACK_ICON,
+								count: 0,
+								desc: "",
+							},
+						]);
+					}
+					this.rebuildDepartmentBlocks();
+					this.newDeptName = "";
+					this.closeAddDeptPopup();
+					uni.showToast({ title: "已新增并添加", icon: "success" });
+				} catch (e) {
+					uni.showToast({ title: getApiErrorMessage(e) || "新增部门失败", icon: "none" });
+				} finally {
+					this.addingDept = false;
+				}
 			},
 			removeDepartment(block) {
 				if (!block) return;
@@ -836,6 +948,38 @@
 		flex: 1;
 		overflow-y: auto;
 		padding: 16rpx 28rpx;
+	}
+
+	.add-dept-create {
+		display: flex;
+		align-items: center;
+		gap: 16rpx;
+		padding: 16rpx 28rpx 12rpx;
+		border-bottom: 1rpx solid #eef2f7;
+	}
+
+	.add-dept-input {
+		flex: 1;
+		height: 72rpx;
+		background: #f8fafc;
+		border-radius: 12rpx;
+		padding: 0 18rpx;
+		font-size: 28rpx;
+		color: #0f172a;
+	}
+
+	.add-dept-input-ph {
+		color: #94a3b8;
+	}
+
+	.add-dept-create-btn {
+		height: 72rpx;
+		line-height: 72rpx;
+		padding: 0 24rpx;
+		font-size: 24rpx;
+		border-radius: 36rpx;
+		background: #2563eb !important;
+		color: #fff !important;
 	}
 
 	.add-dept-empty {

@@ -14,9 +14,8 @@
 
 				<text class="navbar-title">{{ pageTitle }}</text>
 
-				<view class="navbar-side navbar-side-right" @click="showAddMenu">
-					<text v-if="isDeletingRole" class="navbar-done">{{ t('done') }}</text>
-					<text v-else class="navbar-plus">＋</text>
+				<view class="navbar-side navbar-side-right" @click="goCreateAgent">
+					<text class="navbar-plus">＋</text>
 				</view>
 
 			</view>
@@ -29,7 +28,7 @@
 
 				<text class="empty-t">{{ t('dept_roles_empty') }}</text>
 
-				<text class="empty-sub">{{ t('dept_roles_empty_hint') }}</text>
+				<text class="empty-sub">该部门还没有员工，点击右上角 + 创建后即可显示。</text>
 
 			</view>
 
@@ -56,10 +55,9 @@
 					</view>
 					<view class="card-body">
 						<text class="cell-title">{{ displayTitle(row) }}</text>
-						<text class="cell-sub">{{ snippetPreview(row) }}</text>
+					<text class="cell-sub">{{ snippetPreview(row) }}</text>
 					</view>
-					<text v-if="!isDeletingRole" class="cell-arrow">›</text>
-					<text v-else class="role-delete" @tap.stop="removeRole(row)">×</text>
+					<text class="cell-arrow">›</text>
 				</view>
 
 			</template>
@@ -68,52 +66,6 @@
 
 		</scroll-view>
 
-		<view v-if="showAddRolePopup" class="mask" @click="closeAddRolePopup">
-			<view class="add-role-popup" @click.stop>
-				<view class="popup-header">
-					<text class="popup-title">{{ t('add_role') }}</text>
-					<text class="popup-close" @click="closeAddRolePopup">×</text>
-				</view>
-				<scroll-view scroll-y class="add-role-list">
-					<view v-if="availableRoles.length === 0" class="add-role-empty">
-						<text>{{ t('no_role_to_add') }}</text>
-					</view>
-					<view
-						v-for="role in availableRoles"
-						:key="role.id"
-						class="add-role-item"
-						:class="{ 'add-role-selected': selectedAddRoles.includes(role.id) }"
-						@click="toggleAddRole(role.id)"
-					>
-						<view class="add-role-check-box">
-							<text v-if="selectedAddRoles.includes(role.id)" class="add-role-check">✓</text>
-						</view>
-						<text class="add-role-name">{{ role.title }}</text>
-					</view>
-				</scroll-view>
-				<view class="popup-footer">
-					<button class="popup-btn" :disabled="!selectedAddRoles.length" @click="confirmAddRoles">
-						{{ t('confirm_add') }} ({{ selectedAddRoles.length }})
-					</button>
-				</view>
-			</view>
-		</view>
-		<view v-if="showQuickMenu" class="sheet-mask" @tap.self="closeQuickMenu">
-			<view class="sheet-panel" @tap.stop>
-				<view class="sheet-handle" />
-				<view
-					v-for="item in quickMenuItems"
-					:key="item.key"
-					class="sheet-row"
-					@tap="onQuickMenuSelect(item)"
-				>
-					<text class="sheet-row-t">{{ item.label }}</text>
-				</view>
-				<view class="sheet-cancel" @tap="closeQuickMenu">
-					<text class="sheet-cancel-t">{{ t('cancel') }}</text>
-				</view>
-			</view>
-		</view>
 	</view>
 
 </template>
@@ -122,14 +74,8 @@
 
 <script>
 	import NavBackClick from "@/components/NavBackClick.vue";
-	import {
-		listPersonasByCategorySlug,
-		personaChatTitle,
-		personaSnippetLine,
-		getHiddenPersonaIds,
-		setHiddenPersonaIds,
-		getAvailablePersonasByCategorySlug,
-	} from "@/utils/agentPersonaCatalog";
+	import { listMyUserAgents } from "@/clientApi/agentsApi";
+	import { getApiErrorMessage } from "@/utils/apiHelpers";
 	import { t, getLanguage } from "@/utils/lang";
 	export default {
 		components: { NavBackClick },
@@ -139,12 +85,6 @@
 				rows: [],
 				statusBarPx: 20,
 				pageTitle: "",
-				isDeletingRole: false,
-				showAddRolePopup: false,
-				showQuickMenu: false,
-				quickMenuItems: [],
-				availableRoles: [],
-				selectedAddRoles: [],
 			};
 		},
 		onLoad(options) {
@@ -165,6 +105,9 @@
 			} catch (e) {
 				//
 			}
+		},
+		onShow() {
+			this.reloadRows();
 		},
 		methods: {
 			t(key, params = {}) {
@@ -189,14 +132,33 @@
 				}
 				return String(s).trim();
 			},
-			reloadRows() {
-				this.rows = listPersonasByCategorySlug(this.slug);
+			async reloadRows() {
+				try {
+					const list = await listMyUserAgents();
+					const rows = Array.isArray(list) ? list : [];
+					const slugLower = String(this.slug || "").trim().toLowerCase();
+					const titleLower = String(this.pageTitle || "").trim().toLowerCase();
+					this.rows = rows.filter((r) => {
+						const dept = String(r?.department || "").trim().toLowerCase();
+						if (!dept) return false;
+						if (slugLower && dept === slugLower) return true;
+						if (titleLower && dept === titleLower) return true;
+						if (slugLower && dept.includes(slugLower)) return true;
+						if (titleLower && dept.includes(titleLower)) return true;
+						return false;
+					});
+				} catch (e) {
+					this.rows = [];
+					uni.showToast({ title: getApiErrorMessage(e) || "加载部门角色失败", icon: "none" });
+				}
 			},
 			displayTitle(row) {
-				return personaChatTitle(row, getLanguage());
+				return row?.displayName || row?.name || "未命名 Agent";
 			},
 			snippetPreview(row) {
-				return personaSnippetLine(row, getLanguage());
+				const role = row?.jobTitle || row?.rolePosition || "未设置职位";
+				const main = row?.mainWork ? ` · ${String(row.mainWork).slice(0, 24)}` : "";
+				return `${role}${main}`;
 			},
 			avatarBg(row) {
 				const colors = [
@@ -213,81 +175,20 @@
 				return colors[h % colors.length];
 			},
 			avatarLetter(row) {
-				const t = personaChatTitle(row, getLanguage()) || "?";
+				const t = this.displayTitle(row) || "?";
 				return t.slice(0, 1);
 			},
 			openChat(row) {
-				const title = encodeURIComponent(personaChatTitle(row, getLanguage()));
-				const id = encodeURIComponent(row.id);
+				const id = row?.id;
+				if (!id) return;
+				const title = encodeURIComponent(this.displayTitle(row));
 				uni.navigateTo({
-					url: `/pages/chat/chat?mode=virtual&kind=persona&id=${id}&title=${title}`,
+					url: `/pages/chat/chat?mode=virtual&kind=agent&id=${encodeURIComponent(id)}&title=${title}`,
 				});
 			},
-			showAddMenu() {
-				if (this.isDeletingRole) {
-					this.isDeletingRole = false;
-					return;
-				}
-				this.quickMenuItems = [
-					{ key: "add_role", label: this.t('add_role') },
-					{ key: "remove_role", label: this.t('remove_role') },
-				];
-				this.showQuickMenu = true;
-			},
-			closeQuickMenu() {
-				this.showQuickMenu = false;
-				this.quickMenuItems = [];
-			},
-			onQuickMenuSelect(item) {
-				if (!item || !item.key) return;
-				this.closeQuickMenu();
-				if (item.key === "add_role") {
-					this.addRole();
-					return;
-				}
-				if (item.key === "remove_role") {
-					this.isDeletingRole = true;
-				}
-			},
-			addRole() {
-				const available = getAvailablePersonasByCategorySlug(this.slug);
-				if (!available.length) {
-					uni.showToast({ title: this.t('no_role_to_add'), icon: 'none' });
-					return;
-				}
-				this.availableRoles = available;
-				this.selectedAddRoles = [];
-				this.showAddRolePopup = true;
-			},
-			closeAddRolePopup() {
-				this.showAddRolePopup = false;
-				this.selectedAddRoles = [];
-			},
-			toggleAddRole(id) {
-				const idx = this.selectedAddRoles.indexOf(id);
-				if (idx > -1) {
-					this.selectedAddRoles.splice(idx, 1);
-				} else {
-					this.selectedAddRoles.push(id);
-				}
-			},
-			confirmAddRoles() {
-				if (!this.selectedAddRoles.length) return;
-				const hidden = getHiddenPersonaIds().filter((id) => !this.selectedAddRoles.includes(id));
-				setHiddenPersonaIds(hidden);
-				this.reloadRows();
-				this.closeAddRolePopup();
-				uni.showToast({ title: this.t('added'), icon: 'success' });
-			},
-			removeRole(row) {
-				if (!row || !row.id) return;
-				const hidden = getHiddenPersonaIds();
-				if (!hidden.includes(row.id)) {
-					hidden.push(row.id);
-					setHiddenPersonaIds(hidden);
-				}
-				this.reloadRows();
-				uni.showToast({ title: this.t('deleted'), icon: 'success' });
+			goCreateAgent() {
+				const dept = encodeURIComponent(this.pageTitle || this.slug || "");
+				uni.navigateTo({ url: `/pages/team/create-agent?department=${dept}` });
 			},
 		},
 	};

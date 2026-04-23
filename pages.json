@@ -160,6 +160,29 @@
 			"style": {
 				"navigationBarTitleText": "创建数字员工"
 			}
+		},
+		{
+			"path": "pages/team/my-team",
+			"style": {
+				"navigationBarTitleText": "我的团队"
+			}
+		},
+		{
+			"path": "pages/preferences/preferences",
+			"style": {
+				"navigationBarTitleText": "偏好设置",
+				"navigationBarBackgroundColor": "#f1f5f9",
+				"navigationBarTextStyle": "black"
+			}
+		},
+		{
+			"path": "pages/recommend/recommend",
+			"style": {
+				"navigationBarTitleText": "推荐",
+				"navigationBarBackButtonHidden": true,
+				"navigationStyle": "custom",
+				"navigationBarBackgroundColor": "#ededed"
+			}
 		}
 	],
 	"globalStyle": {
@@ -189,6 +212,12 @@
 			{
 				"pagePath": "pages/add/add",
 				"text": "布置",
+				"iconPath": "static/tabbar/tab.png",
+				"selectedIconPath": "static/tabbar/tab-active.png"
+			},
+			{
+				"pagePath": "pages/recommend/recommend",
+				"text": "推荐",
 				"iconPath": "static/tabbar/tab.png",
 				"selectedIconPath": "static/tabbar/tab-active.png"
 			},

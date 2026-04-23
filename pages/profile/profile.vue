@@ -23,7 +23,7 @@
 				</view>
 
 				<view class="team-overview">
-					<view class="stat-card" hover-class="stat-card-hover" @click="showAgentList">
+					<view class="stat-card" hover-class="stat-card-hover" @tap="showAgentList">
 						<view class="stat-card-top">
 							<view class="stat-ico bg-agents">
 								<text class="stat-ico-emoji">🤖</text>
@@ -229,7 +229,8 @@
 	import { t as translate, getLanguage } from "@/utils/lang";
 	import AppTabBar from "@/components/AppTabBar.vue";
 	import { getAuthProfile, mergeProfileIntoUser, resolveAvatarDisplayUrl } from "@/clientApi/authApi";
-	import { loadDigitalAgents, loadProjectGroups } from "@/utils/virtualTeamStore";
+	import { listMyUserAgents } from "@/clientApi/agentsApi";
+	import { loadProjectGroups } from "@/utils/virtualTeamStore";
 
 	export default {
 		components: { AppTabBar },
@@ -241,7 +242,7 @@
 				showAgentPopup: false,
 				showDailyReportPopup: false,
 				dailyReport: null,
-				currentLanguage: getLanguage(),
+				remoteAgents: [],
 			};
 		},
 		computed: {
@@ -274,10 +275,10 @@
 				return resolveAvatarDisplayUrl(this.user.avatarUrl);
 			},
 			agentList() {
-				return loadDigitalAgents();
+				return this.remoteAgents;
 			},
 			agentCount() {
-				return loadDigitalAgents().length;
+				return this.remoteAgents.length;
 			},
 			groupCount() {
 				return loadProjectGroups().length;
@@ -297,6 +298,7 @@
 				//
 			}
 			this.refreshAuth();
+			this.loadRemoteAgents();
 		},
 		methods: {
 			t(key, params = {}) {
@@ -306,7 +308,10 @@
 				const token = getToken();
 				this.loggedIn = !!token;
 				this.user = getUserInfo();
-				if (!token) return;
+				if (!token) {
+					this.remoteAgents = [];
+					return;
+				}
 				getAuthProfile()
 					.then((profile) => {
 						if (!profile || typeof profile !== "object") return;
@@ -316,8 +321,32 @@
 					})
 					.catch(() => {});
 			},
+			async loadRemoteAgents() {
+				if (!this.loggedIn) {
+					this.remoteAgents = [];
+					return;
+				}
+				try {
+					const list = await listMyUserAgents();
+					const rows = Array.isArray(list) ? list : [];
+					this.remoteAgents = rows.map((a, idx) => ({
+						id: a.id || String(idx),
+						name: a.displayName || a.name || "未命名 Agent",
+						role: a.jobTitle || a.rolePosition || "-",
+						lastMsg: a.mainWork || "",
+						unread: 0,
+					}));
+				} catch {
+					this.remoteAgents = [];
+				}
+			},
 			showAgentList() {
-				this.showAgentPopup = true;
+				uni.navigateTo({
+					url: "/pages/team/my-team",
+					fail: () => {
+						uni.showToast({ title: "打开团队页失败，请重试", icon: "none" });
+					},
+				});
 			},
 			closeAgentPopup() {
 				this.showAgentPopup = false;
@@ -336,7 +365,7 @@
 				const m = today.getMonth() + 1;
 				const d = today.getDate();
 				const dateStr = translate("profile_report_date", lang, { y, m, d });
-				const agents = loadDigitalAgents();
+				const agents = this.remoteAgents;
 				const groups = loadProjectGroups();
 				try {
 					this.dailyReport = {
