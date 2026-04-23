@@ -165,25 +165,25 @@
 					password: this.password,
 				});
 				if (token) {
-					setToken(token);
-					setUserInfo(user || { phone });
-					uni.showToast({ title: this.t('register_success'), icon: "success" });
-					setTimeout(() => {
-						/* 登录页 often 用 redirectTo 打开注册，栈里可能没有上一页，navigateBack 易失败；
-						   进入 Tab 页必须用 switchTab，比 reLaunch 更稳 */
-						uni.switchTab({
-							url: "/pages/profile/profile",
-							fail: () => {
-								uni.reLaunch({ url: "/pages/profile/profile" });
-							},
-						});
-					}, 400);
-				} else {
-					uni.showToast({ title: this.t('register_success_login'), icon: "success" });
-					setTimeout(() => {
-						uni.redirectTo({ url: "/pages/login/login" });
-					}, 500);
-				}
+						setToken(token);
+						setUserInfo(user || { phone });
+						uni.showToast({ title: this.t('register_success'), icon: "success" });
+						setTimeout(() => {
+							/* 登录页 often 用 redirectTo 打开注册，栈里可能没有上一页，navigateBack 易失败；
+							   进入 Tab 页必须用 switchTab，比 reLaunch 更稳 */
+							uni.switchTab({
+								url: "/pages/home/home",
+								fail: () => {
+									uni.reLaunch({ url: "/pages/home/home" });
+								},
+							});
+						}, 400);
+					} else {
+						uni.showToast({ title: this.t('register_success_login'), icon: "success" });
+						setTimeout(() => {
+							uni.redirectTo({ url: "/pages/login/login" });
+						}, 500);
+					}
 				} catch {
 					this.drawCaptcha();
 				} finally {
