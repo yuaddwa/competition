@@ -23,7 +23,7 @@
 				</view>
 
 				<view class="team-overview">
-					<view class="stat-card" hover-class="stat-card-hover" @click="showAgentList">
+					<view class="stat-card" hover-class="stat-card-hover" @tap="showAgentList">
 						<view class="stat-card-top">
 							<view class="stat-ico bg-agents">
 								<text class="stat-ico-emoji">🤖</text>
@@ -337,7 +337,12 @@
 				}
 			},
 			showAgentList() {
-				uni.navigateTo({ url: "/pages/team/my-team" });
+				uni.navigateTo({
+					url: "/pages/team/my-team",
+					fail: () => {
+						uni.showToast({ title: "打开团队页失败，请重试", icon: "none" });
+					},
+				});
 			},
 			closeAgentPopup() {
 				this.showAgentPopup = false;

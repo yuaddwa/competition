@@ -162,6 +162,12 @@
 			}
 		},
 		{
+			"path": "pages/team/my-team",
+			"style": {
+				"navigationBarTitleText": "我的团队"
+			}
+		},
+		{
 			"path": "pages/preferences/preferences",
 			"style": {
 				"navigationBarTitleText": "偏好设置",
