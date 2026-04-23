@@ -4,18 +4,8 @@
 		<!-- 预留底栏高度，缩短原生 scroll-view，否则小程序里会盖住 fixed 自定义 Tab -->
 		<view class="scroll-clip">
 		<scroll-view scroll-y class="scroll" refresher-enabled :refresher-triggered="refreshing" @refresherrefresh="onRefresh">
-			<view class="hero-header">
-				<view class="hero-left">
-					<text class="page-title">{{ t('workflow') }}</text>
-					<text class="page-sub">{{ t('project_subtitle') }}</text>
-				</view>
-				<view class="hero-right">
-					<view class="stat-chip">
-						<text class="stat-num">{{ workflows.length }}</text>
-						<text class="stat-lab">{{ t('count_unit') }}</text>
-					</view>
-					<text v-if="workflows.length > 0" class="hero-new" @click.stop="openCreate">＋ {{ t('create_workflow') }}</text>
-				</view>
+			<view class="top-actions">
+				<text class="hero-new" @click.stop="goAdd">＋ 新建任务</text>
 			</view>
 
 			<view v-if="loading" class="loading-row">
@@ -25,10 +15,8 @@
 
 			<view v-else-if="workflows.length === 0" class="empty">
 				<text class="empty-emoji">📂</text>
-				<text class="empty-title">{{ t('no_workflow') }}</text>
-				<text class="empty-desc">{{ t('no_workflow_desc') }}</text>
-				<button class="empty-primary" type="primary" @click="openCreate">{{ t('create_workflow') }}</button>
-				<button class="empty-secondary" @click="goAdd">{{ t('go_assign_task') }}</button>
+				<text class="empty-title">还没有项目</text>
+				<text class="empty-desc">点击右上角“新建任务”开始创建。</text>
 			</view>
 
 			<view
@@ -58,9 +46,9 @@
 
 		<view v-if="showCreate" class="mask" @click.self="showCreate = false">
 			<view class="dialog" @click.stop>
-				<text class="dialog-title">{{ t('create_workflow') }}</text>
-				<input class="dialog-input" v-model="newTitle" :placeholder="t('name_required')" placeholder-class="ph" />
-				<input class="dialog-input" v-model="newDesc" :placeholder="t('description_optional')" placeholder-class="ph" />
+				<text class="dialog-title">创建项目</text>
+				<input class="dialog-input" v-model="newTitle" placeholder="项目名称（必填）" placeholder-class="ph" />
+				<input class="dialog-input" v-model="newDesc" placeholder="项目说明（可选）" placeholder-class="ph" />
 				<view class="dialog-actions">
 					<button class="btn ghost" @click="showCreate = false">{{ t('cancel') }}</button>
 					<button class="btn primary" type="primary" :loading="creating" @click="submitCreate">{{ t('create') }}</button>
@@ -96,7 +84,7 @@
 		onShow() {
 			uni.hideTabBar({ animation: false });
 			try {
-				uni.setNavigationBarTitle({ title: this.t("workflow") });
+				uni.setNavigationBarTitle({ title: this.t("project") });
 			} catch (e) {
 				//
 			}
@@ -224,84 +212,20 @@
 		box-sizing: border-box;
 	}
 
-	.hero-header {
+	.top-actions {
 		display: flex;
-		flex-direction: row;
-		align-items: flex-start;
-		justify-content: space-between;
-		gap: 20rpx;
-		padding: 28rpx;
+		justify-content: flex-end;
 		margin-bottom: 20rpx;
-		background: linear-gradient(135deg, #ffffff 0%, #eff6ff 100%);
-		border-radius: 24rpx;
-		border: 1rpx solid #e0e7ff;
-		box-shadow: 0 16rpx 40rpx rgba(37, 99, 235, 0.08);
-	}
-
-	.hero-right {
-		flex-shrink: 0;
-		display: flex;
-		flex-direction: column;
-		align-items: flex-end;
-		gap: 16rpx;
 	}
 
 	.hero-new {
-		font-size: 24rpx;
+		font-size: 30rpx;
 		font-weight: 700;
 		color: #2563eb;
-		padding: 10rpx 20rpx;
+		padding: 16rpx 30rpx;
 		border-radius: 999rpx;
 		background: rgba(37, 99, 235, 0.1);
-		border: 1rpx solid #bfdbfe;
-	}
-
-	.hero-left {
-		flex: 1;
-		min-width: 0;
-	}
-
-	.page-title {
-		display: block;
-		font-size: 38rpx;
-		font-weight: 800;
-		color: #0f172a;
-		letter-spacing: -0.02em;
-	}
-
-	.page-sub {
-		display: block;
-		margin-top: 12rpx;
-		font-size: 24rpx;
-		color: #64748b;
-		line-height: 1.5;
-	}
-
-	.stat-chip {
-		flex-shrink: 0;
-		min-width: 100rpx;
-		padding: 16rpx 20rpx;
-		border-radius: 20rpx;
-		background: linear-gradient(135deg, #2563eb, #7c3aed);
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		box-shadow: 0 10rpx 28rpx rgba(37, 99, 235, 0.35);
-	}
-
-	.stat-num {
-		font-size: 40rpx;
-		font-weight: 800;
-		color: #fff;
-		line-height: 1;
-	}
-
-	.stat-lab {
-		font-size: 20rpx;
-		color: rgba(255, 255, 255, 0.85);
-		margin-top: 4rpx;
-		font-weight: 600;
+		border: 2rpx solid #bfdbfe;
 	}
 
 	.loading-row {
@@ -339,12 +263,12 @@
 	}
 
 	.empty {
-		padding: 56rpx 24rpx 40rpx;
+		padding: 72rpx 24rpx 48rpx;
 		align-items: center;
 		text-align: center;
-		background: #fff;
-		border-radius: 24rpx;
-		border: 1rpx dashed #cbd5e1;
+		background: transparent;
+		border-radius: 0;
+		border: none;
 		margin-bottom: 24rpx;
 	}
 
@@ -486,25 +410,33 @@
 		right: 0;
 		top: 0;
 		bottom: 0;
-		background: rgba(0, 0, 0, 0.45);
+		background: rgba(15, 23, 42, 0.38);
 		z-index: 100000;
 		display: flex;
-		align-items: flex-end;
+		align-items: center;
 		justify-content: center;
-		padding: 32rpx 28rpx;
-		padding-bottom: calc(56rpx + env(safe-area-inset-bottom));
+		padding: 28rpx;
+		padding-bottom: calc(28rpx + env(safe-area-inset-bottom));
 		box-sizing: border-box;
+		isolation: isolate;
 	}
 
 	.dialog {
+		position: relative;
+		z-index: 1;
 		width: 100%;
+		max-width: 680rpx;
 		max-height: calc(85vh - env(safe-area-inset-bottom));
 		overflow-y: auto;
-		background: #fff;
+		background: #fff !important;
+		background-color: #fff !important;
+		opacity: 1;
 		border-radius: 24rpx;
 		padding: 32rpx;
 		box-sizing: border-box;
 		box-shadow: 0 24rpx 80rpx rgba(15, 23, 42, 0.18);
+		transform: translateZ(0);
+		-webkit-transform: translateZ(0);
 	}
 
 	.dialog-title {
@@ -532,13 +464,13 @@
 
 	.dialog-actions {
 		display: flex;
-		justify-content: flex-end;
+		justify-content: space-between;
 		gap: 16rpx;
-		margin-top: 8rpx;
+		margin-top: 12rpx;
 	}
 
 	.btn {
-		min-width: 160rpx;
+		flex: 1;
 		height: 76rpx;
 		line-height: 76rpx;
 		font-size: 28rpx;
@@ -553,7 +485,14 @@
 	}
 
 	.btn.primary {
+		background: linear-gradient(135deg, #2563eb, #4f46e5) !important;
+		color: #fff !important;
+		border: none !important;
 		padding: 0 32rpx;
 		box-shadow: 0 8rpx 24rpx rgba(37, 99, 235, 0.25);
+	}
+
+	.btn::after {
+		border: none;
 	}
 </style>

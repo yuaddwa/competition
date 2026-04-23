@@ -22,8 +22,17 @@ export async function getWorkflow(workflowId) {
 
 /** 指令下发（字段名可按 Swagger 在调用处调整） */
 export async function postCommand(workflowId, body) {
-  const r = await request.post(`/api/workflows/${workflowId}/commands`, body, { needAuth: true });
-  return unwrapData(r);
+  try {
+    const r = await request.post(`/api/workflows/${workflowId}/command`, body, { needAuth: true });
+    return unwrapData(r);
+  } catch (err) {
+    // 兼容旧后端路径
+    const r = await request.post(`/api/workflows/${workflowId}/commands`, body, {
+      needAuth: true,
+      showError: false,
+    });
+    return unwrapData(r);
+  }
 }
 
 export async function listTasks(workflowId) {
@@ -47,7 +56,8 @@ export async function getCollaborationGraph(workflowId) {
 
 export async function listEvents(workflowId, params = {}) {
   try {
-    const r = await request.get(`/api/workflows/${workflowId}/events`, params, {
+    const nextParams = { limit: 50, ...params };
+    const r = await request.get(`/api/workflows/${workflowId}/events`, nextParams, {
       needAuth: true,
       showError: false,
     });
@@ -72,8 +82,8 @@ export async function commsBootstrap(workflowId) {
   }
 }
 
-export async function listThreads(workflowId) {
-  const r = await request.get(`/api/workflows/${workflowId}/comms/threads`, {}, { needAuth: true });
+export async function listThreads(workflowId, params = {}) {
+  const r = await request.get(`/api/workflows/${workflowId}/comms/threads`, params, { needAuth: true });
   return unwrapList(r);
 }
 
@@ -82,10 +92,11 @@ export async function createThread(workflowId, body) {
   return unwrapData(r);
 }
 
-export async function listMessages(workflowId, threadId) {
+export async function listMessages(workflowId, threadId, params = {}) {
+  const nextParams = { limit: 200, ...params };
   const r = await request.get(
     `/api/workflows/${workflowId}/comms/threads/${threadId}/messages`,
-    {},
+    nextParams,
     { needAuth: true }
   );
   return unwrapList(r);

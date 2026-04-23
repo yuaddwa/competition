@@ -77,6 +77,7 @@
 					<text class="subseg-item" :class="{ on: threadKind === 'INTERNAL' }" @click="threadKind = 'INTERNAL'">{{ t('internal') }}</text>
 					<text class="subseg-item" :class="{ on: threadKind === 'CUSTOMER' }" @click="threadKind = 'CUSTOMER'">{{ t('customer') }}</text>
 				</view>
+				<button class="mini" size="mini" @click="openCreateThread">{{ t('create') }}{{ t('thread_default') }}</button>
 				<button class="mini" size="mini" @click="ensureBootstrap">{{ t('initialize_thread') }}</button>
 				<button class="mini primary" type="primary" size="mini" @click="showBroadcast = true">{{ t('broadcast') }}</button>
 			</view>
@@ -208,10 +209,31 @@
 			<view class="dialog" @click.stop>
 				<text class="dialog-title">{{ t('command_broadcast') }}</text>
 				<input class="inp" v-model="bcTitle" :placeholder="t('title_optional')" />
+				<picker mode="selector" :range="threadPickerLabels" @change="onBcThreadPick">
+					<view class="picker-line">{{ t('thread_default') }}：{{ threadPickerLabels[bcThreadIndex] }}</view>
+				</picker>
+				<picker mode="selector" :range="taskPickLabels" @change="onBcFromTaskPick">
+					<view class="picker-line">{{ t('wb_link_from_task') }}{{ taskPickLabels[bcFromTaskIndex] }}</view>
+				</picker>
+				<picker mode="selector" :range="taskPickLabels" @change="onBcToTaskPick">
+					<view class="picker-line">{{ t('wb_link_to_task') }}{{ taskPickLabels[bcToTaskIndex] }}</view>
+				</picker>
 				<textarea class="ta" v-model="bcBody" :placeholder="t('broadcast_content')" />
 				<view class="dialog-actions">
 					<button class="btn ghost" @click="showBroadcast = false">{{ t('cancel') }}</button>
 					<button class="btn primary" type="primary" :loading="bcLoading" @click="submitBroadcast">{{ t('send') }}</button>
+				</view>
+			</view>
+		</view>
+
+		<!-- 新建沟通线程 -->
+		<view v-if="showCreateThread" class="mask" @click.self="showCreateThread = false">
+			<view class="dialog" @click.stop>
+				<text class="dialog-title">{{ t('create') }}{{ t('thread_default') }}</text>
+				<input class="inp" v-model="newThreadTitle" :placeholder="t('title_optional')" />
+				<view class="dialog-actions">
+					<button class="btn ghost" @click="showCreateThread = false">{{ t('cancel') }}</button>
+					<button class="btn primary" type="primary" :loading="creatingThread" @click="submitCreateThread">{{ t('confirm') }}</button>
 				</view>
 			</view>
 		</view>
@@ -287,7 +309,13 @@
 				showBroadcast: false,
 				bcTitle: "",
 				bcBody: "",
+				bcThreadIndex: 0,
+				bcFromTaskIndex: 0,
+				bcToTaskIndex: 0,
 				bcLoading: false,
+				showCreateThread: false,
+				newThreadTitle: "",
+				creatingThread: false,
 				linkMsg: null,
 				linkTaskIndex: 0,
 				linkLoading: false,
@@ -325,6 +353,13 @@
 					const kk = (th.kind || th.threadKind || "").toString().toUpperCase();
 					return !k || kk === k;
 				});
+			},
+			threadPickerLabels() {
+				const xs = [this.t("task_pick_none")];
+				for (const th of this.filteredThreads) {
+					xs.push(`${this.threadTitle(th)} (${this.shortId(this.threadKey(th))})`);
+				}
+				return xs;
 			},
 			groupedByDept() {
 				const map = {};
@@ -395,7 +430,8 @@
 			this.stopRealtime();
 		},
 		watch: {
-			threadKind() {
+			async threadKind() {
+				await this.loadThreads();
 				const ids = new Set(this.filteredThreads.map((th) => this.threadKey(th)));
 				if (this.selectedThreadId && ids.has(this.selectedThreadId)) {
 					return;
@@ -477,7 +513,7 @@
 			},
 			async loadThreads() {
 				try {
-					const list = await workflowApi.listThreads(this.workflowId);
+					const list = await workflowApi.listThreads(this.workflowId, { kind: this.threadKind });
 					this.threads = Array.isArray(list) ? list : [];
 				} catch {
 					this.threads = [];
@@ -489,7 +525,7 @@
 					return;
 				}
 				try {
-					const list = await workflowApi.listMessages(this.workflowId, this.selectedThreadId);
+					const list = await workflowApi.listMessages(this.workflowId, this.selectedThreadId, { limit: 200 });
 					this.messages = Array.isArray(list) ? list : [];
 				} catch {
 					this.messages = [];
@@ -504,7 +540,7 @@
 			},
 			async loadEvents() {
 				try {
-					const list = await workflowApi.listEvents(this.workflowId, { size: 50 });
+					const list = await workflowApi.listEvents(this.workflowId, { limit: 50 });
 					this.events = Array.isArray(list) ? list : [];
 				} catch {
 					this.events = [];
@@ -570,6 +606,10 @@
 				this.cmdBody = "";
 				this.cmdTaskTitle = "";
 				this.showCommand = true;
+			},
+			openCreateThread() {
+				this.newThreadTitle = "";
+				this.showCreateThread = true;
 			},
 			onCmdSource(e) {
 				this.cmdSourceIdx = Number(e.detail.value);
@@ -714,9 +754,17 @@
 					uni.showToast({ title: this.t('please_enter_content'), icon: "none" });
 					return;
 				}
-				const payload = { content: body, body };
+				const payload = { text: body, content: body, body };
 				const fd = this.deptOptions[this.msgFromDeptIndex]?.id;
 				const td = this.deptOptions[this.msgToDeptIndex]?.id;
+				const authorDept = fd || this.deptOptions[0]?.id || "";
+				if (authorDept) {
+					payload.author = {
+						type: "INTERNAL_DEPARTMENT",
+						id: authorDept,
+						label: this.deptOptions.find((d) => d.id === authorDept)?.label || authorDept,
+					};
+				}
 				if (fd) {
 					payload.fromDepartment = fd;
 					payload.fromDept = fd;
@@ -724,6 +772,13 @@
 				if (td) {
 					payload.toDepartment = td;
 					payload.toDept = td;
+					payload.audience = [
+						{
+							type: "INTERNAL_DEPARTMENT",
+							id: td,
+							label: this.deptOptions.find((d) => d.id === td)?.label || td,
+						},
+					];
 				}
 				const ft = this.selectedTaskByPickerIndex(this.msgFromTaskIndex);
 				const tt = this.selectedTaskByPickerIndex(this.msgToTaskIndex);
@@ -752,17 +807,71 @@
 					return;
 				}
 				const title = (this.bcTitle || "").trim();
+				const threadId = this.bcThreadIndex > 0 ? this.threadKey(this.filteredThreads[this.bcThreadIndex - 1]) : "";
+				const fromTaskId = this.selectedTaskByPickerIndex(this.bcFromTaskIndex);
+				const toTaskId = this.selectedTaskByPickerIndex(this.bcToTaskIndex);
+				const targets = this.deptOptions.map((d) => ({
+					type: "INTERNAL_DEPARTMENT",
+					id: d.id,
+					label: d.label,
+				}));
 				this.bcLoading = true;
 				try {
-					await workflowApi.broadcastComms(this.workflowId, { content, body: content, title });
+					const payload = {
+						targets,
+						commandText: content,
+						content,
+						body: content,
+					};
+					if (title) payload.title = title;
+					if (threadId) payload.threadId = threadId;
+					if (fromTaskId) payload.fromTaskId = fromTaskId;
+					if (toTaskId) payload.toTaskId = toTaskId;
+					await workflowApi.broadcastComms(this.workflowId, payload);
 					uni.showToast({ title: this.t('broadcasted'), icon: "success" });
 					this.showBroadcast = false;
 					this.bcTitle = "";
 					this.bcBody = "";
+					this.bcThreadIndex = 0;
+					this.bcFromTaskIndex = 0;
+					this.bcToTaskIndex = 0;
 				} catch {
 					//
 				} finally {
 					this.bcLoading = false;
+				}
+			},
+			onBcThreadPick(e) {
+				this.bcThreadIndex = Number(e.detail.value);
+			},
+			onBcFromTaskPick(e) {
+				this.bcFromTaskIndex = Number(e.detail.value);
+			},
+			onBcToTaskPick(e) {
+				this.bcToTaskIndex = Number(e.detail.value);
+			},
+			async submitCreateThread() {
+				const title = (this.newThreadTitle || "").trim();
+				this.creatingThread = true;
+				try {
+					const payload = {
+						kind: this.threadKind,
+						title: title || `${this.t("thread_default")} ${new Date().toLocaleTimeString()}`,
+					};
+					const created = await workflowApi.createThread(this.workflowId, payload);
+					await this.loadThreads();
+					this.showCreateThread = false;
+					this.newThreadTitle = "";
+					const id = this.threadKey(created);
+					if (id) {
+						this.selectedThreadId = id;
+						await this.loadMessages();
+					}
+					uni.showToast({ title: this.t("created"), icon: "success" });
+				} catch {
+					//
+				} finally {
+					this.creatingThread = false;
 				}
 			},
 			openLinkTask(m) {
