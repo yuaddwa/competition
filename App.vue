@@ -353,7 +353,8 @@
 	}
 
 	.mask {
-		background: rgba(0, 0, 0, 0.45) !important;
+		/* 全局弹层遮罩调浅，避免操作时整屏过暗 */
+		background: rgba(15, 23, 42, 0.16) !important;
 	}
 
 	.wx-loading,

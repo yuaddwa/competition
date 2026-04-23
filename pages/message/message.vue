@@ -135,6 +135,23 @@
 				</view>
 			</view>
 		</view>
+
+		<view v-if="showQuickMenu" class="sheet-mask" @tap.self="closeQuickMenu">
+			<view class="sheet-panel" @tap.stop>
+				<view class="sheet-handle" />
+				<view
+					v-for="item in quickMenuItems"
+					:key="item.key"
+					class="sheet-row"
+					@tap="onQuickMenuSelect(item)"
+				>
+					<text class="sheet-row-t">{{ item.label }}</text>
+				</view>
+				<view class="sheet-cancel" @tap="closeQuickMenu">
+					<text class="sheet-cancel-t">{{ t('cancel') }}</text>
+				</view>
+			</view>
+		</view>
 	</view>
 </template>
 
@@ -180,6 +197,8 @@
 				messageTab: 0,
 				isDeletingDept: false,
 				showAddDeptPopup: false,
+				showQuickMenu: false,
+				quickMenuItems: [],
 				availableDepts: [],
 				selectedAddDepts: [],
 			};
@@ -257,27 +276,39 @@
 					return;
 				}
 				if (this.messageTab === 1) {
-					uni.showActionSheet({
-						itemList: [this.t('add_department'), this.t('remove_department')],
-						success: (res) => {
-							if (res.tapIndex === 0) {
-								this.addDepartment();
-							} else if (res.tapIndex === 1) {
-								this.isDeletingDept = true;
-							}
-						},
-					});
+					this.quickMenuItems = [
+						{ key: "add_department", label: this.t('add_department') },
+						{ key: "remove_department", label: this.t('remove_department') },
+					];
 				} else {
-					uni.showActionSheet({
-						itemList: [this.t('create_project_group'), this.t('create_digital_employee')],
-						success: (res) => {
-							if (res.tapIndex === 0) {
-								uni.navigateTo({ url: "/pages/team/create-group" });
-							} else if (res.tapIndex === 1) {
-								uni.navigateTo({ url: "/pages/team/create-agent" });
-							}
-						},
-					});
+					this.quickMenuItems = [
+						{ key: "create_group", label: this.t('create_project_group') },
+						{ key: "create_agent", label: this.t('create_digital_employee') },
+					];
+				}
+				this.showQuickMenu = true;
+			},
+			closeQuickMenu() {
+				this.showQuickMenu = false;
+				this.quickMenuItems = [];
+			},
+			onQuickMenuSelect(item) {
+				if (!item || !item.key) return;
+				this.closeQuickMenu();
+				if (item.key === "add_department") {
+					this.addDepartment();
+					return;
+				}
+				if (item.key === "remove_department") {
+					this.isDeletingDept = true;
+					return;
+				}
+				if (item.key === "create_group") {
+					uni.navigateTo({ url: "/pages/team/create-group" });
+					return;
+				}
+				if (item.key === "create_agent") {
+					uni.navigateTo({ url: "/pages/team/create-agent" });
 				}
 			},
 			addDepartment() {
@@ -761,7 +792,7 @@
 		right: 0;
 		top: 0;
 		bottom: 0;
-		background: rgba(0, 0, 0, 0.45);
+		background: rgba(15, 23, 42, 0.18);
 		z-index: 100000;
 		display: flex;
 		flex-direction: column;
@@ -878,5 +909,62 @@
 
 	.popup-btn[disabled] {
 		opacity: 0.5;
+	}
+
+	.sheet-mask {
+		position: fixed;
+		left: 0;
+		right: 0;
+		top: 0;
+		bottom: 0;
+		background: rgba(15, 23, 42, 0.14);
+		z-index: 100000;
+		display: flex;
+		align-items: flex-end;
+	}
+
+	.sheet-panel {
+		width: 100%;
+		background: #eef2ff;
+		border-radius: 24rpx 24rpx 0 0;
+		padding-bottom: env(safe-area-inset-bottom);
+		overflow: hidden;
+	}
+
+	.sheet-handle {
+		width: 72rpx;
+		height: 8rpx;
+		border-radius: 999rpx;
+		background: #cbd5e1;
+		margin: 14rpx auto 12rpx;
+	}
+
+	.sheet-row {
+		background: #fff;
+		padding: 30rpx 32rpx;
+		border-top: 1rpx solid #eef2f7;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.sheet-row-t {
+		font-size: 30rpx;
+		color: #0f172a;
+		font-weight: 600;
+	}
+
+	.sheet-cancel {
+		margin-top: 14rpx;
+		background: #fff;
+		padding: 28rpx 32rpx;
+		display: flex;
+		justify-content: center;
+	}
+
+	.sheet-cancel-t {
+		font-size: 30rpx;
+		color: #64748b;
+		font-weight: 600;
 	}
 </style>

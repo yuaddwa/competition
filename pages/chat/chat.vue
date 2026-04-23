@@ -74,6 +74,22 @@ class="message-bubble"
 <input type="text" v-model="inputText" :placeholder="t('chat_input_placeholder')" class="input-field" confirm-type="send" :disabled="sending" @confirm="sendMessage" />
 <view class="send-button" :class="{ 'send-disabled': sending }" @click="sendMessage"><text>{{ sending ? t('chat_requesting') : t('send') }}</text></view>
 </view>
+
+<view v-if="showBubbleMenu" class="bubble-menu-mask" @tap.self="closeBubbleMenu">
+<view class="bubble-menu-panel" @tap.stop>
+<view
+v-for="item in bubbleMenuItems"
+:key="item.key"
+class="bubble-menu-row"
+@tap="onBubbleMenuSelect(item.key)"
+>
+<text class="bubble-menu-row-t">{{ item.label }}</text>
+</view>
+<view class="bubble-menu-cancel" @tap="closeBubbleMenu">
+<text class="bubble-menu-cancel-t">{{ t('cancel') }}</text>
+</view>
+</view>
+</view>
 </view>
 </template>
 
@@ -163,6 +179,9 @@ multiSelectMode: false,
 selectedIds: [],
 personaSystemPrompt: "",
 isDarkMode: false,
+showBubbleMenu: false,
+bubbleMenuItems: [],
+activeBubbleMenuMsg: null,
 };
 },
 computed: {
@@ -451,27 +470,50 @@ this.$nextTick(() => this.scrollToBottom());
 openBubbleMenu(msg) {
 const isRemote = this.mode === "remote";
 const itemList = [];
-const handlers = [];
-const push = (label, fn) => {
-itemList.push(label);
-handlers.push(fn);
+const push = (key, label) => {
+itemList.push({ key, label });
 };
-push(this.t("menu_copy"), () => this.copyText(msg.content));
+push("copy", this.t("menu_copy"));
 if (!isRemote) {
 if (msg.isMine && this.canRecall(msg)) {
-push(this.t("menu_recall"), () => this.recallMessage(msg));
+push("recall", this.t("menu_recall"));
 }
-push(this.t("menu_delete"), () => this.deleteMessage(msg));
+push("delete", this.t("menu_delete"));
 }
-push(this.t("menu_forward"), () => this.forwardMessage(msg));
-push(this.t("menu_multiselect"), () => this.enterMultiSelect(msg));
-uni.showActionSheet({
-itemList,
-success: (res) => {
-const fn = handlers[res.tapIndex];
-if (fn) fn();
+push("forward", this.t("menu_forward"));
+push("multiselect", this.t("menu_multiselect"));
+this.activeBubbleMenuMsg = msg;
+this.bubbleMenuItems = itemList;
+this.showBubbleMenu = true;
 },
-});
+closeBubbleMenu() {
+this.showBubbleMenu = false;
+this.bubbleMenuItems = [];
+this.activeBubbleMenuMsg = null;
+},
+onBubbleMenuSelect(action) {
+const msg = this.activeBubbleMenuMsg;
+this.closeBubbleMenu();
+if (!msg) return;
+if (action === "copy") {
+this.copyText(msg.content);
+return;
+}
+if (action === "recall") {
+this.recallMessage(msg);
+return;
+}
+if (action === "delete") {
+this.deleteMessage(msg);
+return;
+}
+if (action === "forward") {
+this.forwardMessage(msg);
+return;
+}
+if (action === "multiselect") {
+this.enterMultiSelect(msg);
+}
 },
 loadChatMessages(alsoScroll) {
 this.chatMessages = loadChatMessages(this.projectName);
@@ -1116,6 +1158,55 @@ font-weight: 500;
 
 .multi-link-danger {
 color: #dc2626;
+}
+
+.bubble-menu-mask {
+position: fixed;
+left: 0;
+right: 0;
+top: 0;
+bottom: 0;
+background: rgba(15, 23, 42, 0.14);
+z-index: 12000;
+display: flex;
+align-items: flex-end;
+}
+
+.bubble-menu-panel {
+width: 100%;
+background: #eef2ff;
+padding-bottom: env(safe-area-inset-bottom);
+border-radius: 24rpx 24rpx 0 0;
+overflow: hidden;
+}
+
+.bubble-menu-row {
+background: #fff;
+padding: 28rpx 32rpx;
+border-top: 1rpx solid #eef2f7;
+display: flex;
+justify-content: center;
+align-items: center;
+}
+
+.bubble-menu-row-t {
+font-size: 30rpx;
+color: #0f172a;
+font-weight: 600;
+}
+
+.bubble-menu-cancel {
+margin-top: 14rpx;
+background: #fff;
+padding: 26rpx 32rpx;
+display: flex;
+justify-content: center;
+}
+
+.bubble-menu-cancel-t {
+font-size: 30rpx;
+color: #64748b;
+font-weight: 600;
 }
 
 /* 深色：小程序无 document，需根节点 .theme-dark；对方气泡避免白底/白边 */
