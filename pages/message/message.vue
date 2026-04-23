@@ -5,7 +5,8 @@
 				<view class="navbar-side"></view>
 				<text class="navbar-title">{{ t('message') }}</text>
 				<view class="navbar-side navbar-side-right" @click="showAddMenu">
-					<text class="navbar-plus">＋</text>
+					<text v-if="isDeletingDept" class="navbar-done">{{ t('done') }}</text>
+					<text v-else class="navbar-plus">＋</text>
 				</view>
 			</view>
 		</view>
@@ -79,8 +80,9 @@
 							v-for="block in departmentBlocks"
 							:key="block.slug"
 							class="msg-row-card msg-row-dept"
+							:class="{ 'msg-row-deleting': isDeletingDept }"
 							hover-class="msg-row-card-hover"
-							@tap="goDepartmentRoles(block)"
+							@tap="isDeletingDept ? null : goDepartmentRoles(block)"
 						>
 							<image class="msg-dept-icon" :src="block.icon" mode="aspectFit" />
 							<view class="msg-body">
@@ -92,7 +94,8 @@
 								</view>
 								<text v-if="block.desc" class="msg-preview msg-preview-multi">{{ block.desc }}</text>
 							</view>
-							<text class="msg-chevron">›</text>
+							<text v-if="!isDeletingDept" class="msg-chevron">›</text>
+							<text v-else class="msg-dept-delete" @tap.stop="removeDepartment(block)">×</text>
 						</view>
 					</view>
 				</template>
@@ -101,6 +104,37 @@
 		</scroll-view>
 
 		<AppTabBar current="message"></AppTabBar>
+
+		<view v-if="showAddDeptPopup" class="mask" @click="closeAddDeptPopup">
+			<view class="add-dept-popup" @click.stop>
+				<view class="popup-header">
+					<text class="popup-title">{{ t('add_department') }}</text>
+					<text class="popup-close" @click="closeAddDeptPopup">×</text>
+				</view>
+				<scroll-view scroll-y class="add-dept-list">
+					<view v-if="availableDepts.length === 0" class="add-dept-empty">
+						<text>{{ t('no_department_to_add') }}</text>
+					</view>
+					<view
+						v-for="dept in availableDepts"
+						:key="dept.slug"
+						class="add-dept-item"
+						:class="{ 'add-dept-selected': selectedAddDepts.includes(dept.slug) }"
+						@click="toggleAddDept(dept.slug)"
+					>
+						<view class="add-dept-check-box">
+							<text v-if="selectedAddDepts.includes(dept.slug)" class="add-dept-check">✓</text>
+						</view>
+						<text class="add-dept-name">{{ dept.title }}</text>
+					</view>
+				</scroll-view>
+				<view class="popup-footer">
+					<button class="popup-btn" :disabled="!selectedAddDepts.length" @click="confirmAddDepts">
+						{{ t('confirm_add') }} ({{ selectedAddDepts.length }})
+					</button>
+				</view>
+			</view>
+		</view>
 	</view>
 </template>
 
@@ -117,7 +151,15 @@
 		MANAGER_ID,
 	} from "@/utils/virtualTeamStore";
 	import { loadUnifiedConversationList } from "@/utils/conversationInbox";
-	import { buildMessageDepartmentBlocks } from "@/utils/messageDepartmentConfig";
+	import {
+		buildMessageDepartmentBlocks,
+		getCustomDepartments,
+		setCustomDepartments,
+		getHiddenDepartments,
+		setHiddenDepartments,
+		getAvailablePresetDepartments,
+		FALLBACK_ICON,
+	} from "@/utils/messageDepartmentConfig";
 
 	export default {
 		components: { AppTabBar },
@@ -136,6 +178,10 @@
 				loading: true,
 				/** 0 会话 · 1 协作与部门 */
 				messageTab: 0,
+				isDeletingDept: false,
+				showAddDeptPopup: false,
+				availableDepts: [],
+				selectedAddDepts: [],
 			};
 		},
 		onLoad() {
@@ -206,16 +252,78 @@
 				await this.loadList();
 			},
 			showAddMenu() {
-				uni.showActionSheet({
-					itemList: [this.t('create_project_group'), this.t('create_digital_employee')],
-					success: (res) => {
-						if (res.tapIndex === 0) {
-							uni.navigateTo({ url: "/pages/team/create-group" });
-						} else if (res.tapIndex === 1) {
-							uni.navigateTo({ url: "/pages/team/create-agent" });
-						}
-					},
-				});
+				if (this.isDeletingDept) {
+					this.isDeletingDept = false;
+					return;
+				}
+				if (this.messageTab === 1) {
+					uni.showActionSheet({
+						itemList: [this.t('add_department'), this.t('remove_department')],
+						success: (res) => {
+							if (res.tapIndex === 0) {
+								this.addDepartment();
+							} else if (res.tapIndex === 1) {
+								this.isDeletingDept = true;
+							}
+						},
+					});
+				} else {
+					uni.showActionSheet({
+						itemList: [this.t('create_project_group'), this.t('create_digital_employee')],
+						success: (res) => {
+							if (res.tapIndex === 0) {
+								uni.navigateTo({ url: "/pages/team/create-group" });
+							} else if (res.tapIndex === 1) {
+								uni.navigateTo({ url: "/pages/team/create-agent" });
+							}
+						},
+					});
+				}
+			},
+			addDepartment() {
+				const available = getAvailablePresetDepartments();
+				if (!available.length) {
+					uni.showToast({ title: this.t('no_department_to_add'), icon: 'none' });
+					return;
+				}
+				this.availableDepts = available;
+				this.selectedAddDepts = [];
+				this.showAddDeptPopup = true;
+			},
+			closeAddDeptPopup() {
+				this.showAddDeptPopup = false;
+				this.selectedAddDepts = [];
+			},
+			toggleAddDept(slug) {
+				const idx = this.selectedAddDepts.indexOf(slug);
+				if (idx > -1) {
+					this.selectedAddDepts.splice(idx, 1);
+				} else {
+					this.selectedAddDepts.push(slug);
+				}
+			},
+			confirmAddDepts() {
+				if (!this.selectedAddDepts.length) return;
+				const hidden = getHiddenDepartments().filter((s) => !this.selectedAddDepts.includes(s));
+				setHiddenDepartments(hidden);
+				this.rebuildDepartmentBlocks();
+				this.closeAddDeptPopup();
+				uni.showToast({ title: this.t('added'), icon: 'success' });
+			},
+			removeDepartment(block) {
+				if (!block) return;
+				if (block.isCustom) {
+					const custom = getCustomDepartments().filter((c) => c.slug !== block.slug);
+					setCustomDepartments(custom);
+				} else {
+					const hidden = getHiddenDepartments();
+					if (!hidden.includes(block.slug)) {
+						hidden.push(block.slug);
+						setHiddenDepartments(hidden);
+					}
+				}
+				this.rebuildDepartmentBlocks();
+				uni.showToast({ title: this.t('deleted'), icon: 'success' });
 			},
 			avatarBg(row) {
 				/* 项目群：固定偏亮渐变，避免哈希到深蓝/紫导致「图案」发暗难辨 */
@@ -355,6 +463,13 @@
 	.navbar-plus {
 		font-size: 40rpx;
 		font-weight: 400;
+		color: #2563eb;
+		line-height: 1;
+	}
+
+	.navbar-done {
+		font-size: 28rpx;
+		font-weight: 500;
 		color: #2563eb;
 		line-height: 1;
 	}
@@ -620,8 +735,148 @@
 		align-self: center;
 	}
 
+	.msg-dept-delete {
+		width: 48rpx;
+		height: 48rpx;
+		font-size: 32rpx;
+		color: #ef4444;
+		background: #fef2f2;
+		border-radius: 50%;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		flex-shrink: 0;
+		margin-left: 12rpx;
+		line-height: 1;
+	}
+
 	.wx-pad {
 		height: 24rpx;
 		padding-bottom: env(safe-area-inset-bottom);
+	}
+
+	.mask {
+		position: fixed;
+		left: 0;
+		right: 0;
+		top: 0;
+		bottom: 0;
+		background: rgba(0, 0, 0, 0.45);
+		z-index: 100000;
+		display: flex;
+		flex-direction: column;
+		justify-content: flex-end;
+	}
+
+	.add-dept-popup {
+		width: 100%;
+		max-height: 70vh;
+		background: #fff;
+		border-radius: 24rpx 24rpx 0 0;
+		display: flex;
+		flex-direction: column;
+		overflow: hidden;
+	}
+
+	.popup-header {
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		justify-content: space-between;
+		padding: 32rpx 28rpx 24rpx;
+		border-bottom: 1rpx solid #e2e8f0;
+	}
+
+	.popup-title {
+		font-size: 34rpx;
+		font-weight: 800;
+		color: #0f172a;
+	}
+
+	.popup-close {
+		font-size: 48rpx;
+		color: #94a3b8;
+		font-weight: 300;
+		line-height: 1;
+		padding: 0 8rpx;
+	}
+
+	.add-dept-list {
+		flex: 1;
+		overflow-y: auto;
+		padding: 16rpx 28rpx;
+	}
+
+	.add-dept-empty {
+		padding: 80rpx 0;
+		text-align: center;
+		color: #94a3b8;
+		font-size: 28rpx;
+	}
+
+	.add-dept-item {
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		padding: 24rpx 16rpx;
+		border-radius: 16rpx;
+		margin-bottom: 12rpx;
+		background: #f8fafc;
+	}
+
+	.add-dept-selected {
+		background: #eff6ff;
+	}
+
+	.add-dept-check-box {
+		width: 40rpx;
+		height: 40rpx;
+		border-radius: 50%;
+		border: 2rpx solid #cbd5e1;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		margin-right: 20rpx;
+		flex-shrink: 0;
+		background: #fff;
+	}
+
+	.add-dept-selected .add-dept-check-box {
+		border-color: #2563eb;
+		background: #2563eb;
+	}
+
+	.add-dept-check {
+		font-size: 24rpx;
+		color: #fff;
+		font-weight: 700;
+		line-height: 1;
+	}
+
+	.add-dept-name {
+		font-size: 30rpx;
+		color: #0f172a;
+		flex: 1;
+	}
+
+	.popup-footer {
+		padding: 20rpx 28rpx;
+		padding-bottom: calc(20rpx + env(safe-area-inset-bottom));
+		border-top: 1rpx solid #e2e8f0;
+	}
+
+	.popup-btn {
+		width: 100%;
+		height: 88rpx;
+		line-height: 88rpx;
+		background: linear-gradient(135deg, #2563eb, #4f46e5) !important;
+		color: #fff;
+		font-size: 30rpx;
+		font-weight: 700;
+		border-radius: 44rpx;
+	}
+
+	.popup-btn[disabled] {
+		opacity: 0.5;
 	}
 </style>

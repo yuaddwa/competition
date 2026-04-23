@@ -105,24 +105,7 @@
 
 			<view class="group-spacer" />
 
-			<view v-if="!loggedIn" class="cell-group">
-				<view class="cell" @click="goLogin">
-					<view class="cell-icon bg-account">
-						<text class="iconfont cell-glyph">&#xe654;</text>
-					</view>
-					<text class="cell-title">{{ t('login') }}</text>
-					<text class="cell-arrow">›</text>
-				</view>
-				<view class="cell" @click="goRegister">
-					<view class="cell-icon bg-reg">
-						<text class="iconfont cell-glyph">&#xe727;</text>
-					</view>
-					<text class="cell-title">{{ t('register') }}</text>
-					<text class="cell-arrow">›</text>
-				</view>
-			</view>
-
-			<view v-else class="cell-group">
+			<view v-if="loggedIn" class="cell-group">
 				<view class="cell" @click="goPage('/pages/profile/agent-model-assign')">
 					<view class="cell-icon bg-font">
 						<text class="cell-glyph-text cell-glyph-emoji">🔗</text>

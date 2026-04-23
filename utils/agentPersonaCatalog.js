@@ -4,6 +4,7 @@ import {
 	personaTitleZh,
 	snippetZhPreview as snippetZhPreviewFn,
 } from "@/utils/personaDisplayZh";
+import { getLanguage } from "@/utils/lang";
 
 /** @typedef {{ id: string, title: string, category: string, path: string, snippet: string }} PersonaRow */
 
@@ -39,10 +40,36 @@ function snippetEnPreview(snippet) {
 	return "Tap to chat · View full persona details";
 }
 
+const HIDDEN_PERSONA_KEY = "hidden_persona_ids";
+
+export function getHiddenPersonaIds() {
+	try {
+		return uni.getStorageSync(HIDDEN_PERSONA_KEY) || [];
+	} catch {
+		return [];
+	}
+}
+
+export function setHiddenPersonaIds(list) {
+	try {
+		uni.setStorageSync(HIDDEN_PERSONA_KEY, list);
+	} catch {}
+}
+
 /** @returns {PersonaRow[]} */
 export function listPersonasByCategorySlug(slug) {
 	if (!slug) return [];
-	return catalog.filter((p) => p.category === slug);
+	const hidden = getHiddenPersonaIds();
+	return catalog.filter((p) => p.category === slug && !hidden.includes(p.id));
+}
+
+/** @returns {{ id: string, title: string }[]} */
+export function getAvailablePersonasByCategorySlug(slug) {
+	if (!slug) return [];
+	const hidden = getHiddenPersonaIds();
+	return catalog
+		.filter((p) => p.category === slug && hidden.includes(p.id))
+		.map((p) => ({ id: p.id, title: personaChatTitle(p, getLanguage()) }));
 }
 
 /** @returns {PersonaRow | null} */
