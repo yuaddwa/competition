@@ -98,6 +98,22 @@
 				</view>
 			</view>
 		</view>
+		<view v-if="showQuickMenu" class="sheet-mask" @tap.self="closeQuickMenu">
+			<view class="sheet-panel" @tap.stop>
+				<view class="sheet-handle" />
+				<view
+					v-for="item in quickMenuItems"
+					:key="item.key"
+					class="sheet-row"
+					@tap="onQuickMenuSelect(item)"
+				>
+					<text class="sheet-row-t">{{ item.label }}</text>
+				</view>
+				<view class="sheet-cancel" @tap="closeQuickMenu">
+					<text class="sheet-cancel-t">{{ t('cancel') }}</text>
+				</view>
+			</view>
+		</view>
 	</view>
 
 </template>
@@ -125,6 +141,8 @@
 				pageTitle: "",
 				isDeletingRole: false,
 				showAddRolePopup: false,
+				showQuickMenu: false,
+				quickMenuItems: [],
 				availableRoles: [],
 				selectedAddRoles: [],
 			};
@@ -210,16 +228,26 @@
 					this.isDeletingRole = false;
 					return;
 				}
-				uni.showActionSheet({
-					itemList: [this.t('add_role'), this.t('remove_role')],
-					success: (res) => {
-						if (res.tapIndex === 0) {
-							this.addRole();
-						} else if (res.tapIndex === 1) {
-							this.isDeletingRole = true;
-						}
-					},
-				});
+				this.quickMenuItems = [
+					{ key: "add_role", label: this.t('add_role') },
+					{ key: "remove_role", label: this.t('remove_role') },
+				];
+				this.showQuickMenu = true;
+			},
+			closeQuickMenu() {
+				this.showQuickMenu = false;
+				this.quickMenuItems = [];
+			},
+			onQuickMenuSelect(item) {
+				if (!item || !item.key) return;
+				this.closeQuickMenu();
+				if (item.key === "add_role") {
+					this.addRole();
+					return;
+				}
+				if (item.key === "remove_role") {
+					this.isDeletingRole = true;
+				}
 			},
 			addRole() {
 				const available = getAvailablePersonasByCategorySlug(this.slug);
@@ -640,7 +668,7 @@
 		right: 0;
 		top: 0;
 		bottom: 0;
-		background: rgba(0, 0, 0, 0.45);
+		background: rgba(15, 23, 42, 0.16);
 		z-index: 100000;
 		display: flex;
 		flex-direction: column;
@@ -757,6 +785,63 @@
 
 	.popup-btn[disabled] {
 		opacity: 0.5;
+	}
+
+	.sheet-mask {
+		position: fixed;
+		left: 0;
+		right: 0;
+		top: 0;
+		bottom: 0;
+		background: rgba(15, 23, 42, 0.14);
+		z-index: 100000;
+		display: flex;
+		align-items: flex-end;
+	}
+
+	.sheet-panel {
+		width: 100%;
+		background: #eef2ff;
+		border-radius: 24rpx 24rpx 0 0;
+		padding-bottom: env(safe-area-inset-bottom);
+		overflow: hidden;
+	}
+
+	.sheet-handle {
+		width: 72rpx;
+		height: 8rpx;
+		border-radius: 999rpx;
+		background: #cbd5e1;
+		margin: 14rpx auto 12rpx;
+	}
+
+	.sheet-row {
+		background: #fff;
+		padding: 30rpx 32rpx;
+		border-top: 1rpx solid #eef2f7;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.sheet-row-t {
+		font-size: 30rpx;
+		color: #0f172a;
+		font-weight: 600;
+	}
+
+	.sheet-cancel {
+		margin-top: 14rpx;
+		background: #fff;
+		padding: 28rpx 32rpx;
+		display: flex;
+		justify-content: center;
+	}
+
+	.sheet-cancel-t {
+		font-size: 30rpx;
+		color: #64748b;
+		font-weight: 600;
 	}
 
 </style>
