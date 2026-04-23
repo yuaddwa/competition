@@ -2,6 +2,7 @@
 	export default {
 		onLaunch: function() {
 			console.log('App Launch')
+			this.cleanupLegacySeedMessages()
 			this.initDarkMode()
 			this.initFontSize()
 		},
@@ -12,6 +13,27 @@
 			console.log('App Hide')
 		},
 		methods: {
+			cleanupLegacySeedMessages() {
+				try {
+					const messages = uni.getStorageSync('projectMessages') || []
+					const cleaned = messages.filter(msg => {
+						const pn = msg.projectName || ''
+						const title = msg.title || ''
+						const content = msg.content || ''
+						const isSeed = pn.includes('工程部') || pn.includes('Engineering') ||
+							title.includes('问候') || title.includes('Hello') ||
+							content.includes('有什么问题') || content.includes('Any questions')
+						return !isSeed
+					})
+					if (cleaned.length !== messages.length) {
+						uni.setStorageSync('projectMessages', cleaned)
+						console.log('[App] 已清理工程部示例消息')
+					}
+					uni.removeStorageSync('hasLaunched')
+				} catch (e) {
+					console.warn('[App] cleanupLegacySeedMessages error', e)
+				}
+			},
 			normalizeFontSizeKey(raw) {
 				const map = { 小: 'xs', 中: 'sm', 大: 'md', 特大: 'xl' }
 				if (map[raw]) return map[raw]
@@ -354,6 +376,13 @@
 
 	.mask {
 		/* 全局弹层遮罩调浅，避免操作时整屏过暗 */
+		background: rgba(15, 23, 42, 0.16) !important;
+	}
+
+	/* uni-app 原生弹窗（ActionSheet / Modal / Picker）遮罩统一调浅 */
+	.uni-mask,
+	uni-mask,
+	.uni-modal__mask {
 		background: rgba(15, 23, 42, 0.16) !important;
 	}
 

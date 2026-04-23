@@ -39,8 +39,8 @@
 		</view>
 
 		<view class="boss-strip">
-			<text class="boss-title">老板指令台</text>
-			<text class="boss-sub">选择模板并确认流向，用一句话下达可执行任务</text>
+			<text class="boss-title">{{ t('boss_dashboard') }}</text>
+			<text class="boss-sub">{{ t('boss_dashboard_sub') }}</text>
 		</view>
 
 		<scroll-view scroll-x class="tpl-scroll" show-scrollbar="false">
@@ -56,8 +56,8 @@
 		</scroll-view>
 
 		<view class="card">
-			<text class="label">指令流向</text>
-			<text class="mini-label">来源部门</text>
+			<text class="label">{{ t('instruction_flow') }}</text>
+			<text class="mini-label">{{ t('source_dept') }}</text>
 			<view class="dept-row">
 				<view
 					v-for="(d, i) in deptOptions"
@@ -69,7 +69,7 @@
 					<text class="dept-chip-t">{{ d.label }}</text>
 				</view>
 			</view>
-			<text class="mini-label">目标部门</text>
+			<text class="mini-label">{{ t('target_dept') }}</text>
 			<view class="dept-row">
 				<view
 					v-for="(d, i) in deptOptions"
@@ -84,7 +84,7 @@
 		</view>
 
 		<view class="card">
-			<text class="label">任务目标（老板口吻）</text>
+			<text class="label">{{ t('task_goal') }}</text>
 			<textarea
 				class="goal"
 				v-model="goal"
@@ -112,11 +112,11 @@
 		</view>
 
 		<view class="preview-card">
-			<text class="preview-title">下发预览</text>
-			<text class="preview-line">发起人：{{ operatorName || '老板' }}</text>
-			<text class="preview-line">流向：{{ sourceDeptLabel }} → {{ targetDeptLabel }}</text>
-			<text class="preview-line">优先级：{{ priorityLabel }}（L{{ hierarchyLevel }}）</text>
-			<text class="preview-text">{{ goalTrimmed || '请在上方输入任务目标，建议包含结果、时间、验收标准。' }}</text>
+			<text class="preview-title">{{ t('dispatch_preview') }}</text>
+			<text class="preview-line">{{ t('operator_label') }}：{{ operatorName || t('boss_fallback') }}</text>
+			<text class="preview-line">{{ t('flow_preview') }}：{{ sourceDeptLabel }} → {{ targetDeptLabel }}</text>
+			<text class="preview-line">{{ t('priority_preview') }}：{{ priorityLabel }}（L{{ hierarchyLevel }}）</text>
+			<text class="preview-text">{{ goalTrimmed || t('input_task_hint') }}</text>
 		</view>
 
 		<view class="actions">
@@ -252,33 +252,43 @@ const STORAGE_WF_LIST = "cachedWorkflowList";
 				targetDeptIdx: 1,
 				templateIdx: -1,
 				operatorName: "",
+				currentLanguage: getLanguage(),
 				quickTemplates: [
 					{
 						key: "mvp",
 						name: "MVP 冲刺",
+						name_en: "MVP Sprint",
 						text: "请在两周内交付可演示 MVP，覆盖核心流程并可给客户试用；同步输出风险清单与回滚方案。",
+						text_en: "Deliver a demo-ready MVP within 2 weeks, covering core flows and ready for customer trial; output risk list and rollback plan.",
 						level: 2,
 						source: "product",
 						target: "engineering",
 						title: "两周 MVP 冲刺",
+						title_en: "2-Week MVP Sprint",
 					},
 					{
 						key: "bugfix",
 						name: "线上修复",
+						name_en: "Hotfix",
 						text: "优先修复线上高优先级问题，今天内给出根因和修复计划，明早前完成验证并回传结论。",
+						text_en: "Fix critical production issues first. Provide root cause and fix plan today, complete verification and report back by tomorrow morning.",
 						level: 3,
 						source: "pm",
 						target: "engineering",
 						title: "线上问题紧急修复",
+						title_en: "Urgent Production Fix",
 					},
 					{
 						key: "campaign",
 						name: "营销联动",
+						name_en: "Marketing Campaign",
 						text: "围绕本周增长目标，产出可执行活动方案，明确渠道、预算、转化指标与复盘口径。",
+						text_en: "Based on this week's growth targets, produce an actionable campaign plan with channels, budget, conversion metrics, and review criteria.",
 						level: 2,
 						source: "product",
 						target: "marketing",
 						title: "增长活动方案",
+						title_en: "Growth Campaign Plan",
 					},
 				],
 			};
@@ -294,7 +304,7 @@ const STORAGE_WF_LIST = "cachedWorkflowList";
 				return [{ key: "low" }, { key: "mid" }, { key: "high" }];
 			},
 			deptOptions() {
-				const lang = getLanguage();
+				const lang = this.currentLanguage;
 				return agentDepartments.map((d) => {
 					const td = translateDepartment(d, lang);
 					return { id: d.id, label: td.name || d.name || d.id };
@@ -322,9 +332,12 @@ const STORAGE_WF_LIST = "cachedWorkflowList";
 		},
 		onLoad() {
 			uni.hideTabBar({ animation: false });
+			this.currentLanguage = getLanguage();
+			this.updateQuickTemplates();
 		},
 		onShow() {
 			uni.hideTabBar({ animation: false });
+			this.currentLanguage = getLanguage();
 			try {
 				uni.setNavigationBarTitle({ title: this.t("add") });
 			} catch (e) {
@@ -347,13 +360,24 @@ const STORAGE_WF_LIST = "cachedWorkflowList";
 			if (this.deptOptions.length > 1 && this.targetDeptIdx === this.sourceDeptIdx) {
 				this.targetDeptIdx = 1;
 			}
+			this.updateQuickTemplates();
 			setTimeout(() => {
 				this.prefetchWorkflows();
 			}, 0);
 		},
 		methods: {
 			t(key, params = {}) {
-				return t(key, getLanguage(), params);
+				return t(key, this.currentLanguage, params);
+			},
+			updateQuickTemplates() {
+				const lang = this.currentLanguage;
+				const isEn = lang === 'en';
+				this.quickTemplates = this.quickTemplates.map(tpl => ({
+					...tpl,
+					name: isEn ? (tpl.name_en || tpl.name) : tpl.name,
+					text: isEn ? (tpl.text_en || tpl.text) : tpl.text,
+					title: isEn ? (tpl.title_en || tpl.title) : tpl.title,
+				}));
 			},
 			async prefetchWorkflows(options = {}) {
 				const keepExisting = options.keepExisting !== false;

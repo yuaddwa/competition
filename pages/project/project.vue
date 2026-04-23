@@ -5,7 +5,7 @@
 		<view class="scroll-clip">
 		<scroll-view scroll-y class="scroll" refresher-enabled :refresher-triggered="refreshing" @refresherrefresh="onRefresh">
 			<view class="top-actions">
-				<text class="hero-new" @tap.stop="openCreate">＋ 创建项目</text>
+				<text class="hero-new" @tap.stop="openCreate">＋ {{ t('create_project') }}</text>
 				<text class="hero-link" @tap.stop="goAdd">{{ t('go_assign_task') }}</text>
 			</view>
 
@@ -16,9 +16,9 @@
 
 			<view v-else-if="workflows.length === 0" class="empty">
 				<text class="empty-emoji">📂</text>
-				<text class="empty-title">还没有项目</text>
-				<text class="empty-desc">点右上角「创建项目」，或下面按钮开始。</text>
-				<view class="empty-cta" @tap="openCreate">＋ 创建项目</view>
+				<text class="empty-title">{{ t('no_projects_yet') }}</text>
+				<text class="empty-desc">{{ t('no_projects_desc') }}</text>
+				<view class="empty-cta" @tap="openCreate">＋ {{ t('create_project') }}</view>
 			</view>
 
 			<view
@@ -103,6 +103,7 @@
 				newTitle: "",
 				newDesc: "",
 				creating: false,
+				currentLanguage: getLanguage(),
 			};
 		},
 		computed: {
@@ -116,6 +117,7 @@
 		},
 		onShow() {
 			uni.hideTabBar({ animation: false });
+			this.currentLanguage = getLanguage();
 			try {
 				uni.setNavigationBarTitle({ title: this.t("project") });
 			} catch (e) {
@@ -125,13 +127,14 @@
 		},
 		methods: {
 			t(key, params = {}) {
-				return t(key, getLanguage(), params);
+				return t(key, this.currentLanguage, params);
 			},
 			pickId,
 			workflowKey(w) {
 				return pickId(w) || w?.workflowId || "";
 			},
 			workflowTitle(w) {
+				const _ = this.currentLanguage;
 				return w?.title || w?.name || this.t("unnamed_workflow");
 			},
 			workflowDesc(w) {

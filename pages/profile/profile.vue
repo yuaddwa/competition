@@ -241,10 +241,12 @@
 				showAgentPopup: false,
 				showDailyReportPopup: false,
 				dailyReport: null,
+				currentLanguage: getLanguage(),
 			};
 		},
 		computed: {
 			displayName() {
+				const _ = this.currentLanguage;
 				if (!this.loggedIn) return this.t('not_logged_in');
 				const u = this.user || {};
 				const nick = u.nickname != null ? String(u.nickname).trim() : "";
@@ -257,10 +259,12 @@
 				return u.name || this.t('my_account');
 			},
 			accountSubLine() {
+				const _ = this.currentLanguage;
 				if (!this.loggedIn) return this.t("account_sub_guest");
 				return this.t("account_sub_logged");
 			},
 			avatarChar() {
+				const _ = this.currentLanguage;
 				const n = this.displayName;
 				if (!this.loggedIn) return this.t("profile_avatar_guest");
 				return n && n.length ? n.slice(0, 1) : this.t("profile_avatar_guest");
@@ -286,8 +290,9 @@
 		},
 		onShow() {
 			uni.hideTabBar({ animation: false });
+			this.currentLanguage = getLanguage();
 			try {
-				uni.setNavigationBarTitle({ title: translate("profile", getLanguage()) });
+				uni.setNavigationBarTitle({ title: translate("profile", this.currentLanguage) });
 			} catch (e) {
 				//
 			}
@@ -295,7 +300,7 @@
 		},
 		methods: {
 			t(key, params = {}) {
-				return translate(key, getLanguage(), params);
+				return translate(key, this.currentLanguage, params);
 			},
 			refreshAuth() {
 				const token = getToken();
