@@ -36,22 +36,6 @@ export function groupMessagesByProject(messages) {
  */
 export function loadMessages() {
 	let stored = uni.getStorageSync('projectMessages') || []
-	const firstLaunch = !uni.getStorageSync('hasLaunched')
-	if (firstLaunch) {
-		const lang = getLanguage();
-		const bossMessage = {
-			id: 'boss-' + Date.now(),
-			projectName: t("engineering_department", lang),
-			title: t("seed_inbox_title", lang),
-			content: t("seed_inbox_question", lang),
-			time: new Date().toISOString(),
-			url: '',
-			read: false
-		}
-		stored.unshift(bossMessage)
-		uni.setStorageSync('projectMessages', stored)
-		uni.setStorageSync('hasLaunched', true)
-	}
 	return stored.sort((a, b) => new Date(b.time) - new Date(a.time))
 }
 
