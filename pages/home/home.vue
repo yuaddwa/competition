@@ -51,20 +51,6 @@
 			<view class="send-button" @click="sendHall">{{ t('send') }}</view>
 		</view>
 
-		<!-- 偏好设置入口 -->
-		<view class="preferences-entry">
-			<view class="entry-content">
-				<view class="entry-header">
-					<text class="entry-title">AI团队偏好设置</text>
-					<view class="entry-action" @click="goToPreferences">
-						<text class="action-text">去设置</text>
-						<text class="action-arrow">›</text>
-					</view>
-				</view>
-				<text class="entry-subtitle">设置你的公司偏好，让AI员工更好地为你服务</text>
-			</view>
-		</view>
-
 		<AppTabBar current="home" />
 	</view>
 </template>
@@ -110,12 +96,6 @@
 		methods: {
 			t(key, params = {}) {
 				return t(key, getLanguage(), params);
-			},
-			goToPreferences() {
-				// 跳转到偏好设置页面
-				uni.navigateTo({
-					url: "/pages/preferences/preferences"
-				});
 			},
 			openHallSettings() {
 				uni.navigateTo({
@@ -379,114 +359,4 @@
 		font-weight: 600;
 	}
 
-	/* 偏好设置提示样式 */
-	.preferences-hint {
-		position: fixed;
-		left: 0;
-		right: 0;
-		bottom: 0;
-		background: rgba(0, 0, 0, 0.5);
-		z-index: 1000;
-		display: flex;
-		align-items: flex-end;
-		justify-content: center;
-		padding-bottom: calc(100rpx + env(safe-area-inset-bottom));
-	}
-
-	.hint-content {
-		background: #fff;
-		border-radius: 24rpx 24rpx 0 0;
-		padding: 32rpx;
-		width: 100%;
-		max-width: 600rpx;
-	}
-
-	.hint-title {
-		display: block;
-		font-size: 34rpx;
-		font-weight: 700;
-		color: #0f172a;
-		margin-bottom: 12rpx;
-		text-align: center;
-	}
-
-	.hint-text {
-		display: block;
-		font-size: 24rpx;
-		color: #64748b;
-		line-height: 1.5;
-		margin-bottom: 32rpx;
-		text-align: center;
-	}
-
-	.hint-buttons {
-		display: flex;
-		flex-direction: row;
-		gap: 16rpx;
-	}
-
-	.hint-btn {
-		flex: 1;
-		height: 88rpx;
-		line-height: 88rpx;
-		border-radius: 44rpx;
-		font-size: 28rpx;
-		font-weight: 600;
-		text-align: center;
-	}
-
-	.hint-btn.cancel {
-		background: #f1f5f9;
-		color: #64748b;
-	}
-
-	/* 偏好设置入口样式 */
-	.preferences-entry {
-		background: #fff;
-		border-top: 1rpx solid #e2e8f0;
-		padding: 24rpx 32rpx;
-		flex-shrink: 0;
-	}
-
-	.entry-content {
-	}
-
-	.entry-header {
-		display: flex;
-		flex-direction: row;
-		align-items: center;
-		justify-content: space-between;
-		margin-bottom: 8rpx;
-	}
-
-	.entry-title {
-		font-size: 28rpx;
-		font-weight: 700;
-		color: #0f172a;
-	}
-
-	.entry-action {
-		display: flex;
-		flex-direction: row;
-		align-items: center;
-		gap: 4rpx;
-	}
-
-	.action-text {
-		font-size: 24rpx;
-		color: #6366f1;
-		font-weight: 600;
-	}
-
-	.action-arrow {
-		font-size: 32rpx;
-		color: #6366f1;
-		font-weight: 300;
-	}
-
-	.entry-subtitle {
-		font-size: 22rpx;
-		color: #64748b;
-		line-height: 1.4;
-	}
 </style>

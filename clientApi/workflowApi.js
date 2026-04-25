@@ -53,14 +53,89 @@ export function buildWorkflowCreatePayload(input) {
 }
 
 export async function listWorkflows() {
-  const r = await request.get("/api/workflows", {}, { needAuth: true, showError: false });
-  return unwrapList(r);
+  const tryGet = async (url) => {
+    const r = await request.get(url, {}, { needAuth: true, showError: false });
+    return unwrapList(r);
+  };
+  const tryPost = async (url, body = {}) => {
+    const r = await request.post(url, body, { needAuth: true, showError: false });
+    return unwrapList(r);
+  };
+  const candidates = [
+    () => tryGet("/api/workflows"),
+    () => tryGet("/api/workflows/"),
+    () => tryGet("/api/workflows/list"),
+    () => tryGet("/api/workflow/list"),
+    () => tryPost("/api/workflows/query", { page: 1, pageSize: 200 }),
+  ];
+  let lastErr = null;
+  for (const run of candidates) {
+    try {
+      const list = await run();
+      if (Array.isArray(list)) return list;
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  if (import.meta.env.MODE === "development" && lastErr) {
+    console.warn("[listWorkflows] all candidates failed", lastErr);
+  }
+  return [];
 }
 
 export async function createWorkflow(input) {
   const payload =
     input && typeof input === "object" ? buildWorkflowCreatePayload(input) : buildWorkflowCreatePayload({ name: String(input) });
   const r = await request.post("/api/workflows", payload, { needAuth: true, showError: false });
+  return unwrapDataOrThrowBusinessError(r);
+}
+
+/**
+ * 一句话自动创建并分配工作流
+ * POST /api/workflows/ai-one-shot
+ */
+export async function aiOneShot(body = {}) {
+  const payload = {
+    brief: String(body.brief || "").trim(),
+    title: String(body.title || "").trim(),
+    fromDepartment: String(body.fromDepartment || "").trim(),
+    fromLevel: Number.isFinite(Number(body.fromLevel)) ? Number(body.fromLevel) : 0,
+    toLevel: Number.isFinite(Number(body.toLevel)) ? Number(body.toLevel) : 1,
+    maxTasks: Number.isFinite(Number(body.maxTasks)) ? Number(body.maxTasks) : 6,
+  };
+  if (!payload.brief) throw new Error("brief 不能为空");
+  if (!payload.title) delete payload.title;
+  if (!payload.fromDepartment) delete payload.fromDepartment;
+  const r = await request.post("/api/workflows/ai-one-shot", payload, {
+    needAuth: true,
+    showError: false,
+    header: { "Content-Type": "application/json" },
+  });
+  return unwrapDataOrThrowBusinessError(r);
+}
+
+/**
+ * 对已有 workflow 进行 AI 自动拆解
+ * POST /api/workflows/{workflowId}/commands/ai-auto
+ */
+export async function aiAuto(workflowId, body = {}) {
+  if (!workflowId) throw new Error("workflowId 不能为空");
+  const payload = {
+    brief: String(body.brief || "").trim(),
+    title: String(body.title || "").trim(),
+    fromDepartment: String(body.fromDepartment || "").trim(),
+    fromLevel: Number.isFinite(Number(body.fromLevel)) ? Number(body.fromLevel) : 0,
+    toLevel: Number.isFinite(Number(body.toLevel)) ? Number(body.toLevel) : 1,
+    maxTasks: Number.isFinite(Number(body.maxTasks)) ? Number(body.maxTasks) : 6,
+  };
+  if (!payload.brief) throw new Error("brief 不能为空");
+  if (!payload.title) delete payload.title;
+  if (!payload.fromDepartment) delete payload.fromDepartment;
+  const r = await request.post(`/api/workflows/${workflowId}/commands/ai-auto`, payload, {
+    needAuth: true,
+    showError: false,
+    header: { "Content-Type": "application/json" },
+  });
   return unwrapDataOrThrowBusinessError(r);
 }
 
@@ -152,6 +227,10 @@ export async function postCommand(workflowId, body) {
     dependsOnTaskIds: Array.isArray(body && body.dependsOnTaskIds)
       ? body.dependsOnTaskIds
       : [],
+    autoRun:
+      body && Object.prototype.hasOwnProperty.call(body, "autoRun")
+        ? !!body.autoRun
+        : true,
   };
   if (body && body.parentTaskId) {
     normalizedBody.parentTaskId = body.parentTaskId;
@@ -267,6 +346,12 @@ export async function listEvents(workflowId, params = {}) {
   }
 }
 
+/** SSE 地址（前端可用 EventSource 或小程序插件消费） */
+export function getWorkflowEventsStreamUrl(workflowId) {
+  if (!workflowId) return "";
+  return `/api/workflows/${workflowId}/events/stream`;
+}
+
 export async function commsBootstrap(workflowId) {
   try {
     const r = await request.post(`/api/workflows/${workflowId}/comms/bootstrap`, {}, { needAuth: true, showError: false });
@@ -316,5 +401,64 @@ export async function linkMessageToTask(workflowId, messageId, body) {
 
 export async function broadcastComms(workflowId, body) {
   const r = await request.post(`/api/workflows/${workflowId}/comms/broadcast`, body, { needAuth: true });
+  return unwrapData(r);
+}
+
+/** 创建项目群 */
+export async function createProjectGroup(workflowId, body = {}) {
+  const payload = {
+    title: String(body.title || "").trim(),
+  };
+  const r = await request.post(`/api/workflows/${workflowId}/comms/project-groups`, payload, { needAuth: true });
+  return unwrapData(r);
+}
+
+/** 查询项目群列表 */
+export async function listProjectGroups(workflowId) {
+  const r = await request.get(`/api/workflows/${workflowId}/comms/project-groups`, {}, { needAuth: true, showError: false });
+  return unwrapList(r);
+}
+
+/** 项目群成员列表 */
+export async function listProjectGroupMembers(workflowId, groupId) {
+  const r = await request.get(
+    `/api/workflows/${workflowId}/comms/project-groups/${groupId}/members`,
+    {},
+    { needAuth: true, showError: false }
+  );
+  return unwrapList(r);
+}
+
+/** 向项目群发送消息 */
+export async function sendProjectGroupMessage(workflowId, groupId, body = {}) {
+  const r = await request.post(
+    `/api/workflows/${workflowId}/comms/project-groups/${groupId}/messages`,
+    body,
+    { needAuth: true }
+  );
+  return unwrapData(r);
+}
+
+/** 查询项目群消息 */
+export async function listProjectGroupMessages(workflowId, groupId, params = {}) {
+  const nextParams = { limit: 200, ...params };
+  const r = await request.get(
+    `/api/workflows/${workflowId}/comms/project-groups/${groupId}/messages`,
+    nextParams,
+    { needAuth: true }
+  );
+  return unwrapList(r);
+}
+
+/** 手动触发自动推进（兜底） */
+export async function autoRunTask(workflowId, taskId) {
+  const r = await request.post(`/api/workflows/${workflowId}/auto-run/${taskId}`, {}, { needAuth: true });
+  return unwrapData(r);
+}
+
+/** 删除项目（工作流） */
+export async function deleteWorkflow(workflowId) {
+  if (!workflowId) throw new Error("workflowId 不能为空");
+  const r = await request.delete(`/api/workflows/${workflowId}`, {}, { needAuth: true });
   return unwrapData(r);
 }

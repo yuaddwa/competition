@@ -22,16 +22,16 @@ export function validateLlmSettings({ apiKey, baseUrl, model }) {
 		return { ok: false, messageKey: "model_validate_url_required" };
 	}
 
-	let u;
-	try {
-		u = new URL(urlRaw);
-	} catch {
+	const match = urlRaw.match(/^(https?):\/\/([^/\s?#]+)(\/[^\s?#]*)?(?:\?[^#\s]*)?(?:#\S*)?$/i);
+	if (!match) {
 		return { ok: false, messageKey: "model_validate_url_invalid" };
 	}
-	if (u.protocol !== "http:" && u.protocol !== "https:") {
+	const protocol = String(match[1] || "").toLowerCase();
+	const pathname = match[3] || "/";
+	if (protocol !== "http" && protocol !== "https") {
 		return { ok: false, messageKey: "model_validate_url_protocol" };
 	}
-	const path = (u.pathname || "/").replace(/\/+$/, "") || "/";
+	const path = String(pathname).replace(/\/+$/, "") || "/";
 	if (!/\/v1$/i.test(path)) {
 		return { ok: false, messageKey: "model_validate_url_need_v1" };
 	}

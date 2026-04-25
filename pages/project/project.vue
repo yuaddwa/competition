@@ -8,6 +8,16 @@
 				<text class="hero-new" @tap.stop="openCreate">＋ 创建项目</text>
 				<text class="hero-link" @tap.stop="goAdd">{{ t('go_assign_task') }}</text>
 			</view>
+			<scroll-view v-if="workflowNavList.length" scroll-x class="project-strip" show-scrollbar="false">
+				<view
+					v-for="w in workflowNavList"
+					:key="workflowKey(w)"
+					class="project-chip"
+					@click="openWorkbench(w)"
+				>
+					<text class="project-chip-t">{{ workflowTitle(w) }}</text>
+				</view>
+			</scroll-view>
 
 			<view v-if="loading" class="loading-row">
 				<view class="loading-dot"></view>
@@ -34,6 +44,7 @@
 						<text v-if="workflowDesc(w)" class="wf-desc">{{ workflowDesc(w) }}</text>
 						<text class="wf-id">{{ workflowKey(w) }}</text>
 					</view>
+					<text class="wf-del" @click.stop="confirmDeleteWorkflow(w)">删除</text>
 					<text class="wf-go">›</text>
 				</view>
 			</view>
@@ -91,12 +102,16 @@
 	import { switchMainTab } from "@/utils/tabNav";
 	import { t, getLanguage } from "@/utils/lang";
 	import AppTabBar from "@/components/AppTabBar.vue";
+	const STORAGE_WF = "lastWorkflowId";
+	const STORAGE_WF_TITLE = "lastWorkflowTitle";
+	const STORAGE_WF_LIST = "cachedWorkflowList";
 
 	export default {
 		components: { AppTabBar },
 		data() {
 			return {
 				workflows: [],
+				workflowNavList: [],
 				loading: true,
 				refreshing: false,
 				showCreate: false,
@@ -121,6 +136,14 @@
 			} catch (e) {
 				//
 			}
+			try {
+				const cached = uni.getStorageSync(STORAGE_WF_LIST);
+				if (Array.isArray(cached) && cached.length) {
+					this.workflowNavList = cached;
+				}
+			} catch {
+				//
+			}
 			this.loadList();
 		},
 		methods: {
@@ -141,9 +164,16 @@
 				this.loading = true;
 				try {
 					const list = await workflowApi.listWorkflows();
-					this.workflows = Array.isArray(list) ? list : [];
+					const arr = Array.isArray(list) ? list : [];
+					this.workflows = arr;
+					this.workflowNavList = arr;
+					try {
+						uni.setStorageSync(STORAGE_WF_LIST, arr);
+					} catch {
+						//
+					}
 				} catch {
-					this.workflows = [];
+					this.workflows = Array.isArray(this.workflowNavList) ? this.workflowNavList : [];
 				} finally {
 					this.loading = false;
 				}
@@ -160,13 +190,43 @@
 					return;
 				}
 				try {
-					uni.setStorageSync("lastWorkflowId", id);
-					uni.setStorageSync("lastWorkflowTitle", this.workflowTitle(w));
+					uni.setStorageSync(STORAGE_WF, id);
+					uni.setStorageSync(STORAGE_WF_TITLE, this.workflowTitle(w));
 				} catch {
 					//
 				}
 				uni.navigateTo({
 					url: `/pages/workflow/workbench?id=${encodeURIComponent(id)}`,
+				});
+			},
+			confirmDeleteWorkflow(w) {
+				const id = this.workflowKey(w);
+				if (!id) return;
+				uni.showModal({
+					title: "删除项目",
+					content: `确认删除「${this.workflowTitle(w)}」？删除后不可恢复。`,
+					confirmColor: "#dc2626",
+					success: async (res) => {
+						if (!res.confirm) return;
+						try {
+							await workflowApi.deleteWorkflow(id);
+							this.workflows = (this.workflows || []).filter((x) => this.workflowKey(x) !== id);
+							this.workflowNavList = (this.workflowNavList || []).filter((x) => this.workflowKey(x) !== id);
+							try {
+								uni.setStorageSync(STORAGE_WF_LIST, this.workflowNavList);
+								if (uni.getStorageSync(STORAGE_WF) === id) {
+									uni.removeStorageSync(STORAGE_WF);
+									uni.removeStorageSync(STORAGE_WF_TITLE);
+								}
+							} catch {
+								//
+							}
+							uni.showToast({ title: "已删除", icon: "success" });
+						} catch (err) {
+							const detail = getApiErrorMessage(err);
+							uni.showToast({ title: detail || "删除失败", icon: "none" });
+						}
+					},
 				});
 			},
 			goAdd() {
@@ -265,6 +325,33 @@
 		flex-wrap: wrap;
 		gap: 16rpx;
 		margin-bottom: 20rpx;
+	}
+
+	.project-strip {
+		white-space: nowrap;
+		margin-bottom: 16rpx;
+	}
+
+	.project-chip {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		height: 62rpx;
+		padding: 0 20rpx;
+		margin-right: 12rpx;
+		border-radius: 999rpx;
+		background: #ffffff;
+		border: 1rpx solid #dbe3ef;
+	}
+
+	.project-chip-t {
+		max-width: 260rpx;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		font-size: 24rpx;
+		font-weight: 600;
+		color: #334155;
 	}
 
 	.hero-new {
@@ -470,6 +557,16 @@
 		color: #cbd5e1;
 		font-weight: 300;
 		padding-left: 8rpx;
+	}
+
+	.wf-del {
+		align-self: center;
+		font-size: 22rpx;
+		color: #dc2626;
+		padding: 8rpx 10rpx;
+		border-radius: 10rpx;
+		background: #fef2f2;
+		margin-right: 6rpx;
 	}
 
 	.bottom-spacer {

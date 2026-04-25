@@ -28,7 +28,7 @@ function messageSortKey(m) {
  * @returns {Promise<Array<{ projectName: string; workflowId: string; threadId: string; workflowTitle: string; threadTitle: string; title: string; content: string; time: string; read: boolean; id: string; sender: string; remote: boolean }>>}
  */
 export async function listCommsInboxFromApi(options = {}) {
-  const { maxWorkflows = 20, maxThreads = 40 } = options;
+  const { maxWorkflows = 20, maxThreads = 80 } = options;
   if (!getToken()) return [];
 
   const workflows = await workflowApi.listWorkflows();
@@ -41,12 +41,16 @@ export async function listCommsInboxFromApi(options = {}) {
     if (!wid) continue;
     const wtitle = w.title || w.name || t("workflow", getLanguage());
     let threads = [];
+    let projectGroups = [];
     try {
       await workflowApi.commsBootstrap(wid);
       const list = await workflowApi.listThreads(wid);
       threads = Array.isArray(list) ? list : [];
+      const groups = await workflowApi.listProjectGroups(wid);
+      projectGroups = Array.isArray(groups) ? groups : [];
     } catch {
       threads = [];
+      projectGroups = [];
     }
     for (const th of threads) {
       const tid = pickId(th) || th.threadId;
@@ -56,6 +60,17 @@ export async function listCommsInboxFromApi(options = {}) {
         workflowTitle: wtitle,
         threadId: tid,
         threadTitle: th.title || th.name || th.topic || t("thread_default", getLanguage()),
+      });
+    }
+    for (const g of projectGroups) {
+      const gid = pickId(g) || g.groupId || g.id;
+      if (!gid) continue;
+      threadRows.push({
+        workflowId: wid,
+        workflowTitle: wtitle,
+        threadId: gid,
+        threadTitle: g.title || g.name || t("thread_default", getLanguage()),
+        kind: "PROJECT_GROUP",
       });
     }
   }
@@ -74,7 +89,9 @@ export async function listCommsInboxFromApi(options = {}) {
         sender: "remote",
       };
       try {
-        const msgs = await workflowApi.listMessages(r.workflowId, r.threadId);
+        const msgs = r.kind === "PROJECT_GROUP"
+          ? await workflowApi.listProjectGroupMessages(r.workflowId, r.threadId, { limit: 200 })
+          : await workflowApi.listMessages(r.workflowId, r.threadId);
         const arr = Array.isArray(msgs) ? msgs : [];
         const sorted = [...arr].sort((a, b) => messageSortKey(a) - messageSortKey(b));
         const last = sorted.length ? sorted[sorted.length - 1] : null;
@@ -84,6 +101,7 @@ export async function listCommsInboxFromApi(options = {}) {
         const tIso = time || new Date(0).toISOString();
         return {
           ...base,
+          kind: r.kind || "THREAD",
           content: body || t("comms_no_message", getLanguage()),
           time: tIso,
           read: isThreadRead(r.workflowId, r.threadId, tIso),
@@ -92,6 +110,7 @@ export async function listCommsInboxFromApi(options = {}) {
       } catch {
         return {
           ...base,
+          kind: r.kind || "THREAD",
           content: t("comms_load_failed", getLanguage()),
           time: new Date(0).toISOString(),
           read: true,

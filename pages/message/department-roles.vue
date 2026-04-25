@@ -74,15 +74,17 @@
 
 <script>
 	import NavBackClick from "@/components/NavBackClick.vue";
-	import { listMyUserAgents } from "@/clientApi/agentsApi";
+	import { listMyUserAgents, listUserAgentDepartments } from "@/clientApi/agentsApi";
 	import { getApiErrorMessage } from "@/utils/apiHelpers";
 	import { t, getLanguage } from "@/utils/lang";
+	import { agentNameToZh, departmentToZh, normalizeDeptKey, roleToZh } from "@/utils/agentDisplayZh";
 	export default {
 		components: { NavBackClick },
 		data() {
 			return {
 				slug: "",
 				rows: [],
+				departmentMap: {},
 				statusBarPx: 20,
 				pageTitle: "",
 			};
@@ -98,7 +100,7 @@
 			} catch {
 				navTitle = rawTitle || navTitle;
 			}
-			this.pageTitle = navTitle;
+			this.pageTitle = departmentToZh(navTitle);
 			this.reloadRows();
 			try {
 				uni.setNavigationBarTitle({ title: this.pageTitle });
@@ -134,17 +136,19 @@
 			},
 			async reloadRows() {
 				try {
+					await this.loadDepartmentMap();
 					const list = await listMyUserAgents();
 					const rows = Array.isArray(list) ? list : [];
-					const slugLower = String(this.slug || "").trim().toLowerCase();
-					const titleLower = String(this.pageTitle || "").trim().toLowerCase();
+					const slugLower = normalizeDeptKey(this.slug);
+					const titleLower = normalizeDeptKey(this.pageTitle);
 					this.rows = rows.filter((r) => {
-						const dept = String(r?.department || "").trim().toLowerCase();
+						const dept = normalizeDeptKey(r?.department);
+						const deptZh = normalizeDeptKey(departmentToZh(r?.department, this.departmentMap));
 						if (!dept) return false;
-						if (slugLower && dept === slugLower) return true;
-						if (titleLower && dept === titleLower) return true;
-						if (slugLower && dept.includes(slugLower)) return true;
-						if (titleLower && dept.includes(titleLower)) return true;
+						if (slugLower && (dept === slugLower || deptZh === slugLower)) return true;
+						if (titleLower && (dept === titleLower || deptZh === titleLower)) return true;
+						if (slugLower && (dept.includes(slugLower) || deptZh.includes(slugLower))) return true;
+						if (titleLower && (dept.includes(titleLower) || deptZh.includes(titleLower))) return true;
 						return false;
 					});
 				} catch (e) {
@@ -152,11 +156,33 @@
 					uni.showToast({ title: getApiErrorMessage(e) || "加载部门角色失败", icon: "none" });
 				}
 			},
+			async loadDepartmentMap() {
+				try {
+					const rows = await listUserAgentDepartments();
+					const map = {};
+					(Array.isArray(rows) ? rows : []).forEach((item) => {
+						if (typeof item === "string") {
+							const n = item.trim();
+							if (!n) return;
+							map[normalizeDeptKey(n)] = departmentToZh(n);
+							return;
+						}
+						const id = String(item?.id || "").trim();
+						const name = String(item?.name || "").trim();
+						if (id) map[normalizeDeptKey(id)] = departmentToZh(name || id);
+						if (name) map[normalizeDeptKey(name)] = departmentToZh(name);
+					});
+					this.departmentMap = map;
+				} catch {
+					this.departmentMap = {};
+				}
+			},
 			displayTitle(row) {
-				return row?.displayName || row?.name || "未命名 Agent";
+				const raw = String(row?.displayName || row?.name || "").trim();
+				return agentNameToZh(raw) || "未命名员工";
 			},
 			snippetPreview(row) {
-				const role = row?.jobTitle || row?.rolePosition || "未设置职位";
+				const role = roleToZh(row?.jobTitle || row?.rolePosition || "") || "未设置职位";
 				const main = row?.mainWork ? ` · ${String(row.mainWork).slice(0, 24)}` : "";
 				return `${role}${main}`;
 			},

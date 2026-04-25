@@ -58,6 +58,20 @@ export async function createUserAgent(body) {
 	return unwrapData(r);
 }
 
+/** 从素材库一键生成用户 Agent */
+export async function createUserAgentFromMaterialLibrary({ materialLibraryId, displayName } = {}) {
+	const id = String(materialLibraryId || "").trim();
+	if (!id) throw new Error("materialLibraryId 不能为空");
+	const body = { materialLibraryId: id };
+	const name = String(displayName || "").trim();
+	if (name) body.displayName = name;
+	const r = await request.post("/api/user-agents/from-material-library", body, {
+		needAuth: true,
+		header: { "Content-Type": "application/json" },
+	});
+	return unwrapData(r);
+}
+
 /** AI 生成 Agent 草稿 */
 export async function draftUserAgentByAI(brief) {
 	const r = await request.post("/api/user-agents/ai-draft", { brief }, {

@@ -4,6 +4,17 @@
 			<text class="hero-title">{{ screenTitle }}</text>
 			<text class="hero-sub">{{ t('workbench_id_label') }}{{ workflowId || "-" }}</text>
 		</view>
+		<scroll-view scroll-x class="project-strip" show-scrollbar="false">
+			<view
+				v-for="w in workflowNavList"
+				:key="workflowKey(w)"
+				class="project-chip"
+				:class="{ active: workflowKey(w) === workflowId }"
+				@click="openWorkflowFromNav(w)"
+			>
+				<text class="project-chip-t">{{ workflowTitle(w) }}</text>
+			</view>
+		</scroll-view>
 
 		<view class="seg">
 			<view v-for="tab in mainTabs" :key="tab.key" class="seg-item" :class="{ on: mainTab === tab.key }" @click="mainTab = tab.key">
@@ -76,6 +87,7 @@
 				<view class="subseg">
 					<text class="subseg-item" :class="{ on: threadKind === 'INTERNAL' }" @click="threadKind = 'INTERNAL'">{{ t('internal') }}</text>
 					<text class="subseg-item" :class="{ on: threadKind === 'CUSTOMER' }" @click="threadKind = 'CUSTOMER'">{{ t('customer') }}</text>
+					<text class="subseg-item" :class="{ on: threadKind === 'PROJECT_GROUP' }" @click="threadKind = 'PROJECT_GROUP'">项目群</text>
 				</view>
 				<button class="mini" size="mini" @click="openCreateThread">{{ t('create') }}{{ t('thread_default') }}</button>
 				<button class="mini" size="mini" @click="ensureBootstrap">{{ t('initialize_thread') }}</button>
@@ -93,6 +105,19 @@
 					<text class="thread-chip-t">{{ threadTitle(th) }}</text>
 				</view>
 			</scroll-view>
+			<view v-if="threadKind === 'PROJECT_GROUP' && selectedThreadId" class="pg-members">
+				<text class="pg-members-title">群成员</text>
+				<view v-if="!projectGroupMembers.length" class="pg-members-empty">暂无成员信息</view>
+				<scroll-view v-else scroll-x class="pg-members-strip" show-scrollbar="false">
+					<view
+						v-for="m in projectGroupMembers"
+						:key="`${m.type || 'X'}-${m.id || m.label}`"
+						class="pg-member-chip"
+					>
+						<text class="pg-member-chip-t">{{ projectGroupMemberLabel(m) }}</text>
+					</view>
+				</scroll-view>
+			</view>
 
 			<view v-if="!selectedThreadId" class="empty-inline">{{ t('select_thread_or_initialize') }}</view>
 
@@ -108,7 +133,7 @@
 						<text v-if="msgToTask(m)" class="linkish" @click="highlightTask(msgToTask(m))">{{ t('to_task') }} {{ shortId(msgToTask(m)) }}</text>
 					</view>
 					<view class="msg-actions">
-						<text class="link" @click="openLinkTask(m)">{{ t('link_task') }}</text>
+						<text v-if="threadKind !== 'PROJECT_GROUP'" class="link" @click="openLinkTask(m)">{{ t('link_task') }}</text>
 					</view>
 				</view>
 			</view>
@@ -146,7 +171,14 @@
 			</view>
 			<view class="blk">
 				<text class="blk-title">{{ t('relationship_edges') }}</text>
-				<text v-for="(e, idx) in graphEdges" :key="idx" class="edge-line">{{ edgeLabel(e) }}</text>
+				<view v-if="!graphEdges.length" class="empty-inline">暂无关系边数据</view>
+				<view v-for="(e, idx) in graphEdges" :key="idx" class="edge-card">
+					<view class="edge-top">
+						<text class="edge-tag">{{ edgeTypeLabel(e) }}</text>
+						<text class="edge-time">{{ eventTime(e) || "刚刚" }}</text>
+					</view>
+					<text class="edge-main">{{ edgeRouteLabel(e) }}</text>
+				</view>
 			</view>
 			<view class="tail-gap" />
 		</scroll-view>
@@ -156,36 +188,40 @@
 			<button class="refresh" size="mini" @click="loadEvents">{{ t('refresh_feed') }}</button>
 			<view v-if="events.length === 0" class="empty-inline">{{ t('no_events') }}</view>
 			<view v-for="(ev, idx) in events" :key="idx" class="ev">
+				<view class="ev-top">
+					<text class="ev-badge">{{ eventTypeLabel(ev) }}</text>
+					<text class="ev-time">{{ eventTime(ev) }}</text>
+				</view>
 				<text class="ev-t">{{ eventText(ev) }}</text>
-				<text class="ev-time">{{ eventTime(ev) }}</text>
+				<text v-if="eventDetailText(ev)" class="ev-sub">{{ eventDetailText(ev) }}</text>
 			</view>
 			<view class="tail-gap" />
 		</scroll-view>
 
 		<!-- 下发指令 -->
-		<view v-if="showCommand" class="mask" @click.self="showCommand = false">
-			<view class="dialog lg" @click.stop>
+		<view v-if="showCommand" class="mask mask-center" @click.self="showCommand = false">
+			<view class="dialog lg cmd-dialog" @click.stop>
 				<text class="dialog-title">{{ t('issue_command') }}</text>
 				<picker mode="selector" :range="deptLabels" @change="onCmdSource">
-					<view class="picker-line">{{ t('source_department') }}：{{ deptLabels[cmdSourceIdx] }}</view>
+					<view class="cmd-picker-line">{{ t('source_department') }}：{{ deptLabels[cmdSourceIdx] }}</view>
 				</picker>
 				<picker mode="selector" :range="deptLabels" @change="onCmdTarget">
-					<view class="picker-line">{{ t('target_department') }}：{{ deptLabels[cmdTargetIdx] }}</view>
+					<view class="cmd-picker-line">{{ t('target_department') }}：{{ deptLabels[cmdTargetIdx] }}</view>
 				</picker>
 				<picker mode="selector" :range="levelLabels" @change="onCmdLevel">
-					<view class="picker-line">{{ t('hierarchy_level') }}：{{ levelLabels[cmdLevelIdx] }}</view>
+					<view class="cmd-picker-line">{{ t('hierarchy_level') }}：{{ levelLabels[cmdLevelIdx] }}</view>
 				</picker>
-				<textarea class="ta" v-model="cmdBody" :placeholder="t('command_body_required')" />
-				<input class="inp" v-model="cmdTaskTitle" :placeholder="t('generate_task_title_optional')" />
+				<textarea class="cmd-ta" v-model="cmdBody" :placeholder="t('command_body_required')" />
+				<input class="cmd-inp" v-model="cmdTaskTitle" :placeholder="t('generate_task_title_optional')" />
 				<picker mode="selector" :range="taskPickLabels" @change="onCmdParent">
-					<view class="picker-line">{{ t('parent_task') }}：{{ taskPickLabels[cmdParentIdx] }}</view>
+					<view class="cmd-picker-line">{{ t('parent_task') }}：{{ taskPickLabels[cmdParentIdx] }}</view>
 				</picker>
 				<picker mode="selector" :range="taskPickLabels" @change="onCmdDepend">
-					<view class="picker-line">{{ t('dependent_task') }}：{{ taskPickLabels[cmdDependIdx] }}</view>
+					<view class="cmd-picker-line">{{ t('dependent_task') }}：{{ taskPickLabels[cmdDependIdx] }}</view>
 				</picker>
-				<view class="dialog-actions">
-					<button class="btn ghost" @click="showCommand = false">{{ t('cancel') }}</button>
-					<button class="btn primary" type="primary" :loading="cmdLoading" @click="submitCommand">{{ t('submit') }}</button>
+				<view class="dialog-actions cmd-actions">
+					<button class="btn ghost cmd-btn" @click="showCommand = false">{{ t('cancel') }}</button>
+					<button class="btn primary cmd-btn" type="primary" :loading="cmdLoading" @click="submitCommand">{{ t('submit') }}</button>
 				</view>
 			</view>
 		</view>
@@ -276,6 +312,7 @@
 		data() {
 			return {
 				workflowId: "",
+				workflowNavList: [],
 				meta: null,
 				mainTab: "tasks",
 				taskView: "dept",
@@ -316,6 +353,7 @@
 				showCreateThread: false,
 				newThreadTitle: "",
 				creatingThread: false,
+				projectGroupMembers: [],
 				linkMsg: null,
 				linkTaskIndex: 0,
 				linkLoading: false,
@@ -432,6 +470,7 @@
 		watch: {
 			async threadKind() {
 				await this.loadThreads();
+				this.projectGroupMembers = [];
 				const ids = new Set(this.filteredThreads.map((th) => this.threadKey(th)));
 				if (this.selectedThreadId && ids.has(this.selectedThreadId)) {
 					return;
@@ -442,15 +481,71 @@
 					this.selectThread(this.filteredThreads[0]);
 				}
 			},
+			async selectedThreadId() {
+				if ((this.threadKind || "").toUpperCase() === "PROJECT_GROUP") {
+					await this.loadProjectGroupMembers();
+				} else {
+					this.projectGroupMembers = [];
+				}
+			},
 		},
 		methods: {
 			t(key, params = {}) {
 				return t(key, getLanguage(), params);
 			},
+			workflowKey(w) {
+				return pickId(w) || w?.workflowId || "";
+			},
+			workflowTitle(w) {
+				return w?.title || w?.name || this.t("unnamed_workflow");
+			},
 			shortId(id) {
 				if (!id) return "-";
 				const s = String(id);
 				return s.length > 8 ? `${s.slice(0, 6)}…` : s;
+			},
+			async loadWorkflowNavList() {
+				try {
+					const list = await workflowApi.listWorkflows();
+					const arr = Array.isArray(list) ? list : [];
+					const hasCurrent = arr.some((w) => this.workflowKey(w) === this.workflowId);
+					if (!hasCurrent && this.workflowId) {
+						arr.unshift({
+							id: this.workflowId,
+							workflowId: this.workflowId,
+							title: this.screenTitle && this.screenTitle !== this.t("workbench") ? this.screenTitle : this.workflowId,
+						});
+					}
+					this.workflowNavList = arr.filter((w, i, xs) => {
+						const id = this.workflowKey(w);
+						return id && xs.findIndex((x) => this.workflowKey(x) === id) === i;
+					});
+				} catch {
+					if (this.workflowId) {
+						this.workflowNavList = [
+							{
+								id: this.workflowId,
+								workflowId: this.workflowId,
+								title: this.screenTitle && this.screenTitle !== this.t("workbench") ? this.screenTitle : this.workflowId,
+							},
+						];
+					} else {
+						this.workflowNavList = [];
+					}
+				}
+			},
+			openWorkflowFromNav(w) {
+				const id = this.workflowKey(w);
+				if (!id || id === this.workflowId) return;
+				try {
+					uni.setStorageSync("lastWorkflowId", id);
+					uni.setStorageSync("lastWorkflowTitle", this.workflowTitle(w));
+				} catch {
+					//
+				}
+				uni.redirectTo({
+					url: `/pages/workflow/workbench?id=${encodeURIComponent(id)}`,
+				});
 			},
 			async bootstrapPage() {
 				await workflowApi.commsBootstrap(this.workflowId);
@@ -468,7 +563,13 @@
 				if (this.screenTitle && this.screenTitle !== this.t("workbench")) {
 					uni.setNavigationBarTitle({ title: this.screenTitle });
 				}
-				await Promise.all([this.loadTasks(), this.loadThreads(), this.loadGraph(), this.loadEvents()]);
+				await Promise.all([
+					this.loadWorkflowNavList(),
+					this.loadTasks(),
+					this.loadThreads(),
+					this.loadGraph(),
+					this.loadEvents(),
+				]);
 				if (!this.selectedThreadId && this.filteredThreads.length > 0) {
 					this.selectThread(this.filteredThreads[0]);
 				}
@@ -513,7 +614,9 @@
 			},
 			async loadThreads() {
 				try {
-					const list = await workflowApi.listThreads(this.workflowId, { kind: this.threadKind });
+					const list = this.threadKind === "PROJECT_GROUP"
+						? await workflowApi.listProjectGroups(this.workflowId)
+						: await workflowApi.listThreads(this.workflowId, { kind: this.threadKind });
 					this.threads = Array.isArray(list) ? list : [];
 				} catch {
 					this.threads = [];
@@ -525,10 +628,24 @@
 					return;
 				}
 				try {
-					const list = await workflowApi.listMessages(this.workflowId, this.selectedThreadId, { limit: 200 });
+					const list = this.threadKind === "PROJECT_GROUP"
+						? await workflowApi.listProjectGroupMessages(this.workflowId, this.selectedThreadId, { limit: 200 })
+						: await workflowApi.listMessages(this.workflowId, this.selectedThreadId, { limit: 200 });
 					this.messages = Array.isArray(list) ? list : [];
 				} catch {
 					this.messages = [];
+				}
+			},
+			async loadProjectGroupMembers() {
+				if ((this.threadKind || "").toUpperCase() !== "PROJECT_GROUP" || !this.selectedThreadId) {
+					this.projectGroupMembers = [];
+					return;
+				}
+				try {
+					const list = await workflowApi.listProjectGroupMembers(this.workflowId, this.selectedThreadId);
+					this.projectGroupMembers = Array.isArray(list) ? list : [];
+				} catch {
+					this.projectGroupMembers = [];
 				}
 			},
 			async loadGraph() {
@@ -700,10 +817,16 @@
 				}
 			},
 			threadKey(th) {
-				return pickId(th) || th.threadId || "";
+				return pickId(th) || th.threadId || th.groupId || "";
 			},
 			threadTitle(th) {
 				return th.title || th.name || th.topic || this.t("thread_default");
+			},
+			projectGroupMemberLabel(m) {
+				const type = String(m?.type || "").toUpperCase();
+				const dep = m?.department ? ` · ${m.department}` : "";
+				if (type === "ROLE") return `${m?.label || m?.id || "负责人"}${dep}`;
+				return `${m?.label || m?.id || "成员"}${dep}`;
 			},
 			selectThread(th) {
 				const id = this.threadKey(th);
@@ -790,7 +913,11 @@
 				}
 				this.sendingMsg = true;
 				try {
-					await workflowApi.sendMessage(this.workflowId, this.selectedThreadId, payload);
+					if (this.threadKind === "PROJECT_GROUP") {
+						await workflowApi.sendProjectGroupMessage(this.workflowId, this.selectedThreadId, payload);
+					} else {
+						await workflowApi.sendMessage(this.workflowId, this.selectedThreadId, payload);
+					}
 					this.draftMsg = "";
 					uni.showToast({ title: this.t('sent'), icon: "success" });
 					await this.loadMessages();
@@ -854,11 +981,13 @@
 				const title = (this.newThreadTitle || "").trim();
 				this.creatingThread = true;
 				try {
-					const payload = {
-						kind: this.threadKind,
-						title: title || `${this.t("thread_default")} ${new Date().toLocaleTimeString()}`,
-					};
-					const created = await workflowApi.createThread(this.workflowId, payload);
+					const defaultTitle = `${this.t("thread_default")} ${new Date().toLocaleTimeString()}`;
+					const created = this.threadKind === "PROJECT_GROUP"
+						? await workflowApi.createProjectGroup(this.workflowId, { title: title || defaultTitle })
+						: await workflowApi.createThread(this.workflowId, {
+							kind: this.threadKind,
+							title: title || defaultTitle,
+						});
 					await this.loadThreads();
 					this.showCreateThread = false;
 					this.newThreadTitle = "";
@@ -928,11 +1057,73 @@
 				const rel = e.relation || e.type || e.kind || "link";
 				return `${rel}: ${this.shortId(from)} → ${this.shortId(to)}`;
 			},
+			edgeTypeLabel(e) {
+				const rel = String(e?.relation || e?.type || e?.kind || "LINK").toUpperCase();
+				if (rel.includes("COMMAND")) return "指令下发";
+				if (rel.includes("ASSIGN")) return "任务分配";
+				if (rel.includes("COLLAB")) return "协作关系";
+				if (rel.includes("DEPEND")) return "依赖关系";
+				return "关系连线";
+			},
+			edgeRouteLabel(e) {
+				const from =
+					e?.fromDepartment ||
+					e?.fromDept ||
+					e?.sourceDepartment ||
+					e?.sourceDept ||
+					this.shortId(e?.from || e?.source || e?.fromId || e?.sourceId) ||
+					"-";
+				const to =
+					e?.toDepartment ||
+					e?.toDept ||
+					e?.targetDepartment ||
+					e?.targetDept ||
+					this.shortId(e?.to || e?.target || e?.toId || e?.targetId) ||
+					"-";
+				return `${from} → ${to}`;
+			},
+			eventTypeLabel(ev) {
+				const type = String(ev?.type || ev?.eventType || ev?.action || "EVENT").toUpperCase();
+				if (type.includes("WORKFLOW_CREATED")) return "工作流创建";
+				if (type.includes("COMMAND_ISSUED")) return "指令已下发";
+				if (type.includes("TASK_ASSIGNED")) return "任务已分配";
+				if (type.includes("COLLAB_EDGE")) return "协作关系更新";
+				if (type.includes("TASK")) return "任务变更";
+				return "系统动态";
+			},
 			eventText(ev) {
-				return ev.type || ev.eventType || ev.action || JSON.stringify(ev).slice(0, 120);
+				const raw = String(ev?.type || ev?.eventType || ev?.action || "").toUpperCase();
+				const from = ev?.fromDepartment || ev?.fromDept || "";
+				const to = ev?.toDepartment || ev?.toDept || "";
+				if (raw.includes("WORKFLOW_CREATED")) return "已创建新的工作流";
+				if (raw.includes("COMMAND_ISSUED")) return from && to ? `已从 ${from} 向 ${to} 下发指令` : "已下发新的协作指令";
+				if (raw.includes("TASK_ASSIGNED")) return "已生成并分配任务";
+				if (raw.includes("COLLAB_EDGE")) return from && to ? `${from} 与 ${to} 建立协作连接` : "协作关系已更新";
+				return raw || "系统发生了一条新动态";
+			},
+			eventDetailText(ev) {
+				const text =
+					ev?.commandText ||
+					ev?.brief ||
+					ev?.title ||
+					ev?.message ||
+					ev?.detail ||
+					ev?.description ||
+					"";
+				return String(text).trim().slice(0, 80);
 			},
 			eventTime(ev) {
-				return ev.createdAt || ev.time || ev.timestamp || "";
+				const v = ev?.createdAt || ev?.time || ev?.timestamp || "";
+				if (!v) return "";
+				const d = new Date(v);
+				if (!Number.isNaN(d.getTime())) {
+					const mm = String(d.getMonth() + 1).padStart(2, "0");
+					const dd = String(d.getDate()).padStart(2, "0");
+					const hh = String(d.getHours()).padStart(2, "0");
+					const mi = String(d.getMinutes()).padStart(2, "0");
+					return `${mm}-${dd} ${hh}:${mi}`;
+				}
+				return String(v);
 			},
 		},
 	};
@@ -961,6 +1152,39 @@
 		font-size: 22rpx;
 		color: #98a2b3;
 		word-break: break-all;
+	}
+
+	.project-strip {
+		white-space: nowrap;
+		padding: 0 20rpx 12rpx;
+		box-sizing: border-box;
+	}
+
+	.project-chip {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		height: 62rpx;
+		padding: 0 22rpx;
+		margin-right: 12rpx;
+		border-radius: 999rpx;
+		background: #ffffff;
+		border: 1rpx solid #dbe3ef;
+	}
+
+	.project-chip.active {
+		background: #e8f0ff;
+		border-color: #7aa2ff;
+	}
+
+	.project-chip-t {
+		max-width: 280rpx;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		font-size: 24rpx;
+		font-weight: 600;
+		color: #334155;
 	}
 
 	.seg {
@@ -1155,6 +1379,43 @@
 		margin-bottom: 16rpx;
 	}
 
+	.pg-members {
+		margin-bottom: 14rpx;
+	}
+
+	.pg-members-title {
+		display: block;
+		font-size: 22rpx;
+		font-weight: 700;
+		color: #475569;
+		margin-bottom: 8rpx;
+	}
+
+	.pg-members-empty {
+		font-size: 22rpx;
+		color: #94a3b8;
+	}
+
+	.pg-members-strip {
+		white-space: nowrap;
+	}
+
+	.pg-member-chip {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		padding: 10rpx 16rpx;
+		margin-right: 10rpx;
+		background: #eff6ff;
+		border: 1rpx solid #bfdbfe;
+		border-radius: 999rpx;
+	}
+
+	.pg-member-chip-t {
+		font-size: 22rpx;
+		color: #1e40af;
+	}
+
 	.thread-chip {
 		display: inline-flex;
 		padding: 12rpx 18rpx;
@@ -1312,12 +1573,63 @@
 		border-bottom: 1rpx solid #f1f5f9;
 	}
 
+	.edge-card {
+		background: #ffffff;
+		border: 1rpx solid #e5edf8;
+		border-radius: 14rpx;
+		padding: 14rpx;
+		margin-bottom: 10rpx;
+		box-shadow: 0 4rpx 14rpx rgba(15, 23, 42, 0.05);
+	}
+
+	.edge-top {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		margin-bottom: 6rpx;
+	}
+
+	.edge-tag {
+		font-size: 20rpx;
+		color: #1d4ed8;
+		background: #e8f0ff;
+		padding: 4rpx 10rpx;
+		border-radius: 999rpx;
+	}
+
+	.edge-time {
+		font-size: 20rpx;
+		color: #94a3b8;
+	}
+
+	.edge-main {
+		font-size: 24rpx;
+		color: #334155;
+		font-weight: 600;
+	}
+
 	.ev {
 		background: #fff;
-		padding: 14rpx;
+		padding: 14rpx 16rpx;
 		border-radius: 12rpx;
 		margin-bottom: 10rpx;
 		border: 1rpx solid #e8ecf3;
+		box-shadow: 0 4rpx 14rpx rgba(15, 23, 42, 0.05);
+	}
+
+	.ev-top {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		margin-bottom: 8rpx;
+	}
+
+	.ev-badge {
+		font-size: 20rpx;
+		color: #0369a1;
+		background: #e0f2fe;
+		padding: 4rpx 10rpx;
+		border-radius: 999rpx;
 	}
 
 	.ev-t {
@@ -1329,8 +1641,14 @@
 	.ev-time {
 		font-size: 20rpx;
 		color: #94a3b8;
-		margin-top: 6rpx;
 		display: block;
+	}
+
+	.ev-sub {
+		display: block;
+		margin-top: 6rpx;
+		font-size: 22rpx;
+		color: #64748b;
 	}
 
 	.refresh {
@@ -1354,7 +1672,7 @@
 		right: 0;
 		top: 0;
 		bottom: 0;
-		background: rgba(15, 23, 42, 0.45);
+		background: rgba(15, 23, 42, 0.5);
 		z-index: 10050;
 		display: flex;
 		align-items: flex-end;
@@ -1364,25 +1682,45 @@
 		box-sizing: border-box;
 	}
 
+	.mask-center {
+		align-items: center;
+		padding: 24rpx;
+		padding-bottom: calc(24rpx + env(safe-area-inset-bottom));
+	}
+
 	.dialog {
 		width: 100%;
-		background: #fff;
-		border-radius: 22rpx;
-		padding: 24rpx;
+		background: #ffffff !important;
+		background-color: #ffffff !important;
+		opacity: 1 !important;
+		border-radius: 24rpx 24rpx 20rpx 20rpx;
+		padding: 28rpx 24rpx 22rpx;
 		box-sizing: border-box;
 		max-height: 85vh;
 		overflow: auto;
+		box-shadow: 0 28rpx 70rpx rgba(15, 23, 42, 0.24);
+		position: relative;
+		z-index: 1;
+		backdrop-filter: none;
+		-webkit-backdrop-filter: none;
 	}
 
 	.dialog.lg {
 		max-height: 90vh;
 	}
 
+	.cmd-dialog {
+		border: 1rpx solid #dbe7ff;
+		max-height: 84vh;
+		background: #ffffff !important;
+		background-color: #ffffff !important;
+	}
+
 	.dialog-title {
 		font-size: 32rpx;
 		font-weight: 800;
 		color: #0f172a;
-		margin-bottom: 12rpx;
+		margin-bottom: 16rpx;
 	}
 
 	.dlg-sub {
@@ -1394,11 +1732,11 @@
 
 	.inp {
 		width: 100%;
-		height: 76rpx;
-		border: 1rpx solid #e2e8f0;
-		border-radius: 12rpx;
-		padding: 0 16rpx;
-		margin-bottom: 12rpx;
+		height: 80rpx;
+		border: 1rpx solid #dbe3ef;
+		border-radius: 14rpx;
+		padding: 0 18rpx;
+		margin-bottom: 14rpx;
 		font-size: 26rpx;
 		box-sizing: border-box;
 		background: #f8fafc;
@@ -1406,25 +1744,83 @@
 
 	.dialog-actions {
 		display: flex;
-		justify-content: flex-end;
+		justify-content: space-between;
 		gap: 14rpx;
-		margin-top: 16rpx;
+		margin-top: 18rpx;
 	}
 
 	.btn {
-		min-width: 160rpx;
-		height: 72rpx;
-		line-height: 72rpx;
+		flex: 1;
+		min-width: 0;
+		height: 80rpx;
+		line-height: 80rpx;
 		font-size: 28rpx;
-		border-radius: 12rpx;
+		border-radius: 14rpx;
+		font-weight: 700;
 	}
 
 	.btn.ghost {
-		background: #f1f5f9;
+		background: #f1f5f9 !important;
 		color: #334155;
+		border: 1rpx solid #dbe3ef;
 	}
 
 	.btn.primary {
 		padding: 0 28rpx;
+		background: linear-gradient(135deg, #5b8cff, #6478ff) !important;
+		border: none !important;
+		box-shadow: 0 10rpx 24rpx rgba(91, 140, 255, 0.36);
+	}
+
+	.btn::after {
+		border: none !important;
+	}
+
+	.cmd-picker-line {
+		font-size: 24rpx;
+		color: #334155;
+		padding: 16rpx 12rpx;
+		border: 1rpx solid #dbe3ef;
+		border-radius: 12rpx;
+		background: #ffffff !important;
+		margin-bottom: 10rpx;
+	}
+
+	.cmd-ta {
+		width: 100%;
+		min-height: 180rpx;
+		border: 1rpx solid #dbe3ef;
+		border-radius: 14rpx;
+		padding: 14rpx;
+		margin-top: 8rpx;
+		margin-bottom: 12rpx;
+		font-size: 26rpx;
+		box-sizing: border-box;
+		background: #ffffff !important;
+		background-color: #ffffff !important;
+		opacity: 1 !important;
+	}
+
+	.cmd-inp {
+		width: 100%;
+		height: 80rpx;
+		border: 1rpx solid #dbe3ef;
+		border-radius: 14rpx;
+		padding: 0 18rpx;
+		margin-bottom: 14rpx;
+		font-size: 26rpx;
+		box-sizing: border-box;
+		background: #ffffff !important;
+		background-color: #ffffff !important;
+		opacity: 1 !important;
+	}
+
+	.cmd-actions {
+		margin-top: 10rpx;
+	}
+
+	.cmd-btn {
+		height: 78rpx;
+		line-height: 78rpx;
 	}
 </style>

@@ -165,15 +165,6 @@
 	import { listMyUserAgents } from "@/clientApi/agentsApi";
 	import { getApiErrorMessage } from "@/utils/apiHelpers";
 	import { t, getLanguage } from "@/utils/lang";
-	import {
-		getDailyBriefing,
-		buildMessageFeedRows,
-		loadProjectGroups,
-		loadDigitalAgents,
-		displayGroupName,
-		formatAgentNavTitle,
-		MANAGER_ID,
-	} from "@/utils/virtualTeamStore";
 	import { loadUnifiedConversationList } from "@/utils/conversationInbox";
 	import {
 		buildMessageDepartmentBlocks,
@@ -183,6 +174,7 @@
 		setHiddenDepartments,
 		FALLBACK_ICON,
 	} from "@/utils/messageDepartmentConfig";
+	import { departmentToZh, normalizeDeptKey } from "@/utils/agentDisplayZh";
 
 	export default {
 		components: { AppTabBar },
@@ -211,6 +203,9 @@
 				addingDept: false,
 				listReqId: 0,
 				lastLoadedAt: 0,
+				lastSuccessFeedRows: [],
+				departmentMap: {},
+				apiDepartmentRows: [],
 			};
 		},
 		onLoad() {
@@ -236,10 +231,60 @@
 				return t(key, getLanguage(), params);
 			},
 			rebuildDepartmentBlocks() {
-				this.departmentBlocks = buildMessageDepartmentBlocks();
+				const preset = buildMessageDepartmentBlocks().map((b) => {
+					const title = departmentToZh(b.title || b.slug, this.departmentMap);
+					return { ...b, title };
+				});
+				const existed = new Set(
+					preset.map((b) => this.normalizeDeptText(b.slug)).filter(Boolean)
+				);
+				const extras = (this.apiDepartmentRows || [])
+					.map((d) => {
+						const slug = String(d.slug || "").trim();
+						if (!slug) return null;
+						const key = this.normalizeDeptText(slug);
+						if (!key || existed.has(key)) return null;
+						return {
+							slug,
+							agentDeptId: "",
+							title: departmentToZh(d.name || slug, this.departmentMap),
+							desc: "",
+							count: 0,
+							icon: FALLBACK_ICON,
+							isCustom: true,
+						};
+					})
+					.filter(Boolean);
+				this.departmentBlocks = [...preset, ...extras];
 			},
 			normalizeDeptText(v) {
-				return String(v || "").trim().toLowerCase().replace(/\s+/g, "");
+				return normalizeDeptKey(v);
+			},
+			async loadDepartmentMap() {
+				try {
+					const list = await agentsApi.listUserAgentDepartments();
+					const map = {};
+					const apiRows = [];
+					(Array.isArray(list) ? list : []).forEach((item) => {
+						if (typeof item === "string") {
+							const n = item.trim();
+							if (!n) return;
+							map[normalizeDeptKey(n)] = departmentToZh(n);
+							apiRows.push({ slug: n, name: n });
+							return;
+						}
+						const id = String(item?.id || "").trim();
+						const name = String(item?.name || "").trim();
+						if (id) map[normalizeDeptKey(id)] = departmentToZh(name || id);
+						if (name) map[normalizeDeptKey(name)] = departmentToZh(name);
+						if (name || id) apiRows.push({ slug: name || id, name: name || id });
+					});
+					this.departmentMap = map;
+					this.apiDepartmentRows = apiRows;
+				} catch {
+					this.departmentMap = {};
+					this.apiDepartmentRows = [];
+				}
 			},
 			async refreshDepartmentCounts() {
 				try {
@@ -275,19 +320,17 @@
 				const reqId = ++this.listReqId;
 				this.loading = force ? true : this.feedRows.length === 0;
 				try {
-					// 先用本地数据秒开页面，远程会话异步补充
-					this.briefing = getDailyBriefing();
+					await this.loadDepartmentMap();
 					this.rebuildDepartmentBlocks();
 					this.refreshDepartmentCounts();
-					const baseFeed = buildMessageFeedRows().filter((r) => r.rowKind !== "daily_agent");
-					this.feedRows = baseFeed;
+					// 会话列表仅使用后端真实数据；请求中不再穿插本地演示会话
+					this.feedRows = this.lastSuccessFeedRows.length ? this.lastSuccessFeedRows : [];
 					this.loading = false;
 
-					let mapped = [];
-					try {
-						const unified = await loadUnifiedConversationList();
-						const extra = unified.filter((u) => u.convType === "workflow" || u.convType === "local");
-						mapped = extra.map((u) => ({
+					const unified = await loadUnifiedConversationList();
+					const mapped = (Array.isArray(unified) ? unified : [])
+						.filter((u) => u.convType === "workflow")
+						.map((u) => ({
 							id: u.id,
 							rowKind: "unified",
 							convType: u.convType,
@@ -295,19 +338,18 @@
 							subtitle: u.subtitle || "",
 							time: u.time,
 							unread: u.unread || 0,
-							badge: "",
+							badge: u?.navigate?.kind === "PROJECT_GROUP" ? "项目群" : "",
 							navigate: u.navigate,
 						}));
-					} catch (e2) {
-						console.warn("[message] unified inbox", e2);
-					}
 					if (reqId !== this.listReqId) return;
-					this.feedRows = [...baseFeed, ...mapped];
+					this.feedRows = mapped;
+					this.lastSuccessFeedRows = mapped;
 					this.lastLoadedAt = Date.now();
 				} catch (e) {
 					console.warn("[message] load", e);
 					this.rebuildDepartmentBlocks();
-					this.feedRows = buildMessageFeedRows().filter((r) => r.rowKind !== "daily_agent");
+					// 网络异常时保留上次成功列表，避免“会话突然消失”
+					this.feedRows = this.lastSuccessFeedRows.length ? this.lastSuccessFeedRows : [];
 				} finally {
 					if (reqId === this.listReqId) {
 						this.loading = false;
@@ -376,7 +418,7 @@
 							const raw = typeof r === "string" ? r.trim() : String(r?.name || r?.id || "").trim();
 							return {
 								slug: raw,
-								title: raw,
+								title: departmentToZh(raw, this.departmentMap),
 							};
 						})
 						.filter((d) => d.slug && !existing.has(d.slug));
@@ -436,7 +478,7 @@
 							...custom,
 							{
 								slug: name,
-								title: name,
+								title: departmentToZh(name, this.departmentMap),
 								icon: FALLBACK_ICON,
 								count: 0,
 								desc: "",
@@ -520,39 +562,12 @@
 							`threadId=${encodeURIComponent(n.threadId)}`,
 							`workflowTitle=${encodeURIComponent(n.workflowTitle || "")}`,
 							`threadTitle=${encodeURIComponent(n.threadTitle || "")}`,
+							`threadKind=${encodeURIComponent(n.kind || "THREAD")}`,
 						].join("&");
 						uni.navigateTo({ url: `/pages/chat/chat?${q}` });
 						return;
 					}
-					if (n.mode === "local" && n.projectName) {
-						uni.navigateTo({
-							url: `/pages/chat/chat?projectName=${encodeURIComponent(n.projectName)}`,
-						});
-					}
 					return;
-				}
-				if (row.rowKind === "manager") {
-					uni.navigateTo({
-						url: `/pages/chat/chat?mode=virtual&kind=manager&id=${encodeURIComponent(MANAGER_ID)}&title=${encodeURIComponent(this.t("manager_overview_title"))}`,
-					});
-					return;
-				}
-				if (row.rowKind === "daily_agent" && row.agentId) {
-					const agents = loadDigitalAgents();
-					const a = agents.find((x) => x.id === row.agentId);
-					const title = a ? formatAgentNavTitle(a) : this.t("digital_employee_fallback");
-					uni.navigateTo({
-						url: `/pages/chat/chat?mode=virtual&kind=agent&id=${encodeURIComponent(row.agentId)}&title=${encodeURIComponent(title)}`,
-					});
-					return;
-				}
-				if (row.rowKind === "group" && row.groupId) {
-					const groups = loadProjectGroups();
-					const g = groups.find((x) => x.id === row.groupId);
-					const name = g ? displayGroupName(g) : this.t("project_group_fallback");
-					uni.navigateTo({
-						url: `/pages/chat/chat?mode=virtual&kind=group&id=${encodeURIComponent(row.groupId)}&title=${encodeURIComponent(name)}`,
-					});
 				}
 			},
 		},

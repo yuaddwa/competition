@@ -1,22 +1,20 @@
 <template>
 	<view class="page">
-		<view v-if="loggedIn">
-			<view class="hint">{{ t('settings_section_account') }}</view>
-			<view class="cell-group">
-				<view class="cell" @click="switchAccount">
-					<view class="cell-icon bg-switch">
-						<text class="iconfont cell-glyph">&#xe654;</text>
-					</view>
-					<text class="cell-title">{{ t('switch_account') }}</text>
-					<text class="cell-arrow">›</text>
+		<view class="hint">{{ t('settings_section_account') }}</view>
+		<view class="cell-group">
+			<view class="cell" @click="switchAccount">
+				<view class="cell-icon bg-switch">
+					<text class="iconfont cell-glyph">&#xe654;</text>
 				</view>
-				<view class="cell" @click="logoutAccount">
-					<view class="cell-icon bg-out">
-						<text class="iconfont cell-glyph">&#xe727;</text>
-					</view>
-					<text class="cell-title cell-danger">{{ t('logout') }}</text>
-					<text class="cell-arrow">›</text>
+				<text class="cell-title">{{ t('switch_account') }}</text>
+				<text class="cell-arrow">›</text>
+			</view>
+			<view class="cell" @click="logoutAccount">
+				<view class="cell-icon bg-out">
+					<text class="iconfont cell-glyph">&#xe727;</text>
 				</view>
+				<text class="cell-title cell-danger">{{ t('logout') }}</text>
+				<text class="cell-arrow">›</text>
 			</view>
 		</view>
 
@@ -120,7 +118,7 @@
 </template>
 
 <script>
-	import { clearSession } from "@/utils/index";
+	import { clearSession, getToken, getUserInfo } from "@/utils/index";
 	import { LANG_STORAGE_KEY, getLanguage, setLanguage, t as translate } from "@/utils/lang";
 
 	/* 语言包仅 zh / en；切换时必须写入 app_language。字号存 xs/sm/md/xl，兼容旧版中文存盘 */
@@ -160,13 +158,15 @@
 		},
 		checkLogin() {
 			try {
-				const token = uni.getStorageSync("token");
-				this.loggedIn = !!token;
+				const token = String(getToken() || "").trim();
+				const user = getUserInfo();
+				this.loggedIn = !!token || !!(user && typeof user === "object");
 			} catch {
 				this.loggedIn = false;
 			}
 		},
 		onShow() {
+			this.checkLogin();
 			this.currentLanguage = getLanguage();
 			try {
 				uni.setNavigationBarTitle({ title: translate("settings", getLanguage()) });

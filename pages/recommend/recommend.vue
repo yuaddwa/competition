@@ -11,20 +11,7 @@
 		</view>
 
 		<scroll-view scroll-y class="content">
-			<!-- 未设置偏好时显示偏好设置 -->
-			<view v-if="!hasCompletedPreferences" class="preferences-section">
-				<view class="preferences-card">
-					<view class="preferences-icon">⚙️</view>
-					<text class="preferences-title">{{ t('preferences_title') }}</text>
-					<text class="preferences-subtitle">{{ t('preferences_subtitle') }}</text>
-					<view class="preferences-button" @click="goToPreferences">
-						<text class="button-text">{{ t('go_to_preferences') }}</text>
-					</view>
-				</view>
-			</view>
-
-			<!-- 已设置偏好时显示推荐内容 -->
-			<view v-else class="recommendations-section">
+			<view class="recommendations-section">
 				<view class="section-header">
 					<text class="section-title">{{ t('recommended_departments') }}</text>
 					<text class="section-subtitle">{{ t('based_on_preferences') }}</text>
@@ -62,7 +49,6 @@
 		data() {
 			return {
 				statusBarPx: 20,
-				hasCompletedPreferences: false,
 				recommendedDepartments: [],
 				userPreferences: null,
 			};
@@ -78,26 +64,22 @@
 			} catch (e) {
 				//
 			}
-			this.checkPreferences();
+			this.initRecommendations();
 		},
 		methods: {
-			checkPreferences() {
-				// 检查是否已完成偏好设置
+			initRecommendations() {
 				const preferences = uni.getStorageSync('userPreferences');
-				if (preferences && preferences.hasCompleted) {
-					this.hasCompletedPreferences = true;
+				if (preferences) {
 					this.userPreferences = preferences;
 					this.generateRecommendations();
 				} else {
-					this.hasCompletedPreferences = false;
-					this.recommendedDepartments = [];
+					this.userPreferences = {
+						industry: "other",
+						companySize: "small",
+						teamPreferences: [],
+					};
+					this.generateRecommendations();
 				}
-			},
-			goToPreferences() {
-				// 跳转到偏好设置页面
-				uni.navigateTo({
-					url: "/pages/preferences/preferences"
-				});
 			},
 			generateRecommendations() {
 				if (!this.userPreferences) return;
@@ -290,60 +272,6 @@
 	.content {
 		flex: 1;
 		padding: 24rpx;
-	}
-
-	/* 偏好设置部分 */
-	.preferences-section {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		height: 60vh;
-	}
-
-	.preferences-card {
-		background: #fff;
-		border-radius: 24rpx;
-		padding: 48rpx;
-		width: 90%;
-		max-width: 500rpx;
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		box-shadow: 0 16rpx 48rpx rgba(15, 23, 42, 0.1);
-	}
-
-	.preferences-icon {
-		font-size: 80rpx;
-		margin-bottom: 24rpx;
-	}
-
-	.preferences-title {
-		font-size: 32rpx;
-		font-weight: 700;
-		color: #0f172a;
-		margin-bottom: 12rpx;
-	}
-
-	.preferences-subtitle {
-		font-size: 24rpx;
-		color: #64748b;
-		text-align: center;
-		margin-bottom: 32rpx;
-		line-height: 1.5;
-	}
-
-	.preferences-button {
-		background: linear-gradient(135deg, #2563eb, #4f46e5);
-		border-radius: 44rpx;
-		padding: 20rpx 48rpx;
-		box-shadow: 0 12rpx 32rpx rgba(37, 99, 235, 0.4);
-	}
-
-	.button-text {
-		font-size: 28rpx;
-		font-weight: 700;
-		color: #fff;
 	}
 
 	/* 推荐部分 */

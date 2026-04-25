@@ -115,7 +115,7 @@ formatAgentNavTitle,
 import * as workflowApi from "@/clientApi/workflowApi";
 import { pickId } from "@/utils/apiHelpers";
 import { getUserInfo } from "@/utils/index";
-import { getAgentById } from "@/clientApi/agentsApi";
+import { getAgentById, getUserAgentById } from "@/clientApi/agentsApi";
 import { getPersonaById } from "@/utils/agentPersonaCatalog";
 import { getLlmSettings } from "@/utils/llmSettings";
 import { getAgentModelOrDefault } from "@/utils/agentModelMap";
@@ -163,6 +163,7 @@ projectName: "",
 mode: "local",
 workflowId: "",
 threadId: "",
+threadKind: "",
 workflowTitle: "",
 threadTitle: "",
 inputText: "",
@@ -178,6 +179,7 @@ showStickBottom: false,
 multiSelectMode: false,
 selectedIds: [],
 personaSystemPrompt: "",
+agentProfileForPrompt: null,
 isDarkMode: false,
 showBubbleMenu: false,
 bubbleMenuItems: [],
@@ -223,6 +225,9 @@ this.fetchPersonaMaterial().finally(() => {
 this.loadVirtualMessages(true);
 });
 } else {
+if (this.virtualKind === "agent" && this.virtualId) {
+this.fetchUserAgentForPrompt();
+}
 this.loadVirtualMessages(true);
 }
 return;
@@ -233,6 +238,7 @@ if (wf && th) {
 this.mode = "remote";
 this.workflowId = wf;
 this.threadId = th;
+this.threadKind = options.threadKind ? decodeURIComponent(options.threadKind) : "";
 this.workflowTitle = options.workflowTitle ? decodeURIComponent(options.workflowTitle) : "";
 this.threadTitle = options.threadTitle ? decodeURIComponent(options.threadTitle) : "";
 this.loadRemoteMessages(true);
@@ -266,6 +272,45 @@ this.markAsRead();
 }
 },
 methods: {
+buildAgentSystemPrompt(agentInfo = {}, fallbackName = "", fallbackRole = "") {
+const name = String(agentInfo.displayName || agentInfo.name || fallbackName || "").trim() || this.t("digital_employee_fallback");
+const role = String(agentInfo.jobTitle || agentInfo.rolePosition || fallbackRole || "").trim() || this.t("agent_seed_role_fallback");
+const department = String(agentInfo.department || "").trim();
+const mainWork = String(agentInfo.mainWork || agentInfo.description || "").trim();
+const goals = String(agentInfo.workGoal || agentInfo.goal || "").trim();
+const constraints = String(agentInfo.constraints || "").trim();
+const pieces = [
+`你是团队中的数字员工「${name}」，岗位：${role}。`,
+department ? `所属部门：${department}。` : "",
+mainWork ? `主要工作：${mainWork}。` : "",
+goals ? `工作目标：${goals}。` : "",
+constraints ? `约束与边界：${constraints}。` : "",
+"请基于以上身份信息回答，保持角色一致，回复简洁、可执行，不要编造未提供的团队事实。",
+];
+return pieces.filter(Boolean).join("\n");
+},
+async fetchUserAgentForPrompt() {
+if (this.virtualKind !== "agent" || !this.virtualId) return null;
+try {
+const data = await getUserAgentById(this.virtualId);
+if (data && typeof data === "object") {
+this.agentProfileForPrompt = data;
+return data;
+}
+} catch (e) {
+console.warn("[chat] GET /api/user-agents/:id", e);
+}
+try {
+const local = getDigitalAgentById(this.virtualId);
+if (local && typeof local === "object") {
+this.agentProfileForPrompt = local;
+return local;
+}
+} catch (e) {
+console.warn("[chat] local digital agent fallback", e);
+}
+return null;
+},
 loadDarkMode() {
 try {
 const settings = uni.getStorageSync("userSettings");
@@ -525,7 +570,10 @@ markMessagesAsRead(this.projectName);
 async loadRemoteMessages(alsoScroll) {
 this.loading = true;
 try {
-const list = await workflowApi.listMessages(this.workflowId, this.threadId);
+const isProjectGroup = (this.threadKind || "").toUpperCase() === "PROJECT_GROUP";
+const list = isProjectGroup
+? await workflowApi.listProjectGroupMessages(this.workflowId, this.threadId, { limit: 200 })
+: await workflowApi.listMessages(this.workflowId, this.threadId);
 const arr = Array.isArray(list) ? list : [];
 const sorted = [...arr].sort((a, b) => {
 const ta = new Date(messageTime(a) || 0).getTime();
@@ -554,7 +602,8 @@ loadVirtualMessages(alsoScroll) {
 this.loading = true;
 try {
 if (this.virtualKind === "agent" && this.virtualId) {
-ensureAgentChatSeed(this.virtualId);
+const localAgent = getDigitalAgentById(this.virtualId);
+if (localAgent) ensureAgentChatSeed(this.virtualId);
 }
 if (this.virtualKind === "persona" && this.virtualId) {
 const exists = loadVirtualChatMessages("persona", this.virtualId);
@@ -607,14 +656,12 @@ return;
 }
 const model = getAgentModelOrDefault(this.virtualId) || globalModel;
 const agent = getDigitalAgentById(this.virtualId);
+const liveAgent = (await this.fetchUserAgentForPrompt()) || this.agentProfileForPrompt || null;
 const name = agent
 ? displayAgentName(agent)
 : (this.virtualTitle || "").trim() || this.t("digital_employee_fallback");
 const role = agent ? displayAgentRole(agent) : "";
-const system = this.t("agent_llm_system_prompt", {
-name,
-role: role || this.t("agent_seed_role_fallback"),
-});
+const system = this.buildAgentSystemPrompt(liveAgent || {}, name, role);
 this.sending = true;
 appendVirtualChat("agent", this.virtualId, {
 content: body,
@@ -626,6 +673,13 @@ this.loadVirtualMessages(false);
 try {
 const slice = this.chatMessages
 .filter((m) => m.content && String(m.content).trim())
+.filter((m) => {
+const s = String(m.content || "").trim();
+if (!s) return false;
+if (s.includes("数字员工（岗位）")) return false;
+if (s.includes("【岗位】")) return false;
+return true;
+})
 .slice(-24);
 const apiMsgs = slice.map((m) => ({
 role: m.isMine ? "user" : "assistant",
@@ -640,9 +694,12 @@ messages: apiMsgs,
 });
 const text = extractAssistantText(res);
 if (!text) throw new Error("empty reply");
-const navTitle = agent
-? formatAgentNavTitle(agent)
-: name;
+const navTitle = liveAgent
+? formatAgentNavTitle({
+name: liveAgent.displayName || liveAgent.name || name,
+role: liveAgent.jobTitle || liveAgent.rolePosition || role,
+})
+: (agent ? formatAgentNavTitle(agent) : name);
 const senderName = (navTitle || name).slice(0, 24);
 appendVirtualChat("agent", this.virtualId, {
 content: text,
@@ -810,12 +867,37 @@ this.$nextTick(() => this.scrollToBottom());
 async sendRemote() {
 if (this.sending) return;
 const body = this.inputText.trim();
-this.sending = true;
-try {
-await workflowApi.sendMessage(this.workflowId, this.threadId, {
+if (!body) return;
+const user = getUserInfo() || {};
+const authorId =
+String(
+user.department ||
+user.departmentId ||
+user.dept ||
+user.deptId ||
+"产品部"
+).trim() || "产品部";
+const authorLabel = authorId;
+const payload = {
+text: body,
 content: body,
 body,
-});
+author: {
+type: "INTERNAL_DEPARTMENT",
+id: authorId,
+label: authorLabel,
+},
+fromDepartment: authorId,
+toDepartment: "",
+};
+this.sending = true;
+try {
+const isProjectGroup = (this.threadKind || "").toUpperCase() === "PROJECT_GROUP";
+if (isProjectGroup) {
+await workflowApi.sendProjectGroupMessage(this.workflowId, this.threadId, payload);
+} else {
+await workflowApi.sendMessage(this.workflowId, this.threadId, payload);
+}
 this.inputText = "";
 await this.loadRemoteMessages(false);
 this.$nextTick(() => this.scrollToBottom());
