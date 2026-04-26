@@ -48,7 +48,10 @@
 				>
 					<view class="member-check">{{ selectedEmployeeIds.includes(emp.id) ? "✓" : "" }}</view>
 					<view class="member-main">
-						<text class="member-name">{{ emp.name }}</text>
+						<view class="member-name-row">
+							<text class="member-name">{{ emp.name }}</text>
+							<text class="member-model-pill">{{ modelShort(emp.id) }}</text>
+						</view>
 						<text class="member-meta">{{ emp.department || "未分组" }} · {{ emp.role || "成员" }}</text>
 					</view>
 				</view>
@@ -64,6 +67,7 @@
 	import { addProjectGroup } from "@/utils/virtualTeamStore";
 	import { t, getLanguage } from "@/utils/lang";
 	import { listMyUserAgents, listUserAgents } from "@/clientApi/agentsApi";
+	import { getAgentModelOrDefault } from "@/utils/agentModelMap";
 
 	export default {
 		data() {
@@ -126,6 +130,11 @@
 				if (i >= 0) this.selectedEmployeeIds.splice(i, 1);
 				else this.selectedEmployeeIds.push(id);
 			},
+			modelShort(agentId) {
+				const s = String(getAgentModelOrDefault(agentId) || "").trim();
+				if (!s) return "默认模型";
+				return s.length > 26 ? `${s.slice(0, 24)}…` : s;
+			},
 			submit() {
 				const n = (this.name || "").trim();
 				if (!n) {
@@ -141,7 +150,12 @@
 					deliverable: this.deliverable,
 					deadline: this.deadline,
 					notifyTime: this.timeOptions[this.notifyIdx] || "21:00",
-					members: this.employeeOptions.filter((e) => this.selectedEmployeeIds.includes(e.id)),
+					members: this.employeeOptions
+						.filter((e) => this.selectedEmployeeIds.includes(e.id))
+						.map((e) => ({
+							...e,
+							model: getAgentModelOrDefault(e.id),
+						})),
 				});
 				uni.showToast({ title: this.t('created'), icon: "success" });
 					setTimeout(() => uni.navigateBack(), 400);
@@ -233,11 +247,28 @@
 		flex: 1;
 		min-width: 0;
 	}
+	.member-name-row {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 10rpx;
+	}
 	.member-name {
-		display: block;
 		font-size: 28rpx;
 		color: #0f172a;
 		font-weight: 600;
+	}
+	.member-model-pill {
+		font-size: 20rpx;
+		color: #475569;
+		background: #f1f5f9;
+		padding: 2rpx 12rpx;
+		border-radius: 999rpx;
+		border: 1rpx solid rgba(148, 163, 184, 0.4);
+		max-width: 100%;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 	.member-meta {
 		display: block;

@@ -228,6 +228,7 @@ export function addProjectGroup(payload = {}) {
       role: String(m?.role || m?.jobTitle || "").trim(),
       department: String(m?.department || "").trim(),
       avatar: String(m?.avatar || m?.avatarUrl || m?.headImg || m?.headimg || "").trim(),
+      model: String(m?.model || "").trim(),
     }))
     .filter((m) => m.id && m.name);
   const row = {
@@ -608,7 +609,11 @@ export function removeVirtualChatMessagesByIds(kind, id, messageIds) {
   recomputeVirtualChatLastPreview(kind, id);
 }
 
-export function appendVirtualChat(kind, id, { content, isMine = true, senderName = "", senderAvatar = "" }) {
+export function appendVirtualChat(
+  kind,
+  id,
+  { content, isMine = true, senderName = "", senderAvatar = "", senderId = "", senderModel = "" }
+) {
   const list = loadVirtualChatMessages(kind, id);
   const msg = {
     id: `vm_${Date.now()}`,
@@ -617,6 +622,8 @@ export function appendVirtualChat(kind, id, { content, isMine = true, senderName
     isMine,
     senderName: senderName || "",
     senderAvatar: String(senderAvatar || "").trim(),
+    senderId: String(senderId || "").trim(),
+    senderModel: String(senderModel || "").trim(),
   };
   list.push(msg);
   saveVirtualChatMessages(kind, id, list);

@@ -41,7 +41,10 @@ class="bubble-row"
 <image v-if="!msg.isMine && avatarSrc(msg, false)" class="bubble-avatar-img" :src="avatarSrc(msg, false)" mode="aspectFill" />
 <view v-else-if="!msg.isMine" class="bubble-avatar">{{ avatarText(msg, false) }}</view>
 <view class="bubble-main">
-<text v-if="!msg.isMine && msg.senderName" class="bubble-sender">{{ msg.senderName }}</text>
+<view v-if="!msg.isMine && msg.senderName" class="bubble-sender-row">
+<text class="bubble-sender">{{ msg.senderName }}</text>
+<text v-if="virtualKind === 'group' && msg.senderModel" class="bubble-model-pill">{{ msg.senderModel }}</text>
+</view>
 <view
 class="message-bubble"
 :class="{ 'my-message': msg.isMine }"
@@ -161,6 +164,39 @@ return (name || "")
 .replace(/^[^\s\u4e00-\u9fa5A-Za-z]+/, "")
 .replace(/\s+/g, "")
 .trim();
+}
+
+function escapeRegExp(s) {
+return String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/** 去掉正文开头「某成员名：」式重复抬头（气泡上方已有发送者，勿再写一遍） */
+function stripLeadingRosterSpeakerPrefix(raw, roster) {
+const orig = String(raw || "").trim();
+let text = orig;
+if (!text || !Array.isArray(roster) || roster.length === 0) return text;
+const labels = new Set();
+for (const m of roster) {
+const n = String(m?.name || m?.displayName || "").trim();
+if (n.length >= 2) labels.add(n);
+const nn = String(m?.name || m?.displayName || "").trim();
+const role = String(m?.role || m?.jobTitle || "").trim();
+const nav = formatAgentNavTitle({ name: nn, role });
+if (nav && String(nav).trim().length >= 2) labels.add(String(nav).trim());
+}
+const sorted = [...labels].sort((a, b) => b.length - a.length);
+for (let loop = 0; loop < 6; loop++) {
+let changed = false;
+for (const label of sorted) {
+const re = new RegExp(`^(?:\\*\\*)?${escapeRegExp(label)}(?:\\*\\*)?\\s*[:：]\\s*`, "i");
+if (re.test(text)) {
+text = text.replace(re, "").trim();
+changed = true;
+}
+}
+if (!changed) break;
+}
+return text || orig;
 }
 
 const UI_DESIGNER_EMPLOYEE_ID = "des-ui";
@@ -342,16 +378,34 @@ const templates = [
 ];
 return templates[idx % templates.length];
 },
-buildGroupAgentSystemPrompt(member, groupTitle = "") {
+buildGroupAgentSystemPrompt(member, groupTitle = "", roster = []) {
 const name = String(member?.name || member?.displayName || "").trim() || this.t("digital_employee_fallback");
 const role = String(member?.role || member?.jobTitle || "").trim() || this.t("agent_seed_role_fallback");
 const dept = String(member?.department || "").trim();
 const group = String(groupTitle || this.virtualTitle || "").trim();
+const rosterLines = (Array.isArray(roster) ? roster : [])
+  .map((m) => {
+    const display = String(m?.name || m?.displayName || "").trim();
+    if (!display) return "";
+    const rid = String(m?.id || m?.agentId || "").trim();
+    const rrole = String(m?.role || m?.jobTitle || "").trim() || "成员";
+    return `- @${display}（${rrole}）${rid ? ` id:${rid}` : ""}`;
+  })
+  .filter(Boolean);
+const rosterBlock =
+  rosterLines.length > 0
+    ? [
+        "群内成员（称呼同事时必须使用 @显示名，例如 @张三；不要用 Markdown **姓名:** 或加粗行首当称呼；需要对方配合时请写出 @对方显示名）：",
+        rosterLines.join("\n"),
+      ].join("\n")
+    : "";
 return [
 `你是项目群成员「${name}」，职责：${role}。`,
 dept ? `所属部门：${dept}。` : "",
 group ? `当前群聊：${group}。` : "",
+rosterBlock,
 "请在群聊中用简洁中文回复，聚焦执行方案、风险、协作对象。",
+"禁止在正文开头写「同事姓名 + 冒号」或「**姓名:**」当开场（左侧气泡已显示你的名字）；若要呼叫同事只能在句内使用 @显示名。",
 "每次回复 1-3 句，避免空话。"
 ].filter(Boolean).join("\n");
 },
@@ -372,6 +426,7 @@ if (this.groupReplying) return;
 const g = getProjectGroupById(this.virtualId);
 const pickedMembers = Array.isArray(g?.members) ? g.members : [];
 const candidates = pickedMembers.length ? pickedMembers : loadDigitalAgents();
+const roster = pickedMembers.length ? pickedMembers : candidates;
 const picked = candidates.slice(0, Math.min(3, candidates.length));
 if (!Array.isArray(picked) || picked.length === 0) return;
 const { apiKey, baseUrl, model } = getLlmSettings();
@@ -380,11 +435,15 @@ if (!apiKey) {
   picked.forEach((a, idx) => {
     const name = String(a?.name || a?.displayName || "").trim() || displayAgentName(a) || this.t("digital_employee_fallback");
     const role = String(a?.role || a?.jobTitle || "").trim() || displayAgentRole(a);
+    const aid = String(a?.id || a?.agentId || "").trim();
+    const agentModel = (aid && getAgentModelOrDefault(aid)) || model;
     appendVirtualChat("group", this.virtualId, {
       content: this.buildGroupAutoReplyContent(name, role, userText, idx),
       isMine: false,
       senderName: formatAgentNavTitle({ name, role }) || name,
       senderAvatar: String(a?.avatar || a?.avatarUrl || a?.headImg || a?.headimg || "").trim(),
+      senderId: aid,
+      senderModel: agentModel,
     });
   });
   this.loadVirtualMessages(false);
@@ -398,16 +457,21 @@ try {
     const name = String(a?.name || a?.displayName || "").trim() || displayAgentName(a) || this.t("digital_employee_fallback");
     const role = String(a?.role || a?.jobTitle || "").trim() || displayAgentRole(a);
     const senderName = formatAgentNavTitle({ name, role }) || name;
-    const system = this.buildGroupAgentSystemPrompt(a, g?.name || this.virtualTitle || "");
+    const aid = String(a?.id || a?.agentId || "").trim();
+    const agentModel = (aid && getAgentModelOrDefault(aid)) || model;
+    const system = this.buildGroupAgentSystemPrompt(a, g?.name || this.virtualTitle || "", roster);
     const msgs = this.buildGroupApiMessages();
     try {
-      const res = await chatCompletion({ apiKey, baseUrl, model, system, messages: msgs });
-      const text = extractAssistantText(res) || this.buildGroupAutoReplyContent(name, role, userText, idx);
+      const res = await chatCompletion({ apiKey, baseUrl, model: agentModel, system, messages: msgs });
+      const raw = extractAssistantText(res) || this.buildGroupAutoReplyContent(name, role, userText, idx);
+      const text = stripLeadingRosterSpeakerPrefix(raw, roster) || raw;
       appendVirtualChat("group", this.virtualId, {
         content: text,
         isMine: false,
         senderName,
         senderAvatar: String(a?.avatar || a?.avatarUrl || a?.headImg || a?.headimg || "").trim(),
+        senderId: aid,
+        senderModel: agentModel,
       });
     } catch {
       appendVirtualChat("group", this.virtualId, {
@@ -415,6 +479,8 @@ try {
         isMine: false,
         senderName,
         senderAvatar: String(a?.avatar || a?.avatarUrl || a?.headImg || a?.headimg || "").trim(),
+        senderId: aid,
+        senderModel: agentModel,
       });
     }
     this.loadVirtualMessages(false);
@@ -427,17 +493,24 @@ try {
     const name = String(a?.name || a?.displayName || "").trim() || displayAgentName(a) || this.t("digital_employee_fallback");
     const role = String(a?.role || a?.jobTitle || "").trim() || displayAgentRole(a);
     const senderName = formatAgentNavTitle({ name, role }) || name;
-    const system = this.buildGroupAgentSystemPrompt(a, g?.name || this.virtualTitle || "");
-    const msgs = this.buildGroupApiMessages("请基于上一位成员的观点补充一句协作建议，并点名需要配合的角色。");
+    const aid = String(a?.id || a?.agentId || "").trim();
+    const agentModel = (aid && getAgentModelOrDefault(aid)) || model;
+    const system = this.buildGroupAgentSystemPrompt(a, g?.name || this.virtualTitle || "", roster);
+    const msgs = this.buildGroupApiMessages(
+      "请基于上一位成员的观点补充一句协作建议；需要点名协作对象时，必须使用 @他的显示名（与成员列表一致），不要用 **姓名:** 格式。"
+    );
     try {
-      const res = await chatCompletion({ apiKey, baseUrl, model, system, messages: msgs });
-      const text = extractAssistantText(res);
+      const res = await chatCompletion({ apiKey, baseUrl, model: agentModel, system, messages: msgs });
+      const raw = extractAssistantText(res);
+      const text = raw ? stripLeadingRosterSpeakerPrefix(raw, roster) || raw : "";
       if (text) {
         appendVirtualChat("group", this.virtualId, {
           content: text,
           isMine: false,
           senderName,
           senderAvatar: String(a?.avatar || a?.avatarUrl || a?.headImg || a?.headimg || "").trim(),
+          senderId: aid,
+          senderModel: agentModel,
         });
         this.loadVirtualMessages(false);
         this.$nextTick(() => this.scrollToBottom());
@@ -755,14 +828,32 @@ if (this.virtualKind === "manager") {
 ensureManagerChatSeed();
 }
 const list = loadVirtualChatMessages(this.virtualKind, this.virtualId);
-this.chatMessages = list.map((m) => ({
+let groupRoster = [];
+if (this.virtualKind === "group" && this.virtualId) {
+const gd = getProjectGroupById(this.virtualId);
+groupRoster = Array.isArray(gd?.members) ? gd.members : [];
+}
+this.chatMessages = list.map((m) => {
+const sid = String(m.senderId || "").trim();
+const storedModel = String(m.senderModel || "").trim();
+const senderModel =
+  storedModel ||
+  (this.virtualKind === "group" && sid ? getAgentModelOrDefault(sid) : "");
+let content = m.content;
+if (this.virtualKind === "group" && groupRoster.length && !m.isMine) {
+content = stripLeadingRosterSpeakerPrefix(m.content, groupRoster) || m.content;
+}
+return {
 id: m.id,
-content: m.content,
+content,
 time: m.time,
 isMine: !!m.isMine,
 senderName: m.senderName || "",
 senderAvatar: m.senderAvatar || "",
-}));
+senderId: sid,
+senderModel,
+};
+});
 } finally {
 this.loading = false;
 }
@@ -1285,12 +1376,33 @@ align-items: flex-end;
 box-shadow: 0 0 0 4rpx rgba(34, 197, 94, 0.45) !important;
 }
 
+.bubble-sender-row {
+display: flex;
+flex-wrap: wrap;
+align-items: center;
+gap: 8rpx;
+margin-bottom: 8rpx;
+margin-left: 6rpx;
+max-width: 100%;
+}
+
 .bubble-sender {
 font-size: 22rpx;
 color: #64748b;
-margin-bottom: 8rpx;
-margin-left: 6rpx;
 font-weight: 500;
+}
+
+.bubble-model-pill {
+font-size: 18rpx;
+color: #475569;
+background: #f1f5f9;
+padding: 2rpx 12rpx;
+border-radius: 999rpx;
+max-width: 70%;
+overflow: hidden;
+text-overflow: ellipsis;
+white-space: nowrap;
+border: 1rpx solid rgba(148, 163, 184, 0.35);
 }
 
 .bubble-row.my-message .bubble-sender {
@@ -1535,6 +1647,12 @@ box-shadow: 0 6rpx 22rpx rgba(34, 197, 94, 0.18) !important;
 .chat-page.theme-dark .bubble-sender,
 .chat-page.theme-dark .bubble-meta-time {
 color: var(--text-tertiary) !important;
+}
+
+.chat-page.theme-dark .bubble-model-pill {
+color: var(--text-secondary) !important;
+background: rgba(51, 65, 85, 0.85) !important;
+border-color: var(--border-color) !important;
 }
 
 .chat-page.theme-dark .chat-empty {

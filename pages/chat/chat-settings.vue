@@ -49,6 +49,7 @@
 					<image v-if="memberAvatar(m)" class="member-avatar-img" :src="memberAvatar(m)" mode="aspectFill" />
 					<view v-else class="member-avatar">{{ memberInitial(m) }}</view>
 					<text class="member-name">{{ m.name }}</text>
+					<text v-if="m.modelShort" class="member-model-pill">{{ m.modelShort }}</text>
 				</view>
 			</view>
 		</view>
@@ -107,6 +108,7 @@
 	} from "@/utils/virtualTeamStore";
 	import { clearLocalProjectChat } from "@/utils/messageUtils";
 	import { t, getLanguage } from "@/utils/lang";
+	import { getAgentModelOrDefault } from "@/utils/agentModelMap";
 
 	function storageSessionKey(vm) {
 		if (vm.mode === "virtual") return `v_${vm.kind}_${vm.id}`;
@@ -150,11 +152,22 @@
 			},
 			groupMembers() {
 				const arr = Array.isArray(this.groupDetail?.members) ? this.groupDetail.members : [];
-				return arr.map((m, idx) => ({
-					id: String(m?.id || `m_${idx}`),
-					name: String(m?.name || m?.displayName || "").trim() || "成员",
-					avatar: String(m?.avatar || m?.avatarUrl || m?.headImg || m?.headimg || "").trim(),
-				}));
+				return arr.map((m, idx) => {
+					const id = String(m?.id || m?.agentId || `m_${idx}`);
+					const stored = String(m?.model || "").trim();
+					const full = stored || getAgentModelOrDefault(id);
+					const modelShort = full
+						? full.length > 16
+							? `${full.slice(0, 14)}…`
+							: full
+						: "";
+					return {
+						id,
+						name: String(m?.name || m?.displayName || "").trim() || "成员",
+						avatar: String(m?.avatar || m?.avatarUrl || m?.headImg || m?.headimg || "").trim(),
+						modelShort,
+					};
+				});
 			},
 		},
 		onShow() {
@@ -433,6 +446,20 @@
 		white-space: nowrap;
 	}
 
+	.member-model-pill {
+		margin-top: 4rpx;
+		max-width: 100%;
+		font-size: 18rpx;
+		color: #64748b;
+		background: #f1f5f9;
+		padding: 2rpx 8rpx;
+		border-radius: 8rpx;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		box-sizing: border-box;
+	}
+
 	.group {
 		background: #fff;
 		margin-bottom: 24rpx;
@@ -555,5 +582,16 @@
 	.chat-settings-page.theme-dark .cell-danger .cell-main,
 	[data-theme="dark"] .chat-settings-page .cell-danger .cell-main {
 		color: #f87171 !important;
+	}
+
+	.chat-settings-page.theme-dark .member-name,
+	[data-theme="dark"] .chat-settings-page .member-name {
+		color: var(--text-primary) !important;
+	}
+
+	.chat-settings-page.theme-dark .member-model-pill,
+	[data-theme="dark"] .chat-settings-page .member-model-pill {
+		color: var(--text-secondary) !important;
+		background: rgba(51, 65, 85, 0.9) !important;
 	}
 </style>

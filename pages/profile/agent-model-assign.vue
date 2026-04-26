@@ -35,7 +35,11 @@
 							@change="onRowPresetChange($event, row.id)"
 						>
 							<view class="staff-name-tap">
-								<text class="staff-name-text">{{ row.displayName }}</text>
+								<view class="staff-name-head">
+									<text class="staff-name-text">{{ row.displayName }}</text>
+									<text class="staff-model-pill">{{ rowEffectiveModel(row) }}</text>
+								</view>
+								<text class="staff-model-hint">{{ t("agent_model_tap_to_change") }}</text>
 							</view>
 						</picker>
 					</view>
@@ -180,7 +184,7 @@
 
 <script>
 	import { listMyUserAgents } from "@/clientApi/agentsApi";
-	import { getAgentModel, setAgentModel } from "@/utils/agentModelMap";
+	import { getAgentModel, getAgentModelOrDefault, setAgentModel } from "@/utils/agentModelMap";
 	import {
 		getModelPresets,
 		addSavedModelEntry,
@@ -422,6 +426,11 @@
 				this.items = this.items.map((x) => (x.id === agentId ? { ...x, model: val } : x));
 				setAgentModel(agentId, val);
 				uni.showToast({ title: this.t("agent_model_saved"), icon: "success" });
+			},
+			rowEffectiveModel(row) {
+				const m = String(getAgentModelOrDefault(row.id) || "").trim();
+				if (!m) return "—";
+				return m.length > 28 ? `${m.slice(0, 26)}…` : m;
 			},
 		},
 	};
@@ -917,10 +926,42 @@
 		padding: 28rpx 32rpx;
 	}
 
+	.staff-name-head {
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		flex-wrap: wrap;
+		gap: 12rpx 16rpx;
+	}
+
 	.staff-name-text {
 		font-size: 32rpx;
 		font-weight: 600;
 		color: #0f172a;
+		flex: 1;
+		min-width: 0;
+	}
+
+	.staff-model-pill {
+		font-size: 22rpx;
+		font-weight: 600;
+		color: #1d4ed8;
+		background: #eff6ff;
+		padding: 6rpx 16rpx;
+		border-radius: 999rpx;
+		border: 1rpx solid #bfdbfe;
+		max-width: 100%;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.staff-model-hint {
+		display: block;
+		margin-top: 12rpx;
+		font-size: 22rpx;
+		color: #94a3b8;
+		line-height: 1.4;
 	}
 </style>
 
@@ -1015,6 +1056,18 @@
 	.agent-assign-page.theme-dark .staff-name-text,
 	[data-theme="dark"] .agent-assign-page .staff-name-text {
 		color: var(--text-primary) !important;
+	}
+
+	.agent-assign-page.theme-dark .staff-model-pill,
+	[data-theme="dark"] .agent-assign-page .staff-model-pill {
+		color: #93c5fd !important;
+		background: rgba(30, 58, 138, 0.45) !important;
+		border-color: rgba(59, 130, 246, 0.45) !important;
+	}
+
+	.agent-assign-page.theme-dark .staff-model-hint,
+	[data-theme="dark"] .agent-assign-page .staff-model-hint {
+		color: var(--text-secondary) !important;
 	}
 
 	.agent-assign-page.theme-dark .add-model-entry,
