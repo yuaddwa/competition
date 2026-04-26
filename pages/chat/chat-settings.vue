@@ -38,6 +38,20 @@
 			<text class="hero-title">{{ pageTitle }}</text>
 			<text class="hero-desc">{{ t('cs_local_session') }}</text>
 		</view>
+		<view v-if="mode === 'virtual' && kind === 'group'" class="group members-card">
+			<view class="members-head">
+				<text class="members-title">群成员</text>
+				<text class="members-count">{{ groupMembers.length }} 人</text>
+			</view>
+			<view v-if="groupMembers.length === 0" class="members-empty">暂无成员</view>
+			<view v-else class="members-grid">
+				<view v-for="m in groupMembers" :key="m.id" class="member-item">
+					<image v-if="memberAvatar(m)" class="member-avatar-img" :src="memberAvatar(m)" mode="aspectFill" />
+					<view v-else class="member-avatar">{{ memberInitial(m) }}</view>
+					<text class="member-name">{{ m.name }}</text>
+				</view>
+			</view>
+		</view>
 
 		<view class="group">
 			<view class="cell" hover-class="cell-hover" @click="goSearch">
@@ -76,6 +90,7 @@
 </template>
 
 <script>
+	import { resolveAvatarDisplayUrl } from "@/clientApi/authApi";
 	import {
 		clearVirtualChatMessages,
 		getProjectGroupById,
@@ -133,10 +148,18 @@
 				const r = this.agentDetail && displayAgentRole(this.agentDetail);
 				return r || this.t("cs_digital_employee_role");
 			},
+			groupMembers() {
+				const arr = Array.isArray(this.groupDetail?.members) ? this.groupDetail.members : [];
+				return arr.map((m, idx) => ({
+					id: String(m?.id || `m_${idx}`),
+					name: String(m?.name || m?.displayName || "").trim() || "成员",
+					avatar: String(m?.avatar || m?.avatarUrl || m?.headImg || m?.headimg || "").trim(),
+				}));
+			},
 		},
 		onShow() {
 			this.loadDarkMode();
-			this.$forceUpdate();
+			// 避免 HMR/页面恢复阶段触发内部空对象写入异常
 		},
 		onLoad(options) {
 			this.loadDarkMode();
@@ -188,6 +211,12 @@
 			},
 			displayGroupName,
 			displayAgentName,
+			memberAvatar(m) {
+				return resolveAvatarDisplayUrl(String(m?.avatar || "").trim());
+			},
+			memberInitial(m) {
+				return String(m?.name || "员").trim().slice(0, 1);
+			},
 			t(key, params = {}) {
 				return t(key, getLanguage(), params);
 			},
@@ -235,12 +264,17 @@
 				uni.navigateTo({ url: `/pages/chat/chat-search?${this.buildSearchQuery()}` });
 			},
 			openGroupManage() {
-				const agents = loadDigitalAgents();
-				const lines = agents.map((a) => `· ${formatAgentNavTitle(a)}`).join("\n");
+				const groupMembers = Array.isArray(this.groupDetail?.members) ? this.groupDetail.members : [];
+				const source = groupMembers.length
+					? groupMembers.map((m) => ({ name: m.name, role: m.role }))
+					: loadDigitalAgents().map((a) => ({ name: a.name, role: a.role }));
+				const lines = source
+					.map((a) => `· ${formatAgentNavTitle({ name: a.name, role: a.role })}`)
+					.join("\n");
 				if (this.kind === "hq") {
 					uni.showModal({
 						title: this.t("cs_group_manage"),
-						content: `${this.t("cs_hq_members_modal", { count: agents.length })}\n${lines || this.t("cs_no_members")}`,
+						content: `${this.t("cs_hq_members_modal", { count: source.length })}\n${lines || this.t("cs_no_members")}`,
 						showCancel: false,
 					});
 					return;
@@ -339,6 +373,64 @@
 
 	.hero-meta.mono {
 		word-break: break-all;
+	}
+	.members-card {
+		padding: 24rpx 24rpx 12rpx;
+	}
+	.members-head {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		padding: 0 8rpx 18rpx;
+	}
+	.members-title {
+		font-size: 30rpx;
+		font-weight: 600;
+		color: #111;
+	}
+	.members-count {
+		font-size: 24rpx;
+		color: #999;
+	}
+	.members-empty {
+		padding: 16rpx 8rpx 24rpx;
+		font-size: 24rpx;
+		color: #999;
+	}
+	.members-grid {
+		display: flex;
+		flex-wrap: wrap;
+	}
+	.member-item {
+		width: 25%;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		margin-bottom: 20rpx;
+	}
+	.member-avatar-img,
+	.member-avatar {
+		width: 84rpx;
+		height: 84rpx;
+		border-radius: 18rpx;
+	}
+	.member-avatar {
+		background: linear-gradient(145deg, #60a5fa, #6366f1);
+		color: #fff;
+		font-size: 32rpx;
+		font-weight: 700;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+	.member-name {
+		margin-top: 8rpx;
+		max-width: 100%;
+		font-size: 22rpx;
+		color: #333;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 
 	.group {

@@ -34,6 +34,26 @@
 			<text class="label">{{ t('remarks') }}</text>
 			<textarea class="ta" v-model="desc" :placeholder="t('remarks_placeholder')" placeholder-class="ph" />
 		</view>
+		<view class="section-t">选择群成员（真实员工）</view>
+		<view class="card">
+			<view v-if="loadingEmployees" class="hint">员工加载中...</view>
+			<view v-else-if="employeeOptions.length === 0" class="hint">暂无可选员工，请先在后端创建员工</view>
+			<view v-else>
+				<view
+					v-for="emp in employeeOptions"
+					:key="emp.id"
+					class="member-row"
+					:class="{ 'member-row-active': selectedEmployeeIds.includes(emp.id) }"
+					@tap="toggleMember(emp.id)"
+				>
+					<view class="member-check">{{ selectedEmployeeIds.includes(emp.id) ? "✓" : "" }}</view>
+					<view class="member-main">
+						<text class="member-name">{{ emp.name }}</text>
+						<text class="member-meta">{{ emp.department || "未分组" }} · {{ emp.role || "成员" }}</text>
+					</view>
+				</view>
+			</view>
+		</view>
 
 		<button class="btn" type="primary" :loading="busy" @click="submit">{{ t('create_project_group') }}</button>
 		<view class="foot-pad" />
@@ -43,6 +63,7 @@
 <script>
 	import { addProjectGroup } from "@/utils/virtualTeamStore";
 	import { t, getLanguage } from "@/utils/lang";
+	import { listMyUserAgents, listUserAgents } from "@/clientApi/agentsApi";
 
 	export default {
 		data() {
@@ -53,9 +74,15 @@
 				deadline: "",
 				desc: "",
 				busy: false,
+				loadingEmployees: false,
+				employeeOptions: [],
+				selectedEmployeeIds: [],
 				timeOptions: ["20:00", "20:30", "21:00", "21:30", "22:00"],
 				notifyIdx: 2,
 			};
+		},
+		onShow() {
+			this.loadEmployees();
 		},
 		methods: {
 			t(key, params = {}) {
@@ -66,6 +93,38 @@
 			},
 			onNotify(e) {
 				this.notifyIdx = Number(e.detail.value) || 0;
+			},
+			async loadEmployees() {
+				this.loadingEmployees = true;
+				try {
+					let rows = await listMyUserAgents();
+					if (!Array.isArray(rows) || rows.length === 0) {
+						// 部分账号拿不到 userId 时，降级为后端全量返回（再由前端展示）
+						rows = await listUserAgents();
+					}
+					this.employeeOptions = (Array.isArray(rows) ? rows : [])
+						.map((r) => ({
+							id: String(r?.id || r?.agentId || "").trim(),
+							name: String(r?.displayName || r?.name || "").trim(),
+							role: String(r?.jobTitle || r?.rolePosition || "").trim(),
+							department: String(r?.department || "").trim(),
+							avatar: String(r?.avatar || r?.avatarUrl || r?.headImg || r?.headimg || "").trim(),
+						}))
+						.filter((r) => r.id && r.name);
+					this.selectedEmployeeIds = this.selectedEmployeeIds.filter((id) =>
+						this.employeeOptions.some((e) => e.id === id)
+					);
+				} catch (e) {
+					this.employeeOptions = [];
+					uni.showToast({ title: "员工加载失败", icon: "none" });
+				} finally {
+					this.loadingEmployees = false;
+				}
+			},
+			toggleMember(id) {
+				const i = this.selectedEmployeeIds.indexOf(id);
+				if (i >= 0) this.selectedEmployeeIds.splice(i, 1);
+				else this.selectedEmployeeIds.push(id);
 			},
 			submit() {
 				const n = (this.name || "").trim();
@@ -82,6 +141,7 @@
 					deliverable: this.deliverable,
 					deadline: this.deadline,
 					notifyTime: this.timeOptions[this.notifyIdx] || "21:00",
+					members: this.employeeOptions.filter((e) => this.selectedEmployeeIds.includes(e.id)),
 				});
 				uni.showToast({ title: this.t('created'), icon: "success" });
 					setTimeout(() => uni.navigateBack(), 400);
@@ -148,6 +208,42 @@
 		font-size: 22rpx;
 		color: #b2b2b2;
 		line-height: 1.4;
+	}
+	.member-row {
+		display: flex;
+		align-items: center;
+		padding: 14rpx 0;
+		border-bottom: 1rpx solid #f1f5f9;
+	}
+	.member-row-active {
+		background: #f8fbff;
+	}
+	.member-check {
+		width: 36rpx;
+		height: 36rpx;
+		line-height: 36rpx;
+		text-align: center;
+		border-radius: 50%;
+		border: 1rpx solid #2563eb;
+		color: #2563eb;
+		font-size: 24rpx;
+		margin-right: 12rpx;
+	}
+	.member-main {
+		flex: 1;
+		min-width: 0;
+	}
+	.member-name {
+		display: block;
+		font-size: 28rpx;
+		color: #0f172a;
+		font-weight: 600;
+	}
+	.member-meta {
+		display: block;
+		margin-top: 4rpx;
+		font-size: 22rpx;
+		color: #64748b;
 	}
 	.btn {
 		margin-top: 32rpx;

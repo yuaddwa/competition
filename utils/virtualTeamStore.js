@@ -172,59 +172,33 @@ function safeParse(json, fallback) {
 
 function seedIfNeeded() {
   if (uni.getStorageSync(K_INIT)) return;
-  const groups = [
-    {
-      id: "g_demo_1",
-      name: "示例 · 商城小程序项目群",
-      desc: "客户 A 交付群",
-      createdAt: nowIso(),
-      lastMsg: "项目经理：本周联调窗口已对齐",
-      lastTime: nowIso(),
-      unread: 1,
-    },
-  ];
-  const agents = [
-    {
-      id: "a_demo_1",
-      name: "陈经理",
-      role: "项目经理",
-      createdAt: nowIso(),
-      lastMsg: "明日站会提前到 10:00",
-      lastTime: nowIso(),
-      unread: 0,
-    },
-    {
-      id: "a_demo_2",
-      name: "小艾",
-      role: "前端",
-      createdAt: nowIso(),
-      lastMsg: "首页骨架屏已提交",
-      lastTime: nowIso(),
-      unread: 2,
-    },
-    {
-      id: "a_demo_3",
-      name: "阿强",
-      role: "后端",
-      createdAt: nowIso(),
-      lastMsg: "订单接口 Swagger 已更新",
-      lastTime: nowIso(),
-      unread: 0,
-    },
-  ];
+  const groups = [];
+  const agents = [];
   uni.setStorageSync(K_GROUPS, JSON.stringify(groups));
   uni.setStorageSync(K_AGENTS, JSON.stringify(agents));
   uni.setStorageSync(K_INIT, "1");
 }
 
+function removeDemoRows(list = [], prefix = "") {
+  const arr = Array.isArray(list) ? list : [];
+  const cleaned = arr.filter((x) => !String(x?.id || "").startsWith(prefix));
+  return cleaned;
+}
+
 export function loadProjectGroups() {
   seedIfNeeded();
-  return safeParse(uni.getStorageSync(K_GROUPS), []);
+  const list = safeParse(uni.getStorageSync(K_GROUPS), []);
+  const cleaned = removeDemoRows(list, "g_demo_");
+  if ((Array.isArray(list) ? list.length : 0) !== cleaned.length) saveGroups(cleaned);
+  return cleaned;
 }
 
 export function loadDigitalAgents() {
   seedIfNeeded();
-  return safeParse(uni.getStorageSync(K_AGENTS), []);
+  const list = safeParse(uni.getStorageSync(K_AGENTS), []);
+  const cleaned = removeDemoRows(list, "a_demo_");
+  if ((Array.isArray(list) ? list.length : 0) !== cleaned.length) saveAgents(cleaned);
+  return cleaned;
 }
 
 function saveGroups(list) {
@@ -243,9 +217,19 @@ export function addProjectGroup(payload = {}) {
     deliverable = "",
     deadline = "",
     notifyTime = "21:00",
+    members = [],
   } = payload;
   const list = loadProjectGroups();
   const id = `g_${Date.now()}`;
+  const safeMembers = (Array.isArray(members) ? members : [])
+    .map((m) => ({
+      id: String(m?.id || m?.agentId || "").trim(),
+      name: String(m?.name || m?.displayName || "").trim(),
+      role: String(m?.role || m?.jobTitle || "").trim(),
+      department: String(m?.department || "").trim(),
+      avatar: String(m?.avatar || m?.avatarUrl || m?.headImg || m?.headimg || "").trim(),
+    }))
+    .filter((m) => m.id && m.name);
   const row = {
     id,
     name: (name || t("vt_unnamed_group", getLanguage())).trim(),
@@ -258,6 +242,7 @@ export function addProjectGroup(payload = {}) {
     lastMsg: t("vt_group_created_toast", getLanguage()),
     lastTime: nowIso(),
     unread: 0,
+    members: safeMembers,
   };
   list.unshift(row);
   saveGroups(list);
@@ -517,6 +502,16 @@ export function clearGroupUnread(id) {
   saveGroups(list);
 }
 
+export function deleteProjectGroupById(id) {
+  if (!id) return false;
+  const list = loadProjectGroups();
+  const next = list.filter((x) => x.id !== id);
+  if (next.length === list.length) return false;
+  saveGroups(next);
+  clearVirtualChatMessages("group", id);
+  return true;
+}
+
 export function clearAgentUnread(id) {
   const list = loadDigitalAgents();
   const i = list.findIndex((x) => x.id === id);
@@ -613,7 +608,7 @@ export function removeVirtualChatMessagesByIds(kind, id, messageIds) {
   recomputeVirtualChatLastPreview(kind, id);
 }
 
-export function appendVirtualChat(kind, id, { content, isMine = true, senderName = "" }) {
+export function appendVirtualChat(kind, id, { content, isMine = true, senderName = "", senderAvatar = "" }) {
   const list = loadVirtualChatMessages(kind, id);
   const msg = {
     id: `vm_${Date.now()}`,
@@ -621,6 +616,7 @@ export function appendVirtualChat(kind, id, { content, isMine = true, senderName
     time: nowIso(),
     isMine,
     senderName: senderName || "",
+    senderAvatar: String(senderAvatar || "").trim(),
   };
   list.push(msg);
   saveVirtualChatMessages(kind, id, list);

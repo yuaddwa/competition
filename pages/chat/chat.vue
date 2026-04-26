@@ -37,6 +37,10 @@ class="bubble-row"
 }"
 @click="onBubbleRowTap(msg)"
 >
+<view class="bubble-line" :class="{ 'bubble-line-mine': msg.isMine }">
+<image v-if="!msg.isMine && avatarSrc(msg, false)" class="bubble-avatar-img" :src="avatarSrc(msg, false)" mode="aspectFill" />
+<view v-else-if="!msg.isMine" class="bubble-avatar">{{ avatarText(msg, false) }}</view>
+<view class="bubble-main">
 <text v-if="!msg.isMine && msg.senderName" class="bubble-sender">{{ msg.senderName }}</text>
 <view
 class="message-bubble"
@@ -46,6 +50,10 @@ class="message-bubble"
 <text class="bubble-text">{{ msg.content }}</text>
 </view>
 <text class="bubble-meta-time">{{ formatTime(msg.time) }}</text>
+</view>
+<image v-if="msg.isMine && avatarSrc(msg, true)" class="bubble-avatar-img bubble-avatar-img-mine" :src="avatarSrc(msg, true)" mode="aspectFill" />
+<view v-else-if="msg.isMine" class="bubble-avatar bubble-avatar-mine">{{ avatarText(msg, true) }}</view>
+</view>
 </view>
 <view id="chat-bottom-anchor" class="bottom-anchor"></view>
 </view>
@@ -108,6 +116,8 @@ ensureManagerChatSeed,
 removeVirtualChatMessage,
 removeVirtualChatMessagesByIds,
 getDigitalAgentById,
+loadDigitalAgents,
+getProjectGroupById,
 displayAgentName,
 displayAgentRole,
 formatAgentNavTitle,
@@ -115,7 +125,8 @@ formatAgentNavTitle,
 import * as workflowApi from "@/clientApi/workflowApi";
 import { pickId } from "@/utils/apiHelpers";
 import { getUserInfo } from "@/utils/index";
-import { getAgentById, getUserAgentById } from "@/clientApi/agentsApi";
+import { getAgentById } from "@/clientApi/agentsApi";
+import { resolveAvatarDisplayUrl } from "@/clientApi/authApi";
 import { getPersonaById } from "@/utils/agentPersonaCatalog";
 import { getLlmSettings } from "@/utils/llmSettings";
 import { getAgentModelOrDefault } from "@/utils/agentModelMap";
@@ -181,6 +192,7 @@ selectedIds: [],
 personaSystemPrompt: "",
 agentProfileForPrompt: null,
 isDarkMode: false,
+groupReplying: false,
 showBubbleMenu: false,
 bubbleMenuItems: [],
 activeBubbleMenuMsg: null,
@@ -272,6 +284,24 @@ this.markAsRead();
 }
 },
 methods: {
+avatarText(msg, isMine) {
+if (isMine) {
+const me = getUserInfo() || {};
+const nick = String(me.nickname || me.name || me.username || "我").trim();
+return (nick || "我").slice(0, 1);
+}
+const sender = String(msg?.senderName || "").trim();
+return (sender || "A").slice(0, 1);
+},
+avatarSrc(msg, isMine) {
+if (isMine) {
+const me = getUserInfo() || {};
+const raw = String(me.avatarUrl || me.avatar || me.avatarURL || me.headImg || me.headimg || "").trim();
+return resolveAvatarDisplayUrl(raw);
+}
+const raw = String(msg?.senderAvatar || "").trim();
+return resolveAvatarDisplayUrl(raw);
+},
 buildAgentSystemPrompt(agentInfo = {}, fallbackName = "", fallbackRole = "") {
 const name = String(agentInfo.displayName || agentInfo.name || fallbackName || "").trim() || this.t("digital_employee_fallback");
 const role = String(agentInfo.jobTitle || agentInfo.rolePosition || fallbackRole || "").trim() || this.t("agent_seed_role_fallback");
@@ -292,15 +322,6 @@ return pieces.filter(Boolean).join("\n");
 async fetchUserAgentForPrompt() {
 if (this.virtualKind !== "agent" || !this.virtualId) return null;
 try {
-const data = await getUserAgentById(this.virtualId);
-if (data && typeof data === "object") {
-this.agentProfileForPrompt = data;
-return data;
-}
-} catch (e) {
-console.warn("[chat] GET /api/user-agents/:id", e);
-}
-try {
 const local = getDigitalAgentById(this.virtualId);
 if (local && typeof local === "object") {
 this.agentProfileForPrompt = local;
@@ -310,6 +331,125 @@ return local;
 console.warn("[chat] local digital agent fallback", e);
 }
 return null;
+},
+buildGroupAutoReplyContent(agentName, agentRole, userText, idx) {
+const brief = String(userText || "").trim().slice(0, 26);
+const templates = [
+`${agentName}已收到，我这边先按「${brief}」推进，30分钟内回传进展。`,
+`收到，我负责${agentRole || "该模块"}，先拆分任务并同步风险点。`,
+`我先给出可执行方案：先确认范围，再给里程碑和交付时间。`,
+`${agentName}这边补充：如果优先级最高，我可以先交付最小可用版本。`,
+];
+return templates[idx % templates.length];
+},
+buildGroupAgentSystemPrompt(member, groupTitle = "") {
+const name = String(member?.name || member?.displayName || "").trim() || this.t("digital_employee_fallback");
+const role = String(member?.role || member?.jobTitle || "").trim() || this.t("agent_seed_role_fallback");
+const dept = String(member?.department || "").trim();
+const group = String(groupTitle || this.virtualTitle || "").trim();
+return [
+`你是项目群成员「${name}」，职责：${role}。`,
+dept ? `所属部门：${dept}。` : "",
+group ? `当前群聊：${group}。` : "",
+"请在群聊中用简洁中文回复，聚焦执行方案、风险、协作对象。",
+"每次回复 1-3 句，避免空话。"
+].filter(Boolean).join("\n");
+},
+buildGroupApiMessages(extraUserPrompt = "") {
+const recent = (Array.isArray(this.chatMessages) ? this.chatMessages : []).slice(-18);
+const msgs = recent
+  .filter((m) => m && String(m.content || "").trim())
+  .map((m) => {
+    if (m.isMine) return { role: "user", content: String(m.content).trim() };
+    const speaker = String(m.senderName || "成员").trim();
+    return { role: "assistant", content: `${speaker}：${String(m.content).trim()}` };
+  });
+if (extraUserPrompt) msgs.push({ role: "user", content: extraUserPrompt });
+return msgs;
+},
+async triggerVirtualGroupAutoReplies(userText) {
+if (this.groupReplying) return;
+const g = getProjectGroupById(this.virtualId);
+const pickedMembers = Array.isArray(g?.members) ? g.members : [];
+const candidates = pickedMembers.length ? pickedMembers : loadDigitalAgents();
+const picked = candidates.slice(0, Math.min(3, candidates.length));
+if (!Array.isArray(picked) || picked.length === 0) return;
+const { apiKey, baseUrl, model } = getLlmSettings();
+if (!apiKey) {
+  uni.showToast({ title: this.t("toast_set_api_key_in_profile"), icon: "none" });
+  picked.forEach((a, idx) => {
+    const name = String(a?.name || a?.displayName || "").trim() || displayAgentName(a) || this.t("digital_employee_fallback");
+    const role = String(a?.role || a?.jobTitle || "").trim() || displayAgentRole(a);
+    appendVirtualChat("group", this.virtualId, {
+      content: this.buildGroupAutoReplyContent(name, role, userText, idx),
+      isMine: false,
+      senderName: formatAgentNavTitle({ name, role }) || name,
+      senderAvatar: String(a?.avatar || a?.avatarUrl || a?.headImg || a?.headimg || "").trim(),
+    });
+  });
+  this.loadVirtualMessages(false);
+  this.$nextTick(() => this.scrollToBottom());
+  return;
+}
+this.groupReplying = true;
+try {
+  for (let idx = 0; idx < picked.length; idx++) {
+    const a = picked[idx] || {};
+    const name = String(a?.name || a?.displayName || "").trim() || displayAgentName(a) || this.t("digital_employee_fallback");
+    const role = String(a?.role || a?.jobTitle || "").trim() || displayAgentRole(a);
+    const senderName = formatAgentNavTitle({ name, role }) || name;
+    const system = this.buildGroupAgentSystemPrompt(a, g?.name || this.virtualTitle || "");
+    const msgs = this.buildGroupApiMessages();
+    try {
+      const res = await chatCompletion({ apiKey, baseUrl, model, system, messages: msgs });
+      const text = extractAssistantText(res) || this.buildGroupAutoReplyContent(name, role, userText, idx);
+      appendVirtualChat("group", this.virtualId, {
+        content: text,
+        isMine: false,
+        senderName,
+        senderAvatar: String(a?.avatar || a?.avatarUrl || a?.headImg || a?.headimg || "").trim(),
+      });
+    } catch {
+      appendVirtualChat("group", this.virtualId, {
+        content: this.buildGroupAutoReplyContent(name, role, userText, idx),
+        isMine: false,
+        senderName,
+        senderAvatar: String(a?.avatar || a?.avatarUrl || a?.headImg || a?.headimg || "").trim(),
+      });
+    }
+    this.loadVirtualMessages(false);
+    this.$nextTick(() => this.scrollToBottom());
+    await new Promise((r) => setTimeout(r, 260));
+  }
+  // 第二轮：让成员基于上一轮观点进行简短协作回应（模拟群内互相交流）
+  for (let idx = 1; idx < Math.min(3, picked.length); idx++) {
+    const a = picked[idx] || {};
+    const name = String(a?.name || a?.displayName || "").trim() || displayAgentName(a) || this.t("digital_employee_fallback");
+    const role = String(a?.role || a?.jobTitle || "").trim() || displayAgentRole(a);
+    const senderName = formatAgentNavTitle({ name, role }) || name;
+    const system = this.buildGroupAgentSystemPrompt(a, g?.name || this.virtualTitle || "");
+    const msgs = this.buildGroupApiMessages("请基于上一位成员的观点补充一句协作建议，并点名需要配合的角色。");
+    try {
+      const res = await chatCompletion({ apiKey, baseUrl, model, system, messages: msgs });
+      const text = extractAssistantText(res);
+      if (text) {
+        appendVirtualChat("group", this.virtualId, {
+          content: text,
+          isMine: false,
+          senderName,
+          senderAvatar: String(a?.avatar || a?.avatarUrl || a?.headImg || a?.headimg || "").trim(),
+        });
+        this.loadVirtualMessages(false);
+        this.$nextTick(() => this.scrollToBottom());
+      }
+    } catch {
+      //
+    }
+    await new Promise((r) => setTimeout(r, 220));
+  }
+} finally {
+  this.groupReplying = false;
+}
 },
 loadDarkMode() {
 try {
@@ -621,6 +761,7 @@ content: m.content,
 time: m.time,
 isMine: !!m.isMine,
 senderName: m.senderName || "",
+senderAvatar: m.senderAvatar || "",
 }));
 } finally {
 this.loading = false;
@@ -810,6 +951,9 @@ senderName: "",
 this.inputText = "";
 this.loadVirtualMessages(false);
 this.$nextTick(() => this.scrollToBottom());
+if (this.virtualKind === "group") {
+this.triggerVirtualGroupAutoReplies(body);
+}
 return;
 }
 if (this.mode === "remote") {
@@ -942,7 +1086,6 @@ background-color: #eef2f7 !important;
 .chat-header-wrap {
 flex-shrink: 0;
 background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-border-bottom: 1rpx solid rgba(148, 163, 184, 0.35);
 box-shadow: 0 4rpx 20rpx rgba(15, 23, 42, 0.05);
 }
 
@@ -1092,6 +1235,47 @@ align-items: flex-start;
 width: 100%;
 box-sizing: border-box;
 }
+.bubble-line {
+display: flex;
+align-items: flex-start;
+gap: 12rpx;
+width: 100%;
+}
+.bubble-line-mine {
+justify-content: flex-end;
+}
+.bubble-main {
+display: flex;
+flex-direction: column;
+max-width: 72%;
+min-width: 0;
+}
+.bubble-avatar {
+width: 56rpx;
+height: 56rpx;
+border-radius: 50%;
+background: linear-gradient(145deg, #8b5cf6, #2563eb);
+color: #fff;
+font-size: 24rpx;
+font-weight: 700;
+display: flex;
+align-items: center;
+justify-content: center;
+flex-shrink: 0;
+}
+.bubble-avatar-img {
+width: 56rpx;
+height: 56rpx;
+border-radius: 50%;
+flex-shrink: 0;
+background: #e2e8f0;
+}
+.bubble-avatar-img-mine {
+background: #bbf7d0;
+}
+.bubble-avatar-mine {
+background: linear-gradient(145deg, #10b981, #059669);
+}
 
 .bubble-row.my-message {
 align-items: flex-end;
@@ -1114,7 +1298,7 @@ display: none;
 }
 
 .message-bubble {
-max-width: 76%;
+max-width: 100%;
 padding: 20rpx 24rpx;
 border-radius: 18rpx 18rpx 18rpx 6rpx;
 background-color: #ffffff;
@@ -1137,6 +1321,9 @@ font-size: 28rpx;
 line-height: 1.55;
 letter-spacing: 0.2rpx;
 color: #1e293b;
+white-space: pre-wrap;
+word-break: break-word;
+writing-mode: horizontal-tb;
 }
 
 .message-bubble.my-message .bubble-text {
@@ -1157,7 +1344,6 @@ padding-bottom: env(safe-area-inset-bottom);
 .chat-input {
 min-height: 100rpx;
 background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
-border-top: 1rpx solid rgba(148, 163, 184, 0.28);
 display: flex;
 align-items: center;
 padding-left: 24rpx;
