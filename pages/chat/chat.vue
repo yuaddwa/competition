@@ -500,7 +500,7 @@ const g = getProjectGroupById(this.virtualId);
 const pickedMembers = Array.isArray(g?.members) ? g.members : [];
 const candidates = pickedMembers.length ? pickedMembers : loadDigitalAgents();
 const roster = pickedMembers.length ? pickedMembers : candidates;
-const maxAgents = 5;
+const maxAgents = 3;
 const picked = candidates.slice(0, Math.min(maxAgents, candidates.length));
 if (!Array.isArray(picked) || picked.length === 0) return;
 const { apiKey, baseUrl, model } = getLlmSettings();
@@ -538,7 +538,9 @@ try {
     try {
       const res = await chatCompletion({ apiKey, baseUrl, model: agentModel, system, messages: msgs });
       const raw = extractAssistantText(res) || this.buildGroupAutoReplyContent(name, role, userText, idx);
-      const text = stripLeadingRosterSpeakerPrefix(raw, roster) || raw;
+      let text = stripLeadingRosterSpeakerPrefix(raw, roster) || raw;
+      text = stripOtherSpeakerLines(text, a, roster);
+      text = clampGroupReplyLength(text, 200);
       appendVirtualChat("group", this.virtualId, {
         content: text,
         isMine: false,
@@ -559,42 +561,10 @@ try {
     }
     this.loadVirtualMessages(false);
     this.$nextTick(() => this.scrollToBottom());
-    await new Promise((r) => setTimeout(r, 280));
+    await new Promise((r) => setTimeout(r, 900));
   }
-  // 第二轮：每人接话，口语化对齐、互相 @，把话补完整
-  const round2Hint =
-    "这是群里刚聊完的一轮。请你接着往下说：语气像微信群同事，口语自然；必须接住上文里至少一个具体点；需要配合就用 @显示名；结尾说清楚「你或对方下一步具体干啥」或「还差哪一句就能定」，别把话撂一半。";
-  for (let idx = 0; idx < picked.length; idx++) {
-    const a = picked[idx] || {};
-    const name = String(a?.name || a?.displayName || "").trim() || displayAgentName(a) || this.t("digital_employee_fallback");
-    const role = String(a?.role || a?.jobTitle || "").trim() || displayAgentRole(a);
-    const senderName = formatAgentNavTitle({ name, role }) || name;
-    const aid = String(a?.id || a?.agentId || "").trim();
-    const agentModel = (aid && getAgentModelOrDefault(aid)) || model;
-    const system = this.buildGroupAgentSystemPrompt(a, g?.name || this.virtualTitle || "", roster);
-    const msgs = this.buildGroupApiMessages(round2Hint);
-    try {
-      const res = await chatCompletion({ apiKey, baseUrl, model: agentModel, system, messages: msgs });
-      const raw = extractAssistantText(res);
-      const text = raw ? stripLeadingRosterSpeakerPrefix(raw, roster) || raw : "";
-      if (text) {
-        appendVirtualChat("group", this.virtualId, {
-          content: text,
-          isMine: false,
-          senderName,
-          senderAvatar: String(a?.avatar || a?.avatarUrl || a?.headImg || a?.headimg || "").trim(),
-          senderId: aid,
-          senderModel: agentModel,
-        });
-        this.loadVirtualMessages(false);
-        this.$nextTick(() => this.scrollToBottom());
-      }
-    } catch {
-      //
-    }
-    await new Promise((r) => setTimeout(r, 260));
-  }
-  // 第三轮：一人做口语小结，帮用户把「目的」收口
+  await new Promise((r) => setTimeout(r, 600));
+  // 收口：仅一人发一条极短小结（仍只代表自己，不代写他人长段）
   const closer = picked[picked.length > 1 ? picked.length - 1 : 0] || picked[0];
   {
     const a = closer || {};
@@ -605,12 +575,14 @@ try {
     const agentModel = (aid && getAgentModelOrDefault(aid)) || model;
     const system = this.buildGroupAgentSystemPrompt(a, g?.name || this.virtualTitle || "", roster);
     const msgs = this.buildGroupApiMessages(
-      "请你代表大家用口语做个**本轮小结**（3～6 句）：① 和用户问题对齐的结论；② 已定下的分工 / 下一步谁干啥；③ 若还有不确定点，明确说出来问用户一句。语气轻松像群里收尾，别像报告标题。"
+      "你只以本人身份做**一句到三句**的收尾：帮大家用口语点一下共识和下一步（谁干啥用 @ 带一下即可）；总字数不超过 120 字；禁止替别人写长台词或分段扮演他人。"
     );
     try {
       const res = await chatCompletion({ apiKey, baseUrl, model: agentModel, system, messages: msgs });
       const raw = extractAssistantText(res);
-      const text = raw ? stripLeadingRosterSpeakerPrefix(raw, roster) || raw : "";
+      let text = raw ? stripLeadingRosterSpeakerPrefix(raw, roster) || raw : "";
+      text = stripOtherSpeakerLines(text, a, roster);
+      text = text ? clampGroupReplyLength(text, 140) : "";
       if (text) {
         appendVirtualChat("group", this.virtualId, {
           content: text,
