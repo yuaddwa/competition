@@ -69,3 +69,18 @@ export function setLlmSettings({ apiKey, baseUrl, model }) {
 	if (baseUrl !== undefined) uni.setStorageSync(K_BASE_URL, String(baseUrl).trim());
 	if (model !== undefined) uni.setStorageSync(K_MODEL, String(model).trim());
 }
+
+/**
+ * 供工作台展示：是否已配置、模型名、真实请求地址（不含密钥）
+ */
+export function getLlmConnectionSummary() {
+	const { apiKey, baseUrl, model } = getLlmSettings();
+	const configured = !!String(apiKey || "").trim();
+	const root = String(baseUrl || "").trim().replace(/\/+$/, "") || DEFAULT_BASE.replace(/\/+$/, "");
+	const m = String(model || "").trim() || DEFAULT_MODEL;
+	return {
+		configured,
+		model: m,
+		apiEndpoint: `${root}/chat/completions`,
+	};
+}

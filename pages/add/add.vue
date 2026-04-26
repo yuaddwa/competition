@@ -217,7 +217,7 @@
 </template>
 
 <script>
-	import * as workflowApi from "@/clientApi/workflowApi";
+	import * as workflowApi from "@/utils/localWorkflowStore";
 	import { pickId, getApiErrorMessage } from "@/utils/apiHelpers";
 	import { getUserInfo } from "@/utils/index";
 	import { t, getLanguage, translateDepartment } from "@/utils/lang";
@@ -238,6 +238,8 @@ const STORAGE_WF_LIST = "cachedWorkflowList";
 				goal: "",
 				priorityIdx: 1,
 				submitting: false,
+				showAdvanced: false,
+				templateIdx: -1,
 				showCreateProject: false,
 				showWorkflowPicker: false,
 				loadingWorkflows: false,
@@ -366,13 +368,27 @@ const STORAGE_WF_LIST = "cachedWorkflowList";
 			},
 			updateQuickTemplates() {
 				const lang = this.currentLanguage;
-				const isEn = lang === 'en';
-				this.quickTemplates = this.quickTemplates.map(tpl => ({
+				const isEn = lang === "en";
+				this.quickTemplates = this.quickTemplates.map((tpl) => ({
 					...tpl,
-					name: isEn ? (tpl.name_en || tpl.name) : tpl.name,
-					text: isEn ? (tpl.text_en || tpl.text) : tpl.text,
-					title: isEn ? (tpl.title_en || tpl.title) : tpl.title,
+					name: isEn ? tpl.name_en || tpl.name : tpl.name,
+					text: isEn ? tpl.text_en || tpl.text : tpl.text,
+					title: isEn ? tpl.title_en || tpl.title : tpl.title,
 				}));
+			},
+			applyTemplate(i) {
+				this.templateIdx = i;
+				const tpl = this.quickTemplates[i];
+				if (!tpl) return;
+				this.goal = tpl.text;
+				const sIdx = this.deptOptions.findIndex((d) => d.id === tpl.source);
+				const tIdx = this.deptOptions.findIndex((d) => d.id === tpl.target);
+				if (sIdx >= 0) this.sourceDeptIdx = sIdx;
+				if (tIdx >= 0) this.targetDeptIdx = tIdx;
+				const lv = Number(tpl.level);
+				if (Number.isFinite(lv) && lv >= 1 && lv <= 3) {
+					this.priorityIdx = lv - 1;
+				}
 			},
 			async prefetchWorkflows(options = {}) {
 				const keepExisting = options.keepExisting !== false;
@@ -529,6 +545,7 @@ const STORAGE_WF_LIST = "cachedWorkflowList";
 						brief: text,
 						title: this.workflowTitle || text.slice(0, 28),
 						fromDepartment: source,
+						toDepartment: target,
 						fromLevel: 0,
 						toLevel: this.showAdvanced ? this.hierarchyLevel : 1,
 						maxTasks: 6,
@@ -561,9 +578,11 @@ const STORAGE_WF_LIST = "cachedWorkflowList";
 						url: `/pages/workflow/workbench?id=${encodeURIComponent(wid)}`,
 					});
 				} catch (err) {
-					const detail = getApiErrorMessage(err);
+					const mk = err && err.messageKey;
+					const fromKey = mk ? this.t(mk) : "";
+					const detail = fromKey || getApiErrorMessage(err);
 					uni.showToast({
-						title: detail || "自动分配失败，请稍后重试",
+						title: detail || (err && err.message) || "自动分配失败，请稍后重试",
 						icon: "none",
 						duration: 3200,
 					});

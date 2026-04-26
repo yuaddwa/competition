@@ -4,6 +4,13 @@
 			<text class="hero-title">{{ screenTitle }}</text>
 			<text class="hero-sub">{{ t('workbench_id_label') }}{{ workflowId || "-" }}</text>
 		</view>
+		<view v-if="workflowLlmBusyLine" class="llm-strip wf-busy">
+			<text class="llm-strip-t">{{ workflowLlmBusyLine }}</text>
+		</view>
+		<view class="llm-strip" :class="llmConn.configured ? 'llm-on' : 'llm-off'">
+			<text class="llm-strip-t">{{ llmStripTitle }}</text>
+			<text class="llm-strip-e" user-select="text">{{ llmConn.apiEndpoint || "" }}</text>
+		</view>
 		<scroll-view scroll-x class="project-strip" show-scrollbar="false">
 			<view
 				v-for="w in workflowNavList"
@@ -33,7 +40,12 @@
 				<button class="mini primary" type="primary" size="mini" @click="openCommand">{{ t('issue_command') }}</button>
 			</view>
 
-			<view v-if="taskView === 'dept'">
+			<view v-if="tasks.length === 0" class="task-empty">
+				<text class="task-empty-t">暂无任务</text>
+				<text class="task-empty-hint">点右上角「下发指令」并填写内容后提交；提交后会先出现「处理中」任务，再补全详情与自动执行流程。</text>
+			</view>
+
+			<view v-else-if="taskView === 'dept'">
 				<view v-for="dept in deptKeys" :key="dept" class="blk">
 					<text class="blk-title">{{ dept }}</text>
 					<view v-for="task in groupedByDept[dept]" :key="taskKey(task)" class="card" @click="openProgress(task)">
@@ -41,6 +53,9 @@
 							<text class="card-t">{{ taskTitle(task) }}</text>
 							<text class="badge" :class="statusClass(task)">{{ statusLabel(task) }}</text>
 						</view>
+						<text v-if="taskAutomationLine(task)" class="auto-line">{{ taskAutomationLine(task) }}</text>
+						<text v-if="taskLlmLine(task)" class="llm-line">{{ taskLlmLine(task) }}</text>
+						<text v-if="taskAiPreview(task)" class="ai-preview" user-select="text">{{ taskAiPreview(task) }}</text>
 						<view class="progress-row">
 							<progress :percent="taskPercent(task)" stroke-width="6" active border-radius="6" />
 							<text class="pct">{{ taskPercent(task) }}%</text>
@@ -56,6 +71,9 @@
 					<view v-for="task in tasksInStatus(col.key)" :key="taskKey(task)" class="card sm" @click="openProgress(task)">
 						<text class="card-t">{{ taskTitle(task) }}</text>
 						<text class="mini-muted">{{ taskDept(task) }}</text>
+						<text v-if="taskAutomationLine(task)" class="auto-line sm">{{ taskAutomationLine(task) }}</text>
+						<text v-if="taskLlmLine(task)" class="llm-line sm">{{ taskLlmLine(task) }}</text>
+						<text v-if="taskAiPreview(task)" class="ai-preview sm">{{ taskAiPreview(task) }}</text>
 						<view class="progress-row">
 							<progress :percent="taskPercent(task)" stroke-width="4" />
 							<text class="pct sm">{{ taskPercent(task) }}%</text>
@@ -71,6 +89,9 @@
 						<text class="badge" :class="statusClass(task)">{{ statusLabel(task) }}</text>
 					</view>
 					<text class="mini-muted">{{ taskDept(task) }} · L{{ taskLevel(task) }}</text>
+					<text v-if="taskAutomationLine(task)" class="auto-line">{{ taskAutomationLine(task) }}</text>
+					<text v-if="taskLlmLine(task)" class="llm-line">{{ taskLlmLine(task) }}</text>
+					<text v-if="taskAiPreview(task)" class="ai-preview" user-select="text">{{ taskAiPreview(task) }}</text>
 					<view class="progress-row">
 						<progress :percent="taskPercent(task)" stroke-width="6" active />
 						<text class="pct">{{ taskPercent(task) }}%</text>
@@ -211,6 +232,16 @@
 				<picker mode="selector" :range="levelLabels" @change="onCmdLevel">
 					<view class="cmd-picker-line">{{ t('hierarchy_level') }}：{{ levelLabels[cmdLevelIdx] }}</view>
 				</picker>
+				<scroll-view v-if="cmdQuickFills.length" scroll-x class="cmd-tpl-bar" show-scrollbar="false">
+					<view
+						v-for="(c, cidx) in cmdQuickFills"
+						:key="cidx"
+						class="cmd-tpl"
+						@click="applyCmdQuick(c)"
+					>
+						<text class="cmd-tpl-t">{{ c.t }}</text>
+					</view>
+				</scroll-view>
 				<textarea class="cmd-ta" v-model="cmdBody" :placeholder="t('command_body_required')" />
 				<input class="cmd-inp" v-model="cmdTaskTitle" :placeholder="t('generate_task_title_optional')" />
 				<picker mode="selector" :range="taskPickLabels" @change="onCmdParent">
@@ -226,16 +257,47 @@
 			</view>
 		</view>
 
-		<!-- 更新进度 -->
-		<view v-if="progressTask" class="mask" @click.self="progressTask = null">
+		<!-- 更新进度 / 自动任务只读详情 -->
+		<view v-if="progressTask" class="mask" @click.self="closeProgressDialog">
 			<view class="dialog" @click.stop>
-				<text class="dialog-title">{{ t('update_progress') }}</text>
+				<text class="dialog-title">{{ progressReadOnly ? t('task_progress_readonly_title') : t('update_progress') }}</text>
 				<text class="dlg-sub">{{ taskTitle(progressTask) }}</text>
-				<slider :value="progressValue" min="0" max="100" show-value @changing="onSlider" @change="onSlider" />
-				<input class="inp" v-model="progressNote" :placeholder="t('remark_optional')" />
-				<view class="dialog-actions">
-					<button class="btn ghost" @click="progressTask = null">{{ t('cancel') }}</button>
-					<button class="btn primary" type="primary" :loading="progressLoading" @click="submitProgress">{{ t('save') }}</button>
+				<text v-if="progressReadOnly" class="ro-hint">{{ t('task_progress_readonly_hint') }}</text>
+				<text v-if="progressReadOnly" class="ro-meta">{{ statusLabel(progressTask) }} · {{ taskPercent(progressTask) }}%</text>
+				<scroll-view v-if="taskLlmHistoryLines(progressTask).length" scroll-y class="llm-trace">
+					<text class="llm-trace-title">{{ t('wb_llm_trace_title') }}</text>
+					<text
+						v-for="(line, li) in taskLlmHistoryLines(progressTask)"
+						:key="'h' + li"
+						class="llm-trace-line"
+						user-select="text"
+					>{{ line }}</text>
+				</scroll-view>
+				<text v-if="progressTask.llmRequesting && progressTask.llmRequestPhaseLabel" class="llm-live">
+					{{ t('wb_llm_requesting') }}{{ progressTask.llmRequestPhaseLabel }}
+				</text>
+				<scroll-view
+					v-if="progressTask.automationLog && progressTask.automationLog.length"
+					scroll-y
+					class="auto-log"
+				>
+					<text class="auto-log-t" user-select="text">
+						{{ (progressTask.automationLog || []).join('\n') }}
+					</text>
+				</scroll-view>
+				<scroll-view v-if="taskFullAiReport(progressTask)" scroll-y class="ai-report">
+					<text class="ai-report-t" user-select="text">{{ taskFullAiReport(progressTask) }}</text>
+				</scroll-view>
+				<template v-if="!progressReadOnly">
+					<slider :value="progressValue" min="0" max="100" show-value @changing="onSlider" @change="onSlider" />
+					<input class="inp" v-model="progressNote" :placeholder="t('remark_optional')" />
+					<view class="dialog-actions">
+						<button class="btn ghost" @click="closeProgressDialog">{{ t('cancel') }}</button>
+						<button class="btn primary" type="primary" :loading="progressLoading" @click="submitProgress">{{ t('save') }}</button>
+					</view>
+				</template>
+				<view v-else class="dialog-actions">
+					<button class="btn primary" type="primary" @click="closeProgressDialog">{{ t('confirm') }}</button>
 				</view>
 			</view>
 		</view>
@@ -292,8 +354,9 @@
 
 <script>
 	import agentDepartments from "@/data/agentDepartments";
-	import * as workflowApi from "@/clientApi/workflowApi";
-	import { pickId } from "@/utils/apiHelpers";
+	import * as wfs from "@/utils/localWorkflowStore";
+	import { getLlmConnectionSummary } from "@/utils/llmSettings";
+	import { getApiErrorMessage, pickId } from "@/utils/apiHelpers";
 	import { subscribeWorkflowChannel } from "@/utils/realtime";
 	import { t, getLanguage, translateDepartment } from "@/utils/lang";
 
@@ -340,6 +403,7 @@
 				cmdDependIdx: 0,
 				cmdLoading: false,
 				progressTask: null,
+				progressReadOnly: false,
 				progressValue: 0,
 				progressNote: "",
 				progressLoading: false,
@@ -357,8 +421,15 @@
 				linkMsg: null,
 				linkTaskIndex: 0,
 				linkLoading: false,
-				pollTimer: null,
 				realtimeUnsub: null,
+				/** 有任务在跑自动流水线时低频率刷新进度 */
+				automationTimer: null,
+				llmConn: { configured: false, model: "", apiEndpoint: "" },
+				cmdQuickFills: [
+					{ t: "日会+阻塞", b: "今日 17:00 前完成跨部门日会，同步本迭代阻塞点，并输出一页会议纪要与 @ 人清单。" },
+					{ t: "需求小评审", b: "组织 45 分钟需求评审，确认范围与验收标准，会后群内发出结论、风险与排期表。" },
+					{ t: "联调提测", b: "完成与下游的联调与冒烟用例，明早前提交可测构建，并说明已知问题与回滚点。" },
+				],
 			};
 		},
 		computed: {
@@ -438,9 +509,21 @@
 					{ key: "feed", label: this.t('feed') },
 				];
 			},
+			workflowLlmBusyLine() {
+				const m = this.meta;
+				if (!m || !m.workflowLlmBusy) return "";
+				const label = m.workflowLlmPhaseLabel || m.workflowLlmPhase || "";
+				const endpoint = (m.workflowLlmEndpoint || this.llmConn.apiEndpoint || "").trim();
+				return this.t("wb_llm_workflow_busy", { label, endpoint });
+			},
+			llmStripTitle() {
+				const c = this.llmConn || {};
+				if (c.configured) return this.t("wb_llm_strip_ok", { model: c.model || "" });
+				return this.t("wb_llm_strip_off");
+			},
 		},
 		onLoad(options) {
-			this.workflowId = options.id ? decodeURIComponent(options.id) : "";
+			this.applyWorkflowIdFromOptions(options);
 			if (agentDepartments.length > 1) {
 				this.cmdTargetIdx = 1;
 			}
@@ -451,20 +534,20 @@
 			} catch (e) {
 				//
 			}
+			this.syncWorkflowIdFromRoute();
 			if (!this.workflowId) {
 				uni.showToast({ title: this.t("missing_workflow_id"), icon: "none" });
 				return;
 			}
 			await this.bootstrapPage();
-			this.startPoll();
 			this.startRealtime();
 		},
 		onHide() {
-			this.stopPoll();
+			this.clearAutomationTimer();
 			this.stopRealtime();
 		},
 		onUnload() {
-			this.stopPoll();
+			this.clearAutomationTimer();
 			this.stopRealtime();
 		},
 		watch: {
@@ -493,6 +576,35 @@
 			t(key, params = {}) {
 				return t(key, getLanguage(), params);
 			},
+			/** 与 onLoad 一致，避免部分端 onLoad 未带上 query */
+			applyWorkflowIdFromOptions(options) {
+				if (!options) {
+					return;
+				}
+				const raw = options.id != null && options.id !== "" ? String(options.id) : "";
+				if (raw) {
+					try {
+						this.workflowId = decodeURIComponent(raw).trim();
+					} catch {
+						this.workflowId = raw.trim();
+					}
+				}
+			},
+			syncWorkflowIdFromRoute() {
+				try {
+					const pages = getCurrentPages();
+					if (!pages || !pages.length) {
+						return;
+					}
+					const cur = pages[pages.length - 1];
+					const opt = (cur && cur.options) || {};
+					if (opt.id != null && String(opt.id) !== "") {
+						this.applyWorkflowIdFromOptions({ id: opt.id });
+					}
+				} catch {
+					//
+				}
+			},
 			workflowKey(w) {
 				return pickId(w) || w?.workflowId || "";
 			},
@@ -506,7 +618,7 @@
 			},
 			async loadWorkflowNavList() {
 				try {
-					const list = await workflowApi.listWorkflows();
+					const list = await wfs.listWorkflows();
 					const arr = Array.isArray(list) ? list : [];
 					const hasCurrent = arr.some((w) => this.workflowKey(w) === this.workflowId);
 					if (!hasCurrent && this.workflowId) {
@@ -548,9 +660,14 @@
 				});
 			},
 			async bootstrapPage() {
-				await workflowApi.commsBootstrap(this.workflowId);
-				const meta = await workflowApi.getWorkflow(this.workflowId);
-				this.meta = meta;
+				try {
+					await wfs.commsBootstrap(this.workflowId);
+					await wfs.ensureWorkflowRecord(this.workflowId);
+					this.meta = await wfs.getWorkflow(this.workflowId);
+				} catch {
+					this.meta = null;
+				}
+				const meta = this.meta;
 				try {
 					uni.setStorageSync("lastWorkflowId", this.workflowId);
 					const wt = (meta && (meta.title || meta.name)) || "";
@@ -574,19 +691,6 @@
 					this.selectThread(this.filteredThreads[0]);
 				}
 			},
-			startPoll() {
-				this.stopPoll();
-				this.pollTimer = setInterval(() => {
-					this.loadTasks();
-					this.loadEvents();
-				}, 25000);
-			},
-			stopPoll() {
-				if (this.pollTimer) {
-					clearInterval(this.pollTimer);
-					this.pollTimer = null;
-				}
-			},
 			startRealtime() {
 				this.stopRealtime();
 				if (!this.workflowId) return;
@@ -606,17 +710,60 @@
 			},
 			async loadTasks() {
 				try {
-					const list = await workflowApi.listTasks(this.workflowId);
+					const list = await wfs.listTasks(this.workflowId);
 					this.tasks = Array.isArray(list) ? list : [];
 				} catch {
 					this.tasks = [];
+				}
+				try {
+					this.llmConn = getLlmConnectionSummary() || this.llmConn;
+				} catch {
+					this.llmConn = { configured: false, model: "", apiEndpoint: "" };
+				}
+				try {
+					const m = await wfs.getWorkflow(this.workflowId);
+					if (m) this.meta = m;
+				} catch {
+					//
+				}
+				this.syncAutomationRefresh();
+			},
+			/** 有自动化运行中的任务时轮询，结束后停止 */
+			syncAutomationRefresh() {
+				this.$nextTick(() => {
+					if (!this.workflowId) return;
+					const on =
+						(typeof wfs.needsTaskLivePolling === "function" && wfs.needsTaskLivePolling(this.workflowId)) ||
+						(typeof wfs.hasRunningAutomation === "function" && wfs.hasRunningAutomation(this.workflowId));
+					if (on) {
+						if (this.automationTimer) return;
+						this.automationTimer = setInterval(() => {
+							this.loadTasks();
+							this.loadEvents();
+							this.loadGraph();
+							const still =
+								(typeof wfs.needsTaskLivePolling === "function" && wfs.needsTaskLivePolling(this.workflowId)) ||
+								(typeof wfs.hasRunningAutomation === "function" && wfs.hasRunningAutomation(this.workflowId));
+							if (!still) {
+								this.clearAutomationTimer();
+							}
+						}, 1200);
+					} else {
+						this.clearAutomationTimer();
+					}
+				});
+			},
+			clearAutomationTimer() {
+				if (this.automationTimer) {
+					clearInterval(this.automationTimer);
+					this.automationTimer = null;
 				}
 			},
 			async loadThreads() {
 				try {
 					const list = this.threadKind === "PROJECT_GROUP"
-						? await workflowApi.listProjectGroups(this.workflowId)
-						: await workflowApi.listThreads(this.workflowId, { kind: this.threadKind });
+						? await wfs.listProjectGroups(this.workflowId)
+						: await wfs.listThreads(this.workflowId, { kind: this.threadKind });
 					this.threads = Array.isArray(list) ? list : [];
 				} catch {
 					this.threads = [];
@@ -629,8 +776,8 @@
 				}
 				try {
 					const list = this.threadKind === "PROJECT_GROUP"
-						? await workflowApi.listProjectGroupMessages(this.workflowId, this.selectedThreadId, { limit: 200 })
-						: await workflowApi.listMessages(this.workflowId, this.selectedThreadId, { limit: 200 });
+						? await wfs.listProjectGroupMessages(this.workflowId, this.selectedThreadId)
+						: await wfs.listMessages(this.workflowId, this.selectedThreadId);
 					this.messages = Array.isArray(list) ? list : [];
 				} catch {
 					this.messages = [];
@@ -642,7 +789,7 @@
 					return;
 				}
 				try {
-					const list = await workflowApi.listProjectGroupMembers(this.workflowId, this.selectedThreadId);
+					const list = await wfs.listProjectGroupMembers(this.workflowId, this.selectedThreadId);
 					this.projectGroupMembers = Array.isArray(list) ? list : [];
 				} catch {
 					this.projectGroupMembers = [];
@@ -650,14 +797,14 @@
 			},
 			async loadGraph() {
 				try {
-					this.graph = await workflowApi.getCollaborationGraph(this.workflowId);
+					this.graph = await wfs.getCollaborationGraph(this.workflowId);
 				} catch {
-					this.graph = null;
+					this.graph = { nodes: [], edges: [] };
 				}
 			},
 			async loadEvents() {
 				try {
-					const list = await workflowApi.listEvents(this.workflowId, { limit: 50 });
+					const list = await wfs.listEvents(this.workflowId);
 					this.events = Array.isArray(list) ? list : [];
 				} catch {
 					this.events = [];
@@ -669,7 +816,7 @@
 					return;
 				}
 				try {
-					await workflowApi.commsBootstrap(this.workflowId);
+					await wfs.commsBootstrap(this.workflowId);
 					await this.loadThreads();
 					uni.showToast({ title: this.t('bootstrap_requested'), icon: "success" });
 				} catch {
@@ -715,6 +862,66 @@
 				if (p) bits.push(`${this.t("wb_parent_prefix")} ${this.shortId(p)}`);
 				if (d) bits.push(`${this.t("wb_dep_prefix")} ${this.shortId(d)}`);
 				return bits.join(" · ");
+			},
+			taskAiPreview(t) {
+				if (!t) return "";
+				const r =
+					t.aiExecutionReport || t.executionReport || t.aiDeliverable || (t.aiGenerated && (t.description || t.desc)) || "";
+				const s = String(r || "").trim();
+				if (!s) return "";
+				return s.length > 240 ? `${s.slice(0, 240)}…` : s;
+			},
+			taskFullAiReport(t) {
+				if (!t) return "";
+				return String(
+					t.automationFullReport ||
+						t.aiExecutionReport ||
+						t.executionReport ||
+						t.aiDeliverable ||
+						t.description ||
+						t.desc ||
+						""
+				).trim();
+			},
+			taskAutomationLine(t) {
+				if (!t) return "";
+				const st = t.automationStatus;
+				if (st === "running" && t.automationPhaseLabel) {
+					return `自动执行中：${t.automationPhaseLabel}`;
+				}
+				if (st === "complete") return "自动流程已完成（分析/规划/执行/测试/验收）";
+				if (st === "error") return `自动流程异常：${(t.automationError || "未知").slice(0, 80)}`;
+				return "";
+			},
+			taskLlmLine(t) {
+				if (!t) return "";
+				if (t.llmRequesting) {
+					const model = t.llmRequestModel ? ` · ${t.llmRequestModel}` : "";
+					return `大模型请求中：${t.llmRequestPhaseLabel || "chat/completions"}${model}`;
+				}
+				const hist = t.llmCallHistory;
+				if (Array.isArray(hist) && hist.length) {
+					const last = hist[hist.length - 1];
+					const tag = last.usedRealApi ? "已请求 API" : "本机/降级";
+					const ms = last.durationMs != null ? ` ${last.durationMs}ms` : "";
+					return `${tag} · ${last.label || last.phase || "LLM"}${ms}`;
+				}
+				if (t.offlineOnly && t.pendingLlm !== true) return "未走联网大模型（本机规则或接口失败降级）";
+				return "";
+			},
+			taskLlmHistoryLines(task) {
+				if (!task) return [];
+				const h = task.llmCallHistory;
+				if (!Array.isArray(h) || !h.length) return [];
+				return h.map((r) => {
+					const tag = r.usedRealApi ? "API" : "本地";
+					const ms = r.durationMs != null ? ` ${r.durationMs}ms` : "";
+					const note = r.note ? ` — ${String(r.note).slice(0, 160)}` : "";
+					return `[${tag}] ${r.label || r.phase || ""}${ms}${note}`;
+				});
+			},
+			applyCmdQuick(c) {
+				if (c && c.b) this.cmdBody = c.b;
 			},
 			tasksInStatus(key) {
 				return this.tasks.filter((t) => this.rawStatus(t) === key);
@@ -777,41 +984,66 @@
 				if (dependId) payload.dependsOnTaskIds = [dependId];
 				this.cmdLoading = true;
 				try {
-					await workflowApi.postCommand(this.workflowId, payload);
+					const wid = String(this.workflowId || "").trim();
+					const p = wfs.postCommand(wid, payload);
+					// postCommand 内会先同步落一条占位任务，再 await 大模型；此处立刻刷新，避免长时间空白
+					this.$nextTick(() => {
+						this.loadTasks();
+						this.loadGraph();
+						this.loadEvents();
+					});
+					await p;
 					uni.showToast({ title: this.t('issued'), icon: "success" });
 					this.showCommand = false;
-					await this.loadTasks();
-				} catch {
-					//
+					await Promise.all([this.loadTasks(), this.loadGraph(), this.loadEvents()]);
+				} catch (e) {
+					const mk = e && e.messageKey;
+					const t = mk ? this.t(mk) : getApiErrorMessage(e);
+					uni.showToast({ title: t || (e && e.message) || "下发失败", icon: "none", duration: 3200 });
+					this.loadTasks();
+					this.loadEvents();
 				} finally {
 					this.cmdLoading = false;
 				}
 			},
+			closeProgressDialog() {
+				this.progressTask = null;
+				this.progressReadOnly = false;
+			},
 			openProgress(task) {
-				this.progressTask = task;
-				this.progressValue = this.taskPercent(task);
+				const id = this.taskKey(task);
+				const latest = (this.tasks || []).find((x) => this.taskKey(x) === id) || task;
+				if (typeof wfs.isManualTaskProgressDisabled === "function" && wfs.isManualTaskProgressDisabled(latest)) {
+					this.progressReadOnly = true;
+					this.progressTask = latest;
+					return;
+				}
+				this.progressReadOnly = false;
+				this.progressTask = latest;
+				this.progressValue = this.taskPercent(latest);
 				this.progressNote = "";
 			},
 			onSlider(e) {
 				this.progressValue = Number(e.detail.value);
 			},
 			async submitProgress() {
-				if (!this.progressTask) return;
+				if (!this.progressTask || this.progressReadOnly) return;
 				const taskId = this.taskKey(this.progressTask);
 				if (!taskId) return;
 				this.progressLoading = true;
 				try {
 					const note = (this.progressNote || "").trim();
-					await workflowApi.updateTaskProgress(this.workflowId, taskId, {
+					await wfs.updateTaskProgress(String(this.workflowId || "").trim(), taskId, {
 						progressPercent: this.progressValue,
 						note,
 						remark: note,
 					});
 					uni.showToast({ title: this.t('updated'), icon: "success" });
-					this.progressTask = null;
+					this.closeProgressDialog();
 					await this.loadTasks();
-				} catch {
-					//
+				} catch (e) {
+					const t = (e && e.messageKey) ? this.t(e.messageKey) : getApiErrorMessage(e);
+					uni.showToast({ title: t || "更新失败", icon: "none", duration: 2800 });
 				} finally {
 					this.progressLoading = false;
 				}
@@ -914,9 +1146,9 @@
 				this.sendingMsg = true;
 				try {
 					if (this.threadKind === "PROJECT_GROUP") {
-						await workflowApi.sendProjectGroupMessage(this.workflowId, this.selectedThreadId, payload);
+						await wfs.sendProjectGroupMessage(this.workflowId, this.selectedThreadId, payload);
 					} else {
-						await workflowApi.sendMessage(this.workflowId, this.selectedThreadId, payload);
+						await wfs.sendMessage(this.workflowId, this.selectedThreadId, payload);
 					}
 					this.draftMsg = "";
 					uni.showToast({ title: this.t('sent'), icon: "success" });
@@ -954,7 +1186,9 @@
 					if (threadId) payload.threadId = threadId;
 					if (fromTaskId) payload.fromTaskId = fromTaskId;
 					if (toTaskId) payload.toTaskId = toTaskId;
-					await workflowApi.broadcastComms(this.workflowId, payload);
+					await wfs.broadcastComms(this.workflowId, payload);
+					await this.loadEvents();
+					await this.loadMessages();
 					uni.showToast({ title: this.t('broadcasted'), icon: "success" });
 					this.showBroadcast = false;
 					this.bcTitle = "";
@@ -983,8 +1217,8 @@
 				try {
 					const defaultTitle = `${this.t("thread_default")} ${new Date().toLocaleTimeString()}`;
 					const created = this.threadKind === "PROJECT_GROUP"
-						? await workflowApi.createProjectGroup(this.workflowId, { title: title || defaultTitle })
-						: await workflowApi.createThread(this.workflowId, {
+						? await wfs.createProjectGroup(this.workflowId, { title: title || defaultTitle })
+						: await wfs.createThread(this.workflowId, {
 							kind: this.threadKind,
 							title: title || defaultTitle,
 						});
@@ -1020,7 +1254,7 @@
 				}
 				this.linkLoading = true;
 				try {
-					await workflowApi.linkMessageToTask(this.workflowId, messageId, { taskId });
+					await wfs.linkMessageToTask(this.workflowId, messageId, { taskId });
 					uni.showToast({ title: this.t('linked'), icon: "success" });
 					this.linkMsg = null;
 				} catch {
@@ -1085,6 +1319,8 @@
 			eventTypeLabel(ev) {
 				const type = String(ev?.type || ev?.eventType || ev?.action || "EVENT").toUpperCase();
 				if (type.includes("WORKFLOW_CREATED")) return "工作流创建";
+				if (type.includes("AUTOMATION_DONE")) return "自动流程完成";
+				if (type.includes("AUTOMATION_ERROR")) return "自动流程异常";
 				if (type.includes("COMMAND_ISSUED")) return "指令已下发";
 				if (type.includes("TASK_ASSIGNED")) return "任务已分配";
 				if (type.includes("COLLAB_EDGE")) return "协作关系更新";
@@ -1096,6 +1332,8 @@
 				const from = ev?.fromDepartment || ev?.fromDept || "";
 				const to = ev?.toDepartment || ev?.toDept || "";
 				if (raw.includes("WORKFLOW_CREATED")) return "已创建新的工作流";
+				if (raw.includes("AUTOMATION_DONE")) return ev?.brief || "任务已自动分析、执行、测试并完成验收";
+				if (raw.includes("AUTOMATION_ERROR")) return ev?.brief || "自动流水线异常，请查看任务";
 				if (raw.includes("COMMAND_ISSUED")) return from && to ? `已从 ${from} 向 ${to} 下发指令` : "已下发新的协作指令";
 				if (raw.includes("TASK_ASSIGNED")) return "已生成并分配任务";
 				if (raw.includes("COLLAB_EDGE")) return from && to ? `${from} 与 ${to} 建立协作连接` : "协作关系已更新";
@@ -1152,6 +1390,83 @@
 		font-size: 22rpx;
 		color: #98a2b3;
 		word-break: break-all;
+	}
+
+	.llm-strip {
+		margin: 0 20rpx 12rpx;
+		padding: 14rpx 18rpx;
+		border-radius: 14rpx;
+		border: 1rpx solid #c7d2fe;
+		background: #eef2ff;
+	}
+	.llm-strip.llm-on {
+		border-color: #93c5fd;
+		background: #eff6ff;
+	}
+	.llm-strip.llm-off {
+		border-color: #fcd34d;
+		background: #fffbeb;
+	}
+	.llm-strip.wf-busy {
+		border-color: #a78bfa;
+		background: #f5f3ff;
+		margin-bottom: 8rpx;
+	}
+	.llm-strip-t {
+		display: block;
+		font-size: 24rpx;
+		font-weight: 700;
+		color: #1e293b;
+		line-height: 1.45;
+	}
+	.llm-strip-e {
+		display: block;
+		margin-top: 6rpx;
+		font-size: 20rpx;
+		color: #64748b;
+		word-break: break-all;
+		line-height: 1.35;
+	}
+	.llm-line {
+		display: block;
+		margin-top: 6rpx;
+		font-size: 22rpx;
+		font-weight: 600;
+		color: #4338ca;
+		line-height: 1.4;
+	}
+	.llm-line.sm {
+		font-size: 20rpx;
+		margin-top: 4rpx;
+	}
+	.llm-trace {
+		max-height: 220rpx;
+		margin-bottom: 12rpx;
+		padding: 10rpx 12rpx;
+		background: #f8fafc;
+		border-radius: 10rpx;
+		border: 1rpx solid #e2e8f0;
+	}
+	.llm-trace-title {
+		display: block;
+		font-size: 22rpx;
+		font-weight: 800;
+		color: #334155;
+		margin-bottom: 8rpx;
+	}
+	.llm-trace-line {
+		display: block;
+		font-size: 20rpx;
+		color: #475569;
+		line-height: 1.45;
+		margin-bottom: 6rpx;
+	}
+	.llm-live {
+		display: block;
+		margin-bottom: 10rpx;
+		font-size: 22rpx;
+		font-weight: 700;
+		color: #7c3aed;
 	}
 
 	.project-strip {
@@ -1229,6 +1544,26 @@
 		margin-bottom: 16rpx;
 		gap: 12rpx;
 		flex-wrap: wrap;
+	}
+
+	.task-empty {
+		padding: 40rpx 24rpx 32rpx;
+		background: #f8fafc;
+		border-radius: 16rpx;
+		margin-bottom: 16rpx;
+		border: 1rpx dashed #cbd5e1;
+	}
+	.task-empty-t {
+		display: block;
+		font-size: 30rpx;
+		font-weight: 700;
+		color: #0f172a;
+		margin-bottom: 12rpx;
+	}
+	.task-empty-hint {
+		font-size: 24rpx;
+		color: #64748b;
+		line-height: 1.55;
 	}
 
 	.subseg {
@@ -1730,6 +2065,23 @@
 		margin-bottom: 16rpx;
 	}
 
+	.ro-hint {
+		display: block;
+		font-size: 24rpx;
+		color: #475569;
+		line-height: 1.5;
+		margin-bottom: 10rpx;
+		padding: 12rpx 14rpx;
+		background: #f1f5f9;
+		border-radius: 12rpx;
+	}
+	.ro-meta {
+		display: block;
+		font-size: 22rpx;
+		color: #64748b;
+		margin-bottom: 14rpx;
+	}
+
 	.inp {
 		width: 100%;
 		height: 80rpx;
@@ -1784,6 +2136,72 @@
 		border-radius: 12rpx;
 		background: #ffffff !important;
 		margin-bottom: 10rpx;
+	}
+
+	.cmd-tpl-bar {
+		white-space: nowrap;
+		margin: 0 0 8rpx;
+	}
+	.cmd-tpl {
+		display: inline-block;
+		margin-right: 10rpx;
+		padding: 10rpx 20rpx;
+		border-radius: 999rpx;
+		background: #eef2ff;
+		border: 1rpx solid #c7d2fe;
+	}
+	.cmd-tpl-t {
+		font-size: 22rpx;
+		color: #3730a3;
+		font-weight: 600;
+	}
+
+	.ai-preview {
+		display: block;
+		margin-top: 8rpx;
+		font-size: 22rpx;
+		color: #475569;
+		line-height: 1.45;
+	}
+	.ai-preview.sm {
+		margin-top: 4rpx;
+		font-size: 20rpx;
+	}
+	.auto-line {
+		display: block;
+		margin: 6rpx 0 0;
+		font-size: 22rpx;
+		font-weight: 700;
+		color: #0d9488;
+	}
+	.auto-line.sm {
+		font-size: 20rpx;
+		margin-top: 2rpx;
+	}
+	.auto-log {
+		max-height: 180rpx;
+		margin-bottom: 12rpx;
+		padding: 10rpx 12rpx;
+		background: #ecfdf5;
+		border-radius: 10rpx;
+	}
+	.auto-log-t {
+		font-size: 20rpx;
+		color: #0f172a;
+		line-height: 1.4;
+		white-space: pre-wrap;
+	}
+	.ai-report {
+		max-height: 200rpx;
+		margin-bottom: 14rpx;
+		padding: 12rpx 14rpx;
+		background: #f1f5f9;
+		border-radius: 12rpx;
+	}
+	.ai-report-t {
+		font-size: 24rpx;
+		color: #1e293b;
+		line-height: 1.5;
 	}
 
 	.cmd-ta {

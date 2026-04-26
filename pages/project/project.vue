@@ -97,7 +97,7 @@
 </template>
 
 <script>
-	import * as workflowApi from "@/clientApi/workflowApi";
+	import * as workflowApi from "@/utils/localWorkflowStore";
 	import { pickId, getApiErrorMessage } from "@/utils/apiHelpers";
 	import { switchMainTab } from "@/utils/tabNav";
 	import { t, getLanguage } from "@/utils/lang";
