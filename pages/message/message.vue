@@ -50,24 +50,28 @@
 						<view
 							v-for="row in feedRows"
 							:key="row.id"
-							class="msg-row-card"
-							hover-class="msg-row-card-hover"
-							@click="onRowTap(row)"
+							class="swipe-wrap"
+							@touchstart="onRowTouchStart($event, row)"
+							@touchmove="onRowTouchMove($event, row)"
+							@touchend="onRowTouchEnd(row)"
 						>
-							<view class="msg-avatar" :style="{ background: avatarBg(row) }">
-								<text class="msg-avatar-t">{{ avatarLetter(row) }}</text>
-							</view>
-							<view class="msg-body">
-								<view class="msg-row-top">
-									<view class="msg-title-wrap">
-										<text class="msg-title">{{ row.title }}</text>
-										<text v-if="row.badge" class="msg-pill">{{ row.badge }}</text>
-									</view>
-									<text class="msg-time">{{ formatRowTime(row.time) }}</text>
+							<view v-if="row && row.convType === 'vgroup' && swipeRowId === row.id" class="swipe-delete" @tap.stop="onDeleteGroupRow(row)">删除</view>
+							<view class="msg-row-card" :class="{ 'msg-row-open': swipeRowId === row.id }" hover-class="msg-row-card-hover" @click="onRowTap(row)">
+								<view class="msg-avatar" :style="{ background: avatarBg(row) }">
+									<text class="msg-avatar-t">{{ avatarLetter(row) }}</text>
 								</view>
-								<view class="msg-row-bottom">
-									<text class="msg-preview">{{ row.subtitle }}</text>
-									<view v-if="row.unread > 0" class="msg-unread">{{ row.unread > 99 ? "99+" : row.unread }}</view>
+								<view class="msg-body">
+									<view class="msg-row-top">
+										<view class="msg-title-wrap">
+											<text class="msg-title">{{ row.title }}</text>
+											<text v-if="row.badge" class="msg-pill">{{ row.badge }}</text>
+										</view>
+										<text class="msg-time">{{ formatRowTime(row.time) }}</text>
+									</view>
+									<view class="msg-row-bottom">
+										<text class="msg-preview">{{ row.subtitle }}</text>
+										<view v-if="row.unread > 0" class="msg-unread">{{ row.unread > 99 ? "99+" : row.unread }}</view>
+									</view>
 								</view>
 							</view>
 						</view>
@@ -175,6 +179,7 @@
 		FALLBACK_ICON,
 	} from "@/utils/messageDepartmentConfig";
 	import { departmentToZh, normalizeDeptKey } from "@/utils/agentDisplayZh";
+	import { deleteProjectGroupById } from "@/utils/virtualTeamStore";
 
 	export default {
 		components: { AppTabBar },
@@ -206,6 +211,9 @@
 				lastSuccessFeedRows: [],
 				departmentMap: {},
 				apiDepartmentRows: [],
+				swipeRowId: "",
+				swipeStartX: 0,
+				swipeDeltaX: 0,
 			};
 		},
 		onLoad() {
@@ -323,13 +331,12 @@
 					await this.loadDepartmentMap();
 					this.rebuildDepartmentBlocks();
 					this.refreshDepartmentCounts();
-					// 会话列表仅使用后端真实数据；请求中不再穿插本地演示会话
+					// 会话列表使用前端本地会话，先回填上次成功数据避免闪烁
 					this.feedRows = this.lastSuccessFeedRows.length ? this.lastSuccessFeedRows : [];
 					this.loading = false;
 
 					const unified = await loadUnifiedConversationList();
 					const mapped = (Array.isArray(unified) ? unified : [])
-						.filter((u) => u.convType === "workflow")
 						.map((u) => ({
 							id: u.id,
 							rowKind: "unified",
@@ -338,7 +345,7 @@
 							subtitle: u.subtitle || "",
 							time: u.time,
 							unread: u.unread || 0,
-							badge: u?.navigate?.kind === "PROJECT_GROUP" ? "项目群" : "",
+							badge: u.convType === "vgroup" ? "项目群" : "",
 							navigate: u.navigate,
 						}));
 					if (reqId !== this.listReqId) return;
@@ -510,9 +517,40 @@
 				this.rebuildDepartmentBlocks();
 				uni.showToast({ title: this.t('deleted'), icon: 'success' });
 			},
+			onRowTouchStart(e, row) {
+				if (!row || row.convType !== "vgroup") return;
+				this.swipeStartX = Number(e?.changedTouches?.[0]?.clientX || 0);
+				this.swipeDeltaX = 0;
+			},
+			onRowTouchMove(e, row) {
+				if (!row || row.convType !== "vgroup") return;
+				const x = Number(e?.changedTouches?.[0]?.clientX || 0);
+				this.swipeDeltaX = x - this.swipeStartX;
+			},
+			onRowTouchEnd(row) {
+				if (!row || row.convType !== "vgroup") return;
+				if (this.swipeDeltaX <= -36) this.swipeRowId = row.id;
+				else if (this.swipeDeltaX >= 12) this.swipeRowId = "";
+				this.swipeDeltaX = 0;
+			},
+			onDeleteGroupRow(row) {
+				const groupId = row?.navigate?.id;
+				if (!groupId) return;
+				uni.showModal({
+					title: "删除群聊",
+					content: `确认删除「${row.title || "项目群"}」吗？`,
+					success: (res) => {
+						if (!res.confirm) return;
+						if (!deleteProjectGroupById(groupId)) return;
+						this.swipeRowId = "";
+						this.loadList(true);
+						uni.showToast({ title: "已删除", icon: "success" });
+					},
+				});
+			},
 			avatarBg(row) {
 				/* 项目群：固定偏亮渐变，避免哈希到深蓝/紫导致「图案」发暗难辨 */
-				if (row && row.rowKind === "group") {
+				if (row && (row.rowKind === "group" || row.convType === "vgroup")) {
 					return "linear-gradient(145deg, #38bdf8, #2563eb)";
 				}
 				const colors = [
@@ -529,8 +567,8 @@
 				return colors[h % colors.length];
 			},
 			avatarLetter(row) {
-				if (row.rowKind === "manager") return this.t("abbr_manager");
-				if (row.rowKind === "group") return this.t("abbr_group");
+				if (row.convType === "manager" || row.rowKind === "manager") return this.t("abbr_manager");
+				if (row.convType === "vgroup" || row.rowKind === "group") return this.t("abbr_group");
 				if (row.rowKind === "unified" && row.convType === "workflow") return this.t("abbr_project");
 				const tit = (row.title || "?").trim();
 				return tit.slice(0, 1);
@@ -554,8 +592,22 @@
 				return String(t);
 			},
 			onRowTap(row) {
+				if (this.swipeRowId && this.swipeRowId === row.id) {
+					this.swipeRowId = "";
+					return;
+				}
 				if (row.rowKind === "unified" && row.navigate) {
 					const n = row.navigate;
+					if (n.mode === "virtual") {
+						const q = [
+							"mode=virtual",
+							`kind=${encodeURIComponent(n.kind || "")}`,
+							`id=${encodeURIComponent(n.id || "")}`,
+							`title=${encodeURIComponent(n.title || row.title || "")}`,
+						].join("&");
+						uni.navigateTo({ url: `/pages/chat/chat?${q}` });
+						return;
+					}
 					if (n.mode === "remote") {
 						const q = [
 							`workflowId=${encodeURIComponent(n.workflowId)}`,
@@ -732,17 +784,41 @@
 	.msg-list {
 		padding: 8rpx 24rpx 24rpx;
 	}
+	.swipe-wrap {
+		position: relative;
+		margin-bottom: 16rpx;
+		border-radius: 20rpx;
+		overflow: hidden;
+	}
+	.swipe-delete {
+		position: absolute;
+		right: 0;
+		top: 0;
+		bottom: 0;
+		width: 132rpx;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		background: #ef4444;
+		color: #fff;
+		font-size: 28rpx;
+		font-weight: 700;
+	}
 
 	.msg-row-card {
 		display: flex;
 		flex-direction: row;
 		align-items: stretch;
 		padding: 24rpx 22rpx;
-		margin-bottom: 16rpx;
+		margin-bottom: 0;
 		background: #fff;
 		border-radius: 20rpx;
 		border: none;
 		box-shadow: 0 8rpx 28rpx rgba(15, 23, 42, 0.06);
+		transition: transform 0.16s ease;
+	}
+	.msg-row-open {
+		transform: translateX(-132rpx);
 	}
 
 	.msg-row-card-hover {

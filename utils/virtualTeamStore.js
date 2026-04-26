@@ -172,59 +172,33 @@ function safeParse(json, fallback) {
 
 function seedIfNeeded() {
   if (uni.getStorageSync(K_INIT)) return;
-  const groups = [
-    {
-      id: "g_demo_1",
-      name: "示例 · 商城小程序项目群",
-      desc: "客户 A 交付群",
-      createdAt: nowIso(),
-      lastMsg: "项目经理：本周联调窗口已对齐",
-      lastTime: nowIso(),
-      unread: 1,
-    },
-  ];
-  const agents = [
-    {
-      id: "a_demo_1",
-      name: "陈经理",
-      role: "项目经理",
-      createdAt: nowIso(),
-      lastMsg: "明日站会提前到 10:00",
-      lastTime: nowIso(),
-      unread: 0,
-    },
-    {
-      id: "a_demo_2",
-      name: "小艾",
-      role: "前端",
-      createdAt: nowIso(),
-      lastMsg: "首页骨架屏已提交",
-      lastTime: nowIso(),
-      unread: 2,
-    },
-    {
-      id: "a_demo_3",
-      name: "阿强",
-      role: "后端",
-      createdAt: nowIso(),
-      lastMsg: "订单接口 Swagger 已更新",
-      lastTime: nowIso(),
-      unread: 0,
-    },
-  ];
+  const groups = [];
+  const agents = [];
   uni.setStorageSync(K_GROUPS, JSON.stringify(groups));
   uni.setStorageSync(K_AGENTS, JSON.stringify(agents));
   uni.setStorageSync(K_INIT, "1");
 }
 
+function removeDemoRows(list = [], prefix = "") {
+  const arr = Array.isArray(list) ? list : [];
+  const cleaned = arr.filter((x) => !String(x?.id || "").startsWith(prefix));
+  return cleaned;
+}
+
 export function loadProjectGroups() {
   seedIfNeeded();
-  return safeParse(uni.getStorageSync(K_GROUPS), []);
+  const list = safeParse(uni.getStorageSync(K_GROUPS), []);
+  const cleaned = removeDemoRows(list, "g_demo_");
+  if ((Array.isArray(list) ? list.length : 0) !== cleaned.length) saveGroups(cleaned);
+  return cleaned;
 }
 
 export function loadDigitalAgents() {
   seedIfNeeded();
-  return safeParse(uni.getStorageSync(K_AGENTS), []);
+  const list = safeParse(uni.getStorageSync(K_AGENTS), []);
+  const cleaned = removeDemoRows(list, "a_demo_");
+  if ((Array.isArray(list) ? list.length : 0) !== cleaned.length) saveAgents(cleaned);
+  return cleaned;
 }
 
 function saveGroups(list) {
@@ -243,9 +217,21 @@ export function addProjectGroup(payload = {}) {
     deliverable = "",
     deadline = "",
     notifyTime = "21:00",
+    members = [],
   } = payload;
   const list = loadProjectGroups();
   const id = `g_${Date.now()}`;
+  const safeMembers = (Array.isArray(members) ? members : [])
+    .map((m) => ({
+      id: String(m?.id || m?.agentId || "").trim(),
+      name: String(m?.name || m?.displayName || "").trim(),
+      role: String(m?.role || m?.jobTitle || "").trim(),
+      department: String(m?.department || "").trim(),
+      avatar: String(m?.avatar || m?.avatarUrl || m?.headImg || m?.headimg || "").trim(),
+      model: String(m?.model || "").trim(),
+      isAdmin: !!m?.isAdmin,
+    }))
+    .filter((m) => m.id && m.name);
   const row = {
     id,
     name: (name || t("vt_unnamed_group", getLanguage())).trim(),
@@ -258,10 +244,48 @@ export function addProjectGroup(payload = {}) {
     lastMsg: t("vt_group_created_toast", getLanguage()),
     lastTime: nowIso(),
     unread: 0,
+    ownerAgentId: safeMembers[0] ? String(safeMembers[0].id).trim() : "",
+    members: safeMembers,
   };
   list.unshift(row);
   saveGroups(list);
   return row;
+}
+
+/** 向已有项目群追加成员（按 id 去重）；返回真正新加入的成员列表 */
+export function addMembersToProjectGroup(groupId, newMembers = []) {
+  if (!groupId) return { ok: false, added: [], group: null };
+  const list = loadProjectGroups();
+  const i = list.findIndex((x) => x.id === groupId);
+  if (i < 0) return { ok: false, added: [], group: null };
+  const cur = Array.isArray(list[i].members) ? [...list[i].members] : [];
+  const seen = new Set(
+    cur.map((m) => String(m?.id || m?.agentId || "").trim()).filter(Boolean)
+  );
+  const normalized = (Array.isArray(newMembers) ? newMembers : [])
+    .map((m) => ({
+      id: String(m?.id || m?.agentId || "").trim(),
+      name: String(m?.name || m?.displayName || "").trim(),
+      role: String(m?.role || m?.jobTitle || "").trim(),
+      department: String(m?.department || "").trim(),
+      avatar: String(m?.avatar || m?.avatarUrl || m?.headImg || m?.headimg || "").trim(),
+      model: String(m?.model || "").trim(),
+      isAdmin: !!m?.isAdmin,
+    }))
+    .filter((m) => m.id && m.name);
+  const added = [];
+  for (const m of normalized) {
+    if (seen.has(m.id)) continue;
+    seen.add(m.id);
+    cur.push(m);
+    added.push(m);
+  }
+  if (added.length === 0) {
+    return { ok: true, added: [], group: { ...list[i], members: cur } };
+  }
+  list[i].members = cur;
+  saveGroups(list);
+  return { ok: true, added, group: list[i] };
 }
 
 function normalizeAgentGender(g) {
@@ -517,6 +541,16 @@ export function clearGroupUnread(id) {
   saveGroups(list);
 }
 
+export function deleteProjectGroupById(id) {
+  if (!id) return false;
+  const list = loadProjectGroups();
+  const next = list.filter((x) => x.id !== id);
+  if (next.length === list.length) return false;
+  saveGroups(next);
+  clearVirtualChatMessages("group", id);
+  return true;
+}
+
 export function clearAgentUnread(id) {
   const list = loadDigitalAgents();
   const i = list.findIndex((x) => x.id === id);
@@ -538,9 +572,104 @@ export function clearVirtualChatMessages(kind, id) {
   }
 }
 
+/** 群主 id：显式 ownerAgentId，否则默认首位成员（兼容旧数据） */
+export function resolveGroupOwnerAgentId(g) {
+  if (!g || typeof g !== "object") return "";
+  const o = String(g.ownerAgentId || "").trim();
+  if (o) return o;
+  const m0 = Array.isArray(g.members) && g.members[0] ? String(g.members[0].id || g.members[0].agentId || "").trim() : "";
+  return m0 || "";
+}
+
 export function getProjectGroupById(id) {
-  if (!id) return null;
-  return loadProjectGroups().find((x) => x.id === id) || null;
+  if (id == null || id === "") return null;
+  const needle = String(id).trim();
+  if (!needle) return null;
+  const list = loadProjectGroups();
+  const i = list.findIndex((x) => String(x?.id ?? "").trim() === needle);
+  if (i < 0) return null;
+  const g = list[i];
+  let dirty = false;
+  if (!String(g.ownerAgentId || "").trim()) {
+    const m0 = Array.isArray(g.members) && g.members[0] ? String(g.members[0].id || g.members[0].agentId || "").trim() : "";
+    if (m0) {
+      g.ownerAgentId = m0;
+      dirty = true;
+    }
+  }
+  if (Array.isArray(g.members)) {
+    for (let k = 0; k < g.members.length; k++) {
+      const m = g.members[k];
+      if (m && m.isAdmin === undefined) {
+        g.members[k] = { ...m, isAdmin: false };
+        dirty = true;
+      }
+    }
+  }
+  if (dirty) saveGroups(list);
+  return g;
+}
+
+/** 移出群成员（不可移群主；至少保留 1 人） */
+export function removeGroupMember(groupId, memberAgentId) {
+  const gid = String(groupId || "").trim();
+  const mid = String(memberAgentId || "").trim();
+  if (!gid || !mid) return { ok: false, code: "BAD_INPUT" };
+  const list = loadProjectGroups();
+  const idx = list.findIndex((x) => x.id === gid);
+  if (idx < 0) return { ok: false, code: "NOT_FOUND" };
+  const g = list[idx];
+  const owner = resolveGroupOwnerAgentId(g);
+  if (mid === owner) return { ok: false, code: "OWNER" };
+  const members = Array.isArray(g.members) ? [...g.members] : [];
+  if (members.length <= 1) return { ok: false, code: "LAST_MEMBER" };
+  const victim = members.find((m) => String(m?.id || m?.agentId || "").trim() === mid);
+  if (!victim) return { ok: false, code: "NOT_IN_GROUP" };
+  const next = members.filter((m) => String(m?.id || m?.agentId || "").trim() !== mid);
+  if (next.length < 1) return { ok: false, code: "LAST_MEMBER" };
+  g.members = next;
+  saveGroups(list);
+  const lang = getLanguage();
+  const display =
+    formatAgentNavTitle({ name: victim.name, role: victim.role }) || displayAgentName(victim) || victim.name || mid;
+  appendVirtualChat("group", gid, {
+    content: t("vt_group_member_removed_system", lang, { name: display }),
+    isMine: false,
+    senderName: t("sender_system_name", lang),
+  });
+  return { ok: true };
+}
+
+/** 设置 / 取消群管理员（不可对群主操作） */
+export function setGroupMemberAdminFlag(groupId, memberAgentId, isAdmin) {
+  const gid = String(groupId || "").trim();
+  const mid = String(memberAgentId || "").trim();
+  if (!gid || !mid) return { ok: false, code: "BAD_INPUT" };
+  const list = loadProjectGroups();
+  const idx = list.findIndex((x) => x.id === gid);
+  if (idx < 0) return { ok: false, code: "NOT_FOUND" };
+  const g = list[idx];
+  const owner = resolveGroupOwnerAgentId(g);
+  if (mid === owner) return { ok: false, code: "OWNER" };
+  const members = Array.isArray(g.members) ? [...g.members] : [];
+  const j = members.findIndex((m) => String(m?.id || m?.agentId || "").trim() === mid);
+  if (j < 0) return { ok: false, code: "NOT_IN_GROUP" };
+  const prev = members[j];
+  const nextFlag = !!isAdmin;
+  if (!!prev.isAdmin === nextFlag) return { ok: true, unchanged: true };
+  members[j] = { ...prev, isAdmin: nextFlag };
+  g.members = members;
+  saveGroups(list);
+  const lang = getLanguage();
+  const display =
+    formatAgentNavTitle({ name: prev.name, role: prev.role }) || displayAgentName(prev) || prev.name || mid;
+  const key = nextFlag ? "vt_group_admin_set_system" : "vt_group_admin_unset_system";
+  appendVirtualChat("group", gid, {
+    content: t(key, lang, { name: display }),
+    isMine: false,
+    senderName: t("sender_system_name", lang),
+  });
+  return { ok: true };
 }
 
 export function getDigitalAgentById(id) {
@@ -613,7 +742,11 @@ export function removeVirtualChatMessagesByIds(kind, id, messageIds) {
   recomputeVirtualChatLastPreview(kind, id);
 }
 
-export function appendVirtualChat(kind, id, { content, isMine = true, senderName = "" }) {
+export function appendVirtualChat(
+  kind,
+  id,
+  { content, isMine = true, senderName = "", senderAvatar = "", senderId = "", senderModel = "" }
+) {
   const list = loadVirtualChatMessages(kind, id);
   const msg = {
     id: `vm_${Date.now()}`,
@@ -621,6 +754,9 @@ export function appendVirtualChat(kind, id, { content, isMine = true, senderName
     time: nowIso(),
     isMine,
     senderName: senderName || "",
+    senderAvatar: String(senderAvatar || "").trim(),
+    senderId: String(senderId || "").trim(),
+    senderModel: String(senderModel || "").trim(),
   };
   list.push(msg);
   saveVirtualChatMessages(kind, id, list);

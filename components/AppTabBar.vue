@@ -9,10 +9,8 @@
 				<text class="tab-icon iconfont">&#xe620;</text>
 				<text class="tab-text">{{ t('project') }}</text>
 			</view>
-			<view class="tab-item" :class="{ active: current === 'recommend' }" @click="go('recommend')">
-				<text class="tab-icon iconfont">&#xe612;</text>
-				<text class="tab-text">推荐</text>
-			</view>
+			<!-- 与微信常见底栏一致：中间一列留给悬浮「+」，项目 / 消息 分列加号左右 -->
+			<view class="tab-item tab-item-center-spacer" />
 			<view class="tab-item" :class="{ active: current === 'message' }" @click="go('message')">
 				<text class="tab-icon iconfont">&#xe87c;</text>
 				<text class="tab-text">{{ t('message') }}</text>
@@ -44,7 +42,7 @@
 			current: {
 			type: String,
 			required: true,
-			validator: (v) => ["home", "project", "add", "recommend", "message", "profile"].includes(v),
+			validator: (v) => ["home", "project", "add", "message", "profile"].includes(v),
 		},
 		},
 		methods: {
@@ -112,6 +110,14 @@
 		color: #2563eb;
 	}
 
+	.tab-item-center-spacer {
+		flex: 1;
+		min-width: 0;
+		min-height: 100rpx;
+		padding-bottom: 8rpx;
+		pointer-events: none;
+	}
+
 	.center-button-container {
 		position: absolute;
 		left: 50%;
@@ -131,7 +137,8 @@
 		box-shadow: 0 8rpx 24rpx rgba(37, 99, 235, 0.35);
 		border: 4rpx solid #fff;
 		box-sizing: border-box;
-		margin-top: -40rpx;
+		/* 负值越小整体上移越多；略减小上浮，让加号更贴近底栏一行 */
+		margin-top: -18rpx;
 	}
 
 
