@@ -8,6 +8,7 @@ import agentDepartments from "@/data/agentDepartments";
 import { chatCompletion } from "@/utils/openaiCompatible";
 import { extractAssistantText } from "@/utils/openaiResponse";
 import { getLlmSettings, getLlmConnectionSummary } from "@/utils/llmSettings";
+import { loadProjectGroups, addProjectGroup, addMembersToProjectGroup, appendVirtualChat } from "@/utils/virtualTeamStore";
 
 const STORAGE_KEY = "cachedWorkflowList";
 const TASKS_KEY = "localWorkflowTasks_v1";
@@ -16,6 +17,20 @@ const COMMS_KEY = "localWorkflowComms_v1";
 
 const DEPT_ID_SET = new Set(agentDepartments.map((d) => d.id));
 const DEPT_ID_LIST = agentDepartments.map((d) => d.id).join(", ");
+
+function normalizeWorkflowAgents(input = []) {
+	const arr = Array.isArray(input) ? input : [];
+	return arr
+		.map((a) => ({
+			id: String(a?.id || a?.agentId || "").trim(),
+			name: String(a?.name || a?.displayName || "").trim(),
+			role: String(a?.role || a?.jobTitle || "").trim(),
+			department: normDept(String(a?.department || "").trim() || "engineering"),
+			avatar: String(a?.avatar || a?.avatarUrl || a?.headImg || a?.headimg || "").trim(),
+			model: String(a?.model || "").trim(),
+		}))
+		.filter((a) => a.id && a.name);
+}
 
 function generateWorkflowId() {
 	return `ct-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
@@ -43,6 +58,30 @@ function saveWorkflowList(list) {
 	} catch (e) {
 		console.warn("[localWorkflowStore] save list", e);
 	}
+}
+
+function ensureVirtualProjectGroup(workflow, agents = []) {
+	const wid = String(workflow?.id || workflow?.workflowId || "").trim();
+	if (!wid) return null;
+	const groups = loadProjectGroups();
+	const existing = groups.find((g) => String(g?.workflowId || "").trim() === wid);
+	if (existing) {
+		addMembersToProjectGroup(existing.id, agents);
+		return existing;
+	}
+	const groupName = `${String(workflow?.title || workflow?.name || "未命名项目").trim()} · 项目群`;
+	const group = addProjectGroup({
+		workflowId: wid,
+		name: groupName,
+		desc: String(workflow?.goal || workflow?.description || "").trim(),
+		members: agents,
+	});
+	appendVirtualChat("group", group.id, {
+		content: `项目「${String(workflow?.title || workflow?.name || "未命名项目").trim()}」已创建，项目群已自动建立。`,
+		isMine: false,
+		senderName: "系统",
+	});
+	return group;
 }
 
 function getTaskMap() {
@@ -855,6 +894,8 @@ export async function createWorkflow(input) {
 	const nameRaw = (input && (input.name != null ? input.name : input.title)) || "";
 	const title = String(nameRaw).trim() || "未命名项目";
 	const desc = String((input && input.description) || "").trim();
+	const goal = String((input && input.goal) || "").trim() || desc;
+	const agents = normalizeWorkflowAgents(input && input.agents);
 	const wid = generateWorkflowId();
 	const newWorkflow = {
 		id: wid,
@@ -863,15 +904,43 @@ export async function createWorkflow(input) {
 		name: title,
 		description: desc,
 		desc,
+		goal,
+		agents,
 		createdAt: Date.now(),
 		updatedAt: Date.now(),
 	};
 	const list = getWorkflowList();
 	saveWorkflowList([newWorkflow, ...list]);
+	await commsBootstrap(wid, { forceProjectGroupMembers: agents, forceTitle: `${title} · 项目群` });
+	ensureVirtualProjectGroup(newWorkflow, agents);
 	if (import.meta.env.MODE === "development") {
 		console.log("[createWorkflow]", { title, id: wid });
 	}
 	return newWorkflow;
+}
+
+export async function updateWorkflow(workflowId, patch = {}) {
+	const wid = String(workflowId || "").trim();
+	if (!wid) throw new Error("workflowId 不能为空");
+	const list = getWorkflowList();
+	const i = list.findIndex((w) => String(w.id || w.workflowId) === wid);
+	if (i < 0) throw new Error("工作流不存在");
+	const next = list.slice();
+	const cur = next[i];
+	next[i] = {
+		...cur,
+		...patch,
+		id: wid,
+		workflowId: wid,
+		title: String((patch.title ?? cur.title ?? cur.name) || "").trim() || "未命名项目",
+		name: String((patch.name ?? patch.title ?? cur.name ?? cur.title) || "").trim() || "未命名项目",
+		description: String((patch.description ?? cur.description ?? cur.desc) || "").trim(),
+		desc: String((patch.desc ?? patch.description ?? cur.desc ?? cur.description) || "").trim(),
+		goal: String((patch.goal ?? cur.goal ?? cur.description ?? cur.desc) || "").trim(),
+		updatedAt: Date.now(),
+	};
+	saveWorkflowList(next);
+	return next[i];
 }
 
 function getCommsRoot() {
@@ -928,6 +997,11 @@ export async function getWorkflow(workflowId) {
 		console.warn("[getWorkflow]", e);
 		return null;
 	}
+}
+
+export async function listWorkflowAgents(workflowId) {
+	const wf = await getWorkflow(workflowId);
+	return normalizeWorkflowAgents(wf && wf.agents);
 }
 
 /** 仅用于纯前端：冷启动链接或缓存丢失时，补一条可编辑的项目记录 */
@@ -1018,6 +1092,13 @@ export async function updateTaskProgress(workflowId, taskId, body = {}) {
 	out[i] = next;
 	saveTasksForWorkflowInner(workflowId, out);
 	pushEvents(workflowId, { type: "TASK_PROGRESS", eventType: "TASK_PROGRESS" });
+	return next;
+}
+
+export async function annotateTask(workflowId, taskId, patch = {}) {
+	if (!workflowId || !taskId) throw new Error("参数不完整");
+	const next = patchTaskInStorage(String(workflowId || "").trim(), String(taskId || "").trim(), patch);
+	if (!next) throw new Error("未找到任务");
 	return next;
 }
 
@@ -1273,10 +1354,15 @@ function setWfComms(wid, c) {
 /**
  * 初始化沟通/项目群；纯前端
  */
-export async function commsBootstrap(workflowId) {
+export async function commsBootstrap(workflowId, opts = {}) {
 	if (!workflowId) return { ok: false };
 	await ensureWorkflowRecord(workflowId);
 	const c = getWfComms(workflowId);
+	const forceMembers = normalizeWorkflowAgents(opts.forceProjectGroupMembers);
+	const forceTitle = String(opts.forceTitle || "").trim();
+	const wf = await getWorkflow(workflowId);
+	const wfAgents = normalizeWorkflowAgents(wf && wf.agents);
+	const sourceMembers = forceMembers.length ? forceMembers : wfAgents;
 	if (!c.threads.length) {
 		const t1 = comNewId();
 		const t2 = comNewId();
@@ -1303,17 +1389,33 @@ export async function commsBootstrap(workflowId) {
 	}
 	if (!c.groups.length) {
 		const g1 = comNewId();
+		const groupTitle = forceTitle || "项目主群";
 		c.groups = [
-			{ id: g1, groupId: g1, title: "项目主群", name: "项目主群" },
+			{ id: g1, groupId: g1, title: groupTitle, name: groupTitle },
 		];
 		c.gmsgs[g1] = [];
-		c.members[g1] = [
-			{ id: "m1", type: "ROLE", label: "产品负责人", department: "product" },
-			{ id: "m2", type: "ROLE", label: "工程负责人", department: "engineering" },
-		];
+		c.members[g1] = sourceMembers.length
+			? sourceMembers.map((m) => ({
+					id: m.id,
+					type: "AGENT",
+					label: m.name,
+					role: m.role,
+					department: m.department,
+					avatar: m.avatar,
+			  }))
+			: [
+					{ id: "m1", type: "ROLE", label: "产品负责人", department: "product" },
+					{ id: "m2", type: "ROLE", label: "工程负责人", department: "engineering" },
+			  ];
 	}
 	setWfComms(workflowId, c);
 	return { ok: true };
+}
+
+export async function ensureProjectGroupForWorkflow(workflowId) {
+	await commsBootstrap(workflowId);
+	const c = getWfComms(workflowId);
+	return Array.isArray(c.groups) && c.groups.length ? c.groups[0] : null;
 }
 
 export async function listThreads(workflowId, params = {}) {

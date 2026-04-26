@@ -75,6 +75,33 @@
 					confirm-type="done"
 					@confirm="submitCreate"
 				/>
+				<textarea
+					class="dialog-input dialog-textarea"
+					v-model="newGoal"
+					:placeholder="t('add_new_project_goal_ph')"
+					placeholder-class="ph"
+				/>
+				<view class="agent-pick">
+					<text class="agent-pick-t">{{ t('project_choose_agents') }}</text>
+					<view v-if="loadingAgents" class="agent-empty">{{ t('loading') }}…</view>
+					<view v-else-if="!agentOptions.length" class="agent-empty">{{ t('group_invite_none_available') }}</view>
+					<scroll-view v-else scroll-y class="agent-list">
+						<view
+							v-for="a in agentOptions"
+							:key="a.id"
+							class="agent-row"
+							:class="{ on: selectedAgentIds.includes(a.id) }"
+							@click="toggleAgent(a.id)"
+						>
+							<view class="agent-check">{{ selectedAgentIds.includes(a.id) ? '✓' : '' }}</view>
+							<view class="agent-main">
+								<text class="agent-name">{{ a.name }}</text>
+								<text class="agent-meta">{{ a.department || t('vt_member_default') }} · {{ a.role || t('vt_member_default') }}</text>
+							</view>
+							<text class="agent-model">{{ modelShort(a.id) }}</text>
+						</view>
+					</scroll-view>
+				</view>
 				<view class="dialog-actions">
 					<view class="dialog-btn dialog-btn-ghost" @tap.stop="showCreate = false">
 						<text class="dialog-btn-t">{{ t('cancel') }}</text>
@@ -102,6 +129,8 @@
 	import { switchMainTab } from "@/utils/tabNav";
 	import { t, getLanguage } from "@/utils/lang";
 	import AppTabBar from "@/components/AppTabBar.vue";
+	import { listMyUserAgents, listUserAgents } from "@/clientApi/agentsApi";
+	import { getAgentModelOrDefault } from "@/utils/agentModelMap";
 	const STORAGE_WF = "lastWorkflowId";
 	const STORAGE_WF_TITLE = "lastWorkflowTitle";
 	const STORAGE_WF_LIST = "cachedWorkflowList";
@@ -117,14 +146,22 @@
 				showCreate: false,
 				newTitle: "",
 				newDesc: "",
+				newGoal: "",
 				creating: false,
+				loadingAgents: false,
+				agentOptions: [],
+				selectedAgentIds: [],
 				currentLanguage: getLanguage(),
 			};
 		},
 		computed: {
 			/** 仅项目名必填 */
 			canSubmitCreate() {
-				return (this.newTitle || "").trim().length > 0;
+				return (
+					(this.newTitle || "").trim().length > 0 &&
+					(this.newGoal || "").trim().length > 0 &&
+					this.selectedAgentIds.length > 0
+				);
 			},
 		},
 		onLoad() {
@@ -147,10 +184,42 @@
 				//
 			}
 			this.loadList();
+			this.loadAgentOptions();
 		},
 		methods: {
 			t(key, params = {}) {
 				return t(key, this.currentLanguage, params);
+			},
+			async loadAgentOptions() {
+				this.loadingAgents = true;
+				try {
+					let rows = await listMyUserAgents();
+					if (!Array.isArray(rows) || rows.length === 0) rows = await listUserAgents();
+					this.agentOptions = (Array.isArray(rows) ? rows : [])
+						.map((r) => ({
+							id: String(r?.id || r?.agentId || "").trim(),
+							name: String(r?.displayName || r?.name || "").trim(),
+							role: String(r?.jobTitle || r?.rolePosition || "").trim(),
+							department: String(r?.department || "").trim(),
+							avatar: String(r?.avatar || r?.avatarUrl || r?.headImg || r?.headimg || "").trim(),
+						}))
+						.filter((r) => r.id && r.name);
+					this.selectedAgentIds = this.selectedAgentIds.filter((id) => this.agentOptions.some((a) => a.id === id));
+				} catch {
+					this.agentOptions = [];
+				} finally {
+					this.loadingAgents = false;
+				}
+			},
+			toggleAgent(id) {
+				const i = this.selectedAgentIds.indexOf(id);
+				if (i >= 0) this.selectedAgentIds.splice(i, 1);
+				else this.selectedAgentIds.push(id);
+			},
+			modelShort(agentId) {
+				const s = String(getAgentModelOrDefault(agentId) || "").trim();
+				if (!s) return "默认模型";
+				return s.length > 20 ? `${s.slice(0, 18)}…` : s;
 			},
 			pickId,
 			workflowKey(w) {
@@ -238,6 +307,7 @@
 			openCreate() {
 				uni.hideTabBar({ animation: false });
 				this.showCreate = true;
+				if (!this.agentOptions.length) this.loadAgentOptions();
 			},
 			mergeCreatedIfMissing(created, title, id) {
 				if (!id || this.workflows.some((w) => this.workflowKey(w) === id)) return;
@@ -253,19 +323,45 @@
 				if (this.creating) return;
 				const title = (this.newTitle || "").trim();
 				const desc = (this.newDesc || "").trim();
+				const goal = (this.newGoal || "").trim();
 				if (!title) {
 					uni.showToast({ title: this.t("please_enter_project_name"), icon: "none" });
 					return;
 				}
+				if (!goal) {
+					uni.showToast({ title: this.t("please_enter_project_goal"), icon: "none" });
+					return;
+				}
+				if (!this.selectedAgentIds.length) {
+					uni.showToast({ title: this.t("project_choose_agent_first"), icon: "none" });
+					return;
+				}
 				this.creating = true;
 				try {
+					const agents = this.agentOptions
+						.filter((a) => this.selectedAgentIds.includes(a.id))
+						.map((a) => ({ ...a, model: getAgentModelOrDefault(a.id) }));
 					const created = await workflowApi.createWorkflow(
-						desc ? { name: title, description: desc } : { name: title }
+						{ name: title, description: desc, goal, agents }
 					);
 					const id = pickId(created) || (created && created.workflowId) || "";
+					if (id) {
+						const brief = desc ? `${goal}\n补充说明：${desc}` : goal;
+						try {
+							await workflowApi.aiAuto(id, {
+								brief,
+								title,
+								maxTasks: Math.max(4, Math.min(10, agents.length * 2)),
+							});
+						} catch (e) {
+							uni.showToast({ title: getApiErrorMessage(e) || "自动分配失败，可在项目内补充需求后再次分配", icon: "none", duration: 2600 });
+						}
+					}
 					this.showCreate = false;
 					this.newTitle = "";
 					this.newDesc = "";
+					this.newGoal = "";
+					this.selectedAgentIds = [];
 					uni.showToast({ title: this.t("created"), icon: "success" });
 					await this.loadList();
 					if (id) {
@@ -630,6 +726,12 @@
 		background: #f8fafc;
 	}
 
+	.dialog-textarea {
+		height: 168rpx;
+		padding-top: 18rpx;
+		padding-bottom: 18rpx;
+	}
+
 	.ph {
 		color: #aaa;
 	}
@@ -639,6 +741,87 @@
 		justify-content: space-between;
 		gap: 16rpx;
 		margin-top: 12rpx;
+	}
+
+	.agent-pick {
+		margin-top: 8rpx;
+		margin-bottom: 8rpx;
+	}
+
+	.agent-pick-t {
+		display: block;
+		font-size: 24rpx;
+		font-weight: 700;
+		color: #334155;
+		margin-bottom: 8rpx;
+	}
+
+	.agent-empty {
+		font-size: 22rpx;
+		color: #94a3b8;
+		padding: 12rpx 0;
+	}
+
+	.agent-list {
+		max-height: 300rpx;
+		border: 1rpx solid #e2e8f0;
+		border-radius: 14rpx;
+		background: #f8fafc;
+	}
+
+	.agent-row {
+		display: flex;
+		align-items: center;
+		padding: 14rpx 12rpx;
+		border-bottom: 1rpx solid #e2e8f0;
+	}
+
+	.agent-row:last-child {
+		border-bottom: none;
+	}
+
+	.agent-row.on {
+		background: #eff6ff;
+	}
+
+	.agent-check {
+		width: 32rpx;
+		height: 32rpx;
+		line-height: 32rpx;
+		text-align: center;
+		border-radius: 50%;
+		border: 1rpx solid #2563eb;
+		color: #2563eb;
+		font-size: 20rpx;
+		margin-right: 10rpx;
+	}
+
+	.agent-main {
+		flex: 1;
+		min-width: 0;
+	}
+
+	.agent-name {
+		display: block;
+		font-size: 24rpx;
+		color: #0f172a;
+		font-weight: 700;
+	}
+
+	.agent-meta {
+		display: block;
+		font-size: 20rpx;
+		color: #64748b;
+		margin-top: 4rpx;
+	}
+
+	.agent-model {
+		font-size: 20rpx;
+		color: #475569;
+		background: #e2e8f0;
+		padding: 2rpx 10rpx;
+		border-radius: 999rpx;
+		margin-left: 8rpx;
 	}
 
 	.dialog-btn {

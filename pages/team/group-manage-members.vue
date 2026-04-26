@@ -25,6 +25,7 @@
 	import { getUserInfo } from "@/utils/index";
 	import {
 		getProjectGroupById,
+		loadDigitalAgents,
 		removeGroupMember,
 		setGroupMemberAdminFlag,
 		resolveGroupOwnerAgentId,
@@ -39,11 +40,22 @@
 		data() {
 			return {
 				groupId: "",
+				kind: "group",
 				group: null,
 			};
 		},
 		computed: {
 			memberRows() {
+				if (this.kind === "hq") {
+					return loadDigitalAgents().map((m) => {
+						const id = String(m?.id || "").trim();
+						const navTitle =
+							formatAgentNavTitle({ name: m.name, role: m.role }) || displayAgentName(m) || m.name || id;
+						const full = String(m?.model || "").trim() || (id ? getAgentModelOrDefault(id) : "");
+						const modelShort = full ? (full.length > 18 ? `${full.slice(0, 16)}…` : full) : "—";
+						return { id, navTitle, modelShort, badge: "", isOwner: false, isUserOwner: false, isAdmin: false, raw: m };
+					});
+				}
 				const g = this.group;
 				if (!g || !Array.isArray(g.members)) return [];
 				const ownerId = resolveGroupOwnerAgentId(g);
@@ -76,7 +88,17 @@
 			},
 		},
 		onLoad(options) {
+			this.kind = options && options.kind ? String(decodeURIComponent(options.kind)).trim().toLowerCase() : "group";
 			this.groupId = options && options.groupId ? String(decodeURIComponent(options.groupId)).trim() : "";
+			if (this.kind === "hq") {
+				const gname = options && options.gname ? decodeURIComponent(options.gname) : this.t("hq_group");
+				try {
+					if (gname) uni.setNavigationBarTitle({ title: gname });
+				} catch {
+					//
+				}
+				return;
+			}
 			const gname = options && options.gname ? decodeURIComponent(options.gname) : "";
 			if (!this.groupId) {
 				uni.showToast({ title: this.t("load_failed_short"), icon: "none" });
@@ -97,6 +119,7 @@
 				return t(key, getLanguage(), params);
 			},
 			refresh() {
+				if (this.kind === "hq") return;
 				this.group = getProjectGroupById(this.groupId);
 				if (!this.group) {
 					uni.showToast({ title: this.t("load_failed_short"), icon: "none" });
@@ -104,6 +127,12 @@
 			},
 			onTapMember(row) {
 				if (!row) return;
+				if (this.kind === "hq") {
+					uni.navigateTo({
+						url: `/pages/chat/chat?mode=virtual&kind=agent&id=${encodeURIComponent(row.id)}&title=${encodeURIComponent(row.navTitle || this.t("digital_employee_fallback"))}`,
+					});
+					return;
+				}
 				if (row.isUserOwner) {
 					uni.showToast({ title: this.t("group_owner_is_me"), icon: "none" });
 					return;

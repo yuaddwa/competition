@@ -55,7 +55,10 @@
 							@touchmove="onRowTouchMove($event, row)"
 							@touchend="onRowTouchEnd(row)"
 						>
-							<view v-if="row && row.convType === 'vgroup' && swipeRowId === row.id" class="swipe-delete" @tap.stop="onDeleteGroupRow(row)">删除</view>
+							<view v-if="swipeRowId === row.id" class="swipe-actions">
+								<view class="swipe-pin" @tap.stop="onPinRow(row)">{{ isRowPinned(row) ? '取消置顶' : '置顶' }}</view>
+								<view class="swipe-delete" @tap.stop="onDeleteRow(row)">删除</view>
+							</view>
 							<view class="msg-row-card" :class="{ 'msg-row-open': swipeRowId === row.id }" hover-class="msg-row-card-hover" @click="onRowTap(row)">
 								<view class="msg-avatar" :style="{ background: avatarBg(row) }">
 									<text class="msg-avatar-t">{{ avatarLetter(row) }}</text>
@@ -179,7 +182,7 @@
 		FALLBACK_ICON,
 	} from "@/utils/messageDepartmentConfig";
 	import { departmentToZh, normalizeDeptKey } from "@/utils/agentDisplayZh";
-	import { deleteProjectGroupById } from "@/utils/virtualTeamStore";
+	import { deleteProjectGroupById, clearVirtualChatMessages, touchAgentLastMsg } from "@/utils/virtualTeamStore";
 
 	export default {
 		components: { AppTabBar },
@@ -237,6 +240,24 @@
 		methods: {
 			t(key, params = {}) {
 				return t(key, getLanguage(), params);
+			},
+			sessionKeyFromRow(row) {
+				const n = row && row.navigate;
+				if (!n) return "";
+				if (n.mode === "virtual") return `v_${String(n.kind || "").trim()}_${String(n.id || "").trim()}`;
+				if (n.mode === "remote")
+					return `r_${String(n.workflowId || "").trim()}_${String(n.threadId || "").trim()}`;
+				return `l_${String(row.title || "").trim()}`;
+			},
+			isRowPinned(row) {
+				const k = this.sessionKeyFromRow(row);
+				if (!k) return false;
+				return uni.getStorageSync(`chat_pin_${k}`) === "1";
+			},
+			isRowDeleted(row) {
+				const k = this.sessionKeyFromRow(row);
+				if (!k) return false;
+				return uni.getStorageSync(`chat_deleted_${k}`) === "1";
 			},
 			rebuildDepartmentBlocks() {
 				const preset = buildMessageDepartmentBlocks().map((b) => {
@@ -347,7 +368,14 @@
 							unread: u.unread || 0,
 							badge: u.convType === "vgroup" ? "项目群" : "",
 							navigate: u.navigate,
-						}));
+						}))
+						.filter((row) => !this.isRowDeleted(row));
+					mapped.sort((a, b) => {
+						const ap = this.isRowPinned(a) ? 1 : 0;
+						const bp = this.isRowPinned(b) ? 1 : 0;
+						if (ap !== bp) return bp - ap;
+						return new Date(b.time || 0).getTime() - new Date(a.time || 0).getTime();
+					});
 					if (reqId !== this.listReqId) return;
 					this.feedRows = mapped;
 					this.lastSuccessFeedRows = mapped;
@@ -518,30 +546,53 @@
 				uni.showToast({ title: this.t('deleted'), icon: 'success' });
 			},
 			onRowTouchStart(e, row) {
-				if (!row || row.convType !== "vgroup") return;
+				if (!row) return;
 				this.swipeStartX = Number(e?.changedTouches?.[0]?.clientX || 0);
 				this.swipeDeltaX = 0;
 			},
 			onRowTouchMove(e, row) {
-				if (!row || row.convType !== "vgroup") return;
+				if (!row) return;
 				const x = Number(e?.changedTouches?.[0]?.clientX || 0);
 				this.swipeDeltaX = x - this.swipeStartX;
 			},
 			onRowTouchEnd(row) {
-				if (!row || row.convType !== "vgroup") return;
+				if (!row) return;
 				if (this.swipeDeltaX <= -36) this.swipeRowId = row.id;
 				else if (this.swipeDeltaX >= 12) this.swipeRowId = "";
 				this.swipeDeltaX = 0;
 			},
-			onDeleteGroupRow(row) {
-				const groupId = row?.navigate?.id;
-				if (!groupId) return;
+			onPinRow(row) {
+				const key = this.sessionKeyFromRow(row);
+				if (!key) return;
+				const pinned = this.isRowPinned(row);
+				if (pinned) uni.removeStorageSync(`chat_pin_${key}`);
+				else uni.setStorageSync(`chat_pin_${key}`, "1");
+				this.swipeRowId = "";
+				this.loadList(true);
+			},
+			onDeleteRow(row) {
+				const n = row?.navigate || {};
+				const title = row?.title || "会话";
 				uni.showModal({
-					title: "删除群聊",
-					content: `确认删除「${row.title || "项目群"}」吗？`,
+					title: "删除会话",
+					content: `确认删除「${title}」吗？`,
 					success: (res) => {
 						if (!res.confirm) return;
-						if (!deleteProjectGroupById(groupId)) return;
+						const key = this.sessionKeyFromRow(row);
+						if (n.mode === "virtual") {
+							const kind = String(n.kind || "").trim();
+							const id = String(n.id || "").trim();
+							if (kind === "group") {
+								if (!deleteProjectGroupById(id)) return;
+							} else if (id) {
+								clearVirtualChatMessages(kind, id);
+								if (kind === "agent") touchAgentLastMsg(id, this.t("chat_no_messages"));
+							}
+						}
+						if (key) {
+							uni.setStorageSync(`chat_deleted_${key}`, "1");
+							uni.removeStorageSync(`chat_pin_${key}`);
+						}
 						this.swipeRowId = "";
 						this.loadList(true);
 						uni.showToast({ title: "已删除", icon: "success" });
@@ -790,11 +841,26 @@
 		border-radius: 20rpx;
 		overflow: hidden;
 	}
-	.swipe-delete {
+	.swipe-actions {
 		position: absolute;
 		right: 0;
 		top: 0;
 		bottom: 0;
+		width: 264rpx;
+		display: flex;
+		flex-direction: row;
+	}
+	.swipe-pin {
+		width: 132rpx;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		background: #64748b;
+		color: #fff;
+		font-size: 26rpx;
+		font-weight: 700;
+	}
+	.swipe-delete {
 		width: 132rpx;
 		display: flex;
 		align-items: center;
@@ -818,7 +884,7 @@
 		transition: transform 0.16s ease;
 	}
 	.msg-row-open {
-		transform: translateX(-132rpx);
+		transform: translateX(-264rpx);
 	}
 
 	.msg-row-card-hover {

@@ -62,11 +62,14 @@
 		loadHQChatMessages,
 		appendHQMessage,
 		ensureHallWelcome,
-		ensureHallDailyDigest,
+		clearHQChatMessages,
+		ensureHallLiveBroadcast,
 		loadDigitalAgents,
+		replaceDigitalAgentsFromUserAgents,
 		resolveHallSenderDisplay,
 		HQ_ID,
 	} from "@/utils/virtualTeamStore";
+	import { listMyUserAgents, listUserAgents } from "@/clientApi/agentsApi";
 
 	export default {
 		components: { AppTabBar },
@@ -102,11 +105,22 @@
 					url: `/pages/chat/chat-settings?mode=virtual&kind=hq&id=${encodeURIComponent(HQ_ID)}&title=${encodeURIComponent(this.t('hq_group'))}`,
 				});
 			},
-			bootstrapHall() {
+			async bootstrapHall() {
 				this.loading = true;
 				try {
+					try {
+						let mine = await listMyUserAgents();
+						if (!Array.isArray(mine) || mine.length === 0) mine = await listUserAgents();
+						replaceDigitalAgentsFromUserAgents(mine);
+					} catch {
+						//
+					}
+					const current = loadHQChatMessages();
+					if (current.some((m) => !!m?.isManager)) {
+						clearHQChatMessages();
+					}
 					ensureHallWelcome();
-					ensureHallDailyDigest();
+					await ensureHallLiveBroadcast();
 					this.hallMessages = loadHQChatMessages();
 					this.$nextTick(() => {
 						this.scrollToBottom();

@@ -41,7 +41,7 @@ class="bubble-row"
 <image
 v-if="!msg.isMine && avatarSrc(msg, false)"
 class="bubble-avatar-img"
-:class="{ 'bubble-avatar-tappable': mode === 'virtual' && virtualKind === 'group' }"
+:class="{ 'bubble-avatar-tappable': mode === 'virtual' && (virtualKind === 'group' || virtualKind === 'hq') }"
 :src="avatarSrc(msg, false)"
 mode="aspectFill"
 @tap.stop="openPeerAvatarPrivateChat(msg)"
@@ -49,13 +49,13 @@ mode="aspectFill"
 <view
 v-else-if="!msg.isMine"
 class="bubble-avatar"
-:class="{ 'bubble-avatar-tappable': mode === 'virtual' && virtualKind === 'group' }"
+:class="{ 'bubble-avatar-tappable': mode === 'virtual' && (virtualKind === 'group' || virtualKind === 'hq') }"
 @tap.stop="openPeerAvatarPrivateChat(msg)"
 >{{ avatarText(msg, false) }}</view>
 <view class="bubble-main">
 <view v-if="!msg.isMine && msg.senderName" class="bubble-sender-row">
 <text class="bubble-sender">{{ msg.senderName }}</text>
-<text v-if="virtualKind === 'group' && msg.senderModel" class="bubble-model-pill">{{ msg.senderModel }}</text>
+<text v-if="(virtualKind === 'group' || virtualKind === 'hq') && msg.senderModel" class="bubble-model-pill">{{ msg.senderModel }}</text>
 </view>
 <view
 class="message-bubble"
@@ -368,6 +368,27 @@ if (idx >= 48) return `${cut.slice(0, idx + 1)}…`;
 return `${cut.replace(/\s+\S*$/, "").trim()}…`;
 }
 
+/** 群聊是纯线上协作，移除拟人化“线下实体行动”描述 */
+function sanitizeGroupVirtualTone(raw) {
+let s = String(raw || "").trim();
+if (!s) return s;
+const replacers = [
+[/线下回合/g, "下一步协作"],
+[/线下沟通/g, "群内沟通"],
+[/线下对齐/g, "在线对齐"],
+[/当面(?:沟通|确认|同步|讨论)?/g, "在线沟通"],
+[/见面(?:沟通|确认|同步|讨论)?/g, "在线沟通"],
+[/约个会(?:议)?(?:室)?/g, "开个线上会"],
+[/去会议室/g, "线上开会"],
+[/到现场/g, "在线处理"],
+[/跑一趟/g, "跟进处理"],
+];
+for (const [re, to] of replacers) s = s.replace(re, to);
+s = s.replace(/(?:我们|我)(?:先)?线下(?:再)?聊(?:一下)?/g, "我们在线上继续聊");
+s = s.replace(/\s{2,}/g, " ").trim();
+return s;
+}
+
 /** 群聊接续轮：模型表示无需再说话时，不落气泡 */
 function isContinuationSkipToken(text) {
 const s = String(text || "").trim();
@@ -592,6 +613,7 @@ group ? `当前群聊：${group}。` : "",
 rosterBlock,
 "【身份】你只能代表自己发言，一条消息里禁止替其他同事代写、禁止分段扮演多人；不要出现「某某：」另起一段假装别人说话；其他人的话会由他们自己发一条气泡。",
 "【禁止复述】不要整段复制或复述上一位同事刚发过的气泡内容；若认同对方，用一两句自己的话接一下即可。",
+"【协作介质】你是纯数字员工，没有线下实体行动；禁止使用“线下回合/当面聊/见面/去会议室/到现场/跑一趟”等措辞，统一使用“线上/群内/文档/接口/异步同步”等表达。",
 continuation
   ? "【长度·接续】若需要接话，控制在约 1～3 句、中文总字数尽量不超过 120 字。"
   : "【长度】口语自然即可；整段控制在约 2～4 句、中文总字数尽量不超过 160 字，手机上一眼能扫完。",
@@ -615,10 +637,11 @@ return msgs;
 },
 async triggerVirtualGroupAutoReplies(userText) {
 if (this.groupReplying) return;
-const g = getProjectGroupById(this.virtualId);
-const pickedMembers = Array.isArray(g?.members) ? g.members : [];
+const isHq = this.virtualKind === "hq";
+const g = isHq ? null : getProjectGroupById(this.virtualId);
+const pickedMembers = isHq ? loadDigitalAgents() : (Array.isArray(g?.members) ? g.members : []);
 const candidates = pickedMembers.length ? pickedMembers : loadDigitalAgents();
-const roster = pickedMembers.length ? pickedMembers : candidates;
+const roster = candidates;
 const maxAgents = Math.min(Math.max(1, candidates.length), 8);
 const picked = candidates.slice(0, maxAgents);
 if (!Array.isArray(picked) || picked.length === 0) return;
@@ -652,7 +675,7 @@ try {
     const senderName = formatAgentNavTitle({ name, role }) || name;
     const aid = String(a?.id || a?.agentId || "").trim();
     const agentModel = (aid && getAgentModelOrDefault(aid)) || model;
-    const system = this.buildGroupAgentSystemPrompt(a, g?.name || this.virtualTitle || "", roster);
+    const system = this.buildGroupAgentSystemPrompt(a, (isHq ? this.virtualTitle : g?.name) || this.virtualTitle || "", roster);
     const msgs = this.buildGroupApiMessages();
     try {
       const res = await chatCompletion({ apiKey, baseUrl, model: agentModel, system, messages: msgs });
@@ -660,6 +683,7 @@ try {
       let text = stripLeadingRosterSpeakerPrefix(raw, roster) || raw;
       text = stripVerbatimEchoFromPriorPeers(text, recentPeerMessageBodies(this.chatMessages, a, 8));
       text = stripOtherSpeakerLines(text, a, roster);
+      text = sanitizeGroupVirtualTone(text);
       text = clampGroupReplyLength(text, 200);
       if (!String(text || "").trim()) {
         text = this.buildGroupAutoReplyContent(name, role, userText, idx);
@@ -696,7 +720,7 @@ try {
       const senderName = formatAgentNavTitle({ name, role }) || name;
       const aid = String(a?.id || a?.agentId || "").trim();
       const agentModel = (aid && getAgentModelOrDefault(aid)) || model;
-      const system = this.buildGroupAgentSystemPrompt(a, g?.name || this.virtualTitle || "", roster, { continuation: true });
+      const system = this.buildGroupAgentSystemPrompt(a, (isHq ? this.virtualTitle : g?.name) || this.virtualTitle || "", roster, { continuation: true });
       const msgs = this.buildGroupApiMessages();
       try {
         const res = await chatCompletion({ apiKey, baseUrl, model: agentModel, system, messages: msgs });
@@ -704,6 +728,7 @@ try {
         let text = raw ? stripLeadingRosterSpeakerPrefix(raw, roster) || raw : "";
         text = stripVerbatimEchoFromPriorPeers(text, recentPeerMessageBodies(this.chatMessages, a, 8));
         text = stripOtherSpeakerLines(text, a, roster);
+        text = sanitizeGroupVirtualTone(text);
         text = text ? clampGroupReplyLength(text, 140) : "";
         if (isContinuationSkipToken(text)) continue;
         if (!String(text || "").trim()) continue;
@@ -751,9 +776,14 @@ return "sm-" + String(id == null ? "x" : id).replace(/[^a-zA-Z0-9_-]/g, "_");
 resolveGroupMessageAgentId(msg) {
 const sid = String(msg?.senderId || "").trim();
 if (sid) return sid;
-if (this.mode !== "virtual" || this.virtualKind !== "group" || !this.virtualId) return "";
+if (this.mode !== "virtual" || !this.virtualId) return "";
+let members = [];
+if (this.virtualKind === "group") {
 const g = getProjectGroupById(this.virtualId);
-const members = Array.isArray(g?.members) ? g.members : [];
+members = Array.isArray(g?.members) ? g.members : [];
+} else if (this.virtualKind === "hq") {
+members = loadDigitalAgents();
+}
 const want = String(msg?.senderName || "").trim();
 if (!want || !members.length) return "";
 for (const m of members) {
@@ -768,7 +798,7 @@ if (name && want === name) return String(m?.id || m?.agentId || "").trim();
 return "";
 },
 openPeerAvatarPrivateChat(msg) {
-if (this.mode !== "virtual" || this.virtualKind !== "group" || !msg || msg.isMine) return;
+if (this.mode !== "virtual" || !["group", "hq"].includes(this.virtualKind) || !msg || msg.isMine) return;
 if (this.multiSelectMode) return;
 const agentId = this.resolveGroupMessageAgentId(msg);
 if (!agentId) {
@@ -776,8 +806,8 @@ uni.showToast({ title: this.t("toast_group_member_no_agent_id"), icon: "none" })
 return;
 }
 const local = getDigitalAgentById(agentId);
-const g = getProjectGroupById(this.virtualId);
-const row = (Array.isArray(g?.members) ? g.members : []).find(
+const g = this.virtualKind === "group" ? getProjectGroupById(this.virtualId) : null;
+const row = (this.virtualKind === "hq" ? loadDigitalAgents() : (Array.isArray(g?.members) ? g.members : [])).find(
 (r) => String(r?.id || r?.agentId || "").trim() === agentId
 );
 let title = "";
@@ -1086,18 +1116,22 @@ ensureManagerChatSeed();
 }
 const list = loadVirtualChatMessages(this.virtualKind, this.virtualId);
 let groupRoster = [];
-if (this.virtualKind === "group" && this.virtualId) {
+if ((this.virtualKind === "group" || this.virtualKind === "hq") && this.virtualId) {
+if (this.virtualKind === "hq") {
+groupRoster = loadDigitalAgents();
+} else {
 const gd = getProjectGroupById(this.virtualId);
 groupRoster = Array.isArray(gd?.members) ? gd.members : [];
+}
 }
 this.chatMessages = list.map((m) => {
 const sid = String(m.senderId || "").trim();
 const storedModel = String(m.senderModel || "").trim();
 const senderModel =
   storedModel ||
-  (this.virtualKind === "group" && sid ? getAgentModelOrDefault(sid) : "");
+  ((this.virtualKind === "group" || this.virtualKind === "hq") && sid ? getAgentModelOrDefault(sid) : "");
 let content = m.content;
-if (this.virtualKind === "group" && groupRoster.length && !m.isMine) {
+if ((this.virtualKind === "group" || this.virtualKind === "hq") && groupRoster.length && !m.isMine) {
 content = stripLeadingRosterSpeakerPrefix(m.content, groupRoster) || m.content;
 }
 return {
@@ -1299,7 +1333,7 @@ senderName: "",
 this.inputText = "";
 this.loadVirtualMessages(false);
 this.$nextTick(() => this.scrollToBottom());
-if (this.virtualKind === "group") {
+if (this.virtualKind === "group" || this.virtualKind === "hq") {
 this.triggerVirtualGroupAutoReplies(body);
 }
 return;

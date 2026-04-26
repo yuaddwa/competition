@@ -323,11 +323,12 @@
 
 <style scoped>
 	.wl-page {
-		min-height: 100vh;
+		height: 100vh;
 		display: flex;
 		flex-direction: column;
 		background: #f2f4f8;
 		box-sizing: border-box;
+		overflow: hidden;
 	}
 	.wl-nav {
 		flex-shrink: 0;

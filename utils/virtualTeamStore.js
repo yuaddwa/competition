@@ -2,6 +2,9 @@
  * 本地「项目群」「数字员工」及会话摘要（后续可对接后端）
  */
 import { t, getLanguage } from "./lang.js";
+import { getLlmSettings } from "./llmSettings.js";
+import { chatCompletion } from "./openaiCompatible.js";
+import { extractAssistantText } from "./openaiResponse.js";
 
 const K_GROUPS = "virtualProjectGroups";
 const K_AGENTS = "virtualDigitalAgents";
@@ -201,6 +204,42 @@ export function loadDigitalAgents() {
   return cleaned;
 }
 
+/** 用当前登录用户的 Agent 全量覆盖本地数字员工（用于 HQ 全员群真实成员） */
+export function replaceDigitalAgentsFromUserAgents(rows = []) {
+  seedIfNeeded();
+  const now = nowIso();
+  const normalized = (Array.isArray(rows) ? rows : [])
+    .map((r) => ({
+      id: String(r?.id || r?.agentId || "").trim(),
+      name: String(r?.displayName || r?.name || "").trim(),
+      role: String(r?.jobTitle || r?.rolePosition || "").trim(),
+      department: String(r?.department || "").trim(),
+      avatar: String(r?.avatar || r?.avatarUrl || r?.headImg || r?.headimg || "").trim(),
+      model: String(r?.model || "").trim(),
+    }))
+    .filter((r) => r.id && r.name)
+    .map((r) => ({
+      id: r.id,
+      name: r.name,
+      role: r.role || t("vt_member_default", getLanguage()),
+      department: r.department,
+      avatar: r.avatar,
+      model: r.model,
+      gender: "unspecified",
+      personality: "",
+      hobbies: "",
+      experience: "",
+      replyStyle: "detailed",
+      remark: "",
+      createdAt: now,
+      lastMsg: t("vt_agent_ready_hint", getLanguage()),
+      lastTime: now,
+      unread: 0,
+    }));
+  if (normalized.length > 0) saveAgents(normalized);
+  return normalized;
+}
+
 function saveGroups(list) {
   uni.setStorageSync(K_GROUPS, JSON.stringify(list));
 }
@@ -215,6 +254,7 @@ export const VT_GROUP_OWNER_USER = "__vt_user__";
 export function addProjectGroup(payload = {}) {
   const {
     name,
+    workflowId = "",
     desc = "",
     clientName = "",
     deliverable = "",
@@ -237,6 +277,7 @@ export function addProjectGroup(payload = {}) {
     .filter((m) => m.id && m.name);
   const row = {
     id,
+    workflowId: String(workflowId || "").trim(),
     name: (name || t("vt_unnamed_group", getLanguage())).trim(),
     desc: (desc || "").trim(),
     clientName: (clientName || "").trim(),
@@ -492,6 +533,168 @@ export function ensureHallDailyDigest() {
   });
 
   uni.setStorageSync(K_HALL_DIGEST_DAY, today);
+}
+
+function stripFenceJson(text) {
+  const s = String(text || "").trim();
+  const m = s.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  return m ? m[1].trim() : s;
+}
+
+function parseHallJsonSafe(text) {
+  try {
+    return JSON.parse(stripFenceJson(text));
+  } catch {
+    return null;
+  }
+}
+
+function pickProjectLeads(groups, agents) {
+  const out = [];
+  const byId = new Map((Array.isArray(agents) ? agents : []).map((a) => [String(a.id), a]));
+  for (const g of Array.isArray(groups) ? groups : []) {
+    const members = Array.isArray(g?.members) ? g.members : [];
+    if (!members.length) continue;
+    const lead = members.find((m) => !!m?.isAdmin) || members[0];
+    const id = String(lead?.id || lead?.agentId || "").trim();
+    if (!id || !byId.has(id)) continue;
+    out.push({ groupName: displayGroupName(g), agent: byId.get(id) });
+  }
+  return out;
+}
+
+function fallbackHallLiveContent(groups, agents) {
+  const lang = getLanguage();
+  const leads = pickProjectLeads(groups, agents).slice(0, 6);
+  const projectReports = leads.map((x, i) => ({
+    agentId: x.agent.id,
+    content:
+      lang === "en"
+        ? `Project ${x.groupName}: milestone ${i + 1} is on track, integration and risk cleanup are in progress.`
+        : `【${x.groupName}】当前里程碑推进正常，今天重点完成联调和风险清单收敛。`,
+  }));
+  const newsAgents = (Array.isArray(agents) ? agents : []).slice(0, 2);
+  const weatherAgent = (Array.isArray(agents) ? agents : [])[2] || newsAgents[0] || null;
+  const techNews = newsAgents.map((a, i) => ({
+    agentId: a.id,
+    content:
+      lang === "en"
+        ? `Tech update #${i + 1}: focus on model cost control and prompt evaluation stability.`
+        : `技术速递 #${i + 1}：建议关注模型成本治理与提示词评测稳定性。`,
+  }));
+  const weather = weatherAgent
+    ? {
+        agentId: weatherAgent.id,
+        content:
+          lang === "en"
+            ? "Weather brief: mild today, suitable for focused delivery and afternoon review sync."
+            : "今日日常天气简报：体感平稳，适合专注开发与下午评审同步。",
+      }
+    : null;
+  return { projectReports, techNews, weather };
+}
+
+async function llmHallLiveContent(groups, agents) {
+  const { apiKey, baseUrl, model } = getLlmSettings();
+  if (!apiKey) return null;
+  const leads = pickProjectLeads(groups, agents).slice(0, 6);
+  const payload = {
+    leads: leads.map((x) => ({
+      agentId: x.agent.id,
+      agentName: displayAgentName(x.agent),
+      role: displayAgentRole(x.agent),
+      groupName: x.groupName,
+    })),
+    agents: (Array.isArray(agents) ? agents : []).slice(0, 16).map((a) => ({
+      id: a.id,
+      name: displayAgentName(a),
+      role: displayAgentRole(a),
+    })),
+  };
+  const system = [
+    "你在生成首页全员群播报，只输出 JSON。",
+    "JSON 结构：",
+    "{",
+    '  "projectReports":[{"agentId":"", "content":""}],',
+    '  "techNews":[{"agentId":"", "content":""}],',
+    '  "weather":{"agentId":"", "content":""}',
+    "}",
+    "要求：",
+    "1) projectReports 覆盖每个 leads.agentId 各一条；",
+    "2) techNews 2~3 条且使用 agents 里的 agentId；",
+    "3) weather 1 条且使用 agents 里的 agentId；",
+    "4) 内容要真实、具体、简洁，每条 30~90 字。",
+  ].join("\n");
+  try {
+    const res = await chatCompletion({
+      apiKey,
+      baseUrl,
+      model,
+      system,
+      messages: [{ role: "user", content: JSON.stringify(payload) }],
+      timeoutMs: 90000,
+    });
+    return parseHallJsonSafe(extractAssistantText(res));
+  } catch (e) {
+    console.warn("[virtualTeamStore] hall llm", e);
+    return null;
+  }
+}
+
+/** 每次进入首页时追加一组全员群实时播报 */
+export async function ensureHallLiveBroadcast() {
+  seedIfNeeded();
+  const agents = loadDigitalAgents();
+  if (!agents.length) return;
+  const groups = loadProjectGroups();
+  const lang = getLanguage();
+  const byId = new Map(agents.map((a) => [String(a.id), a]));
+  const pushHall = (agent, content, isManager = false) => {
+    const text = String(content || "").trim();
+    if (!agent || !text) return;
+    appendHQMessage({
+      content: text,
+      isMine: false,
+      senderName: formatAgentNavTitle(agent),
+      isManager,
+    });
+  };
+
+  const allNames = agents.map((a) => displayAgentName(a)).filter(Boolean).join("、");
+  appendHQMessage({
+    content: lang === "en" ? `On-duty agents: ${allNames}` : `今日在岗 Agent：${allNames}`,
+    isMine: false,
+    senderName: t("sender_system_name", lang),
+  });
+
+  const fromModel = await llmHallLiveContent(groups, agents);
+  const fallback = fallbackHallLiveContent(groups, agents);
+  const projectReports =
+    Array.isArray(fromModel?.projectReports) && fromModel.projectReports.length
+      ? fromModel.projectReports
+      : fallback.projectReports;
+  const techNews =
+    Array.isArray(fromModel?.techNews) && fromModel.techNews.length
+      ? fromModel.techNews
+      : fallback.techNews;
+  const weather =
+    fromModel?.weather && typeof fromModel.weather === "object" ? fromModel.weather : fallback.weather;
+
+  for (const row of projectReports.slice(0, 8)) {
+    const id = String(row?.agentId || "").trim();
+    const a = byId.get(id);
+    pushHall(a, row?.content, true);
+  }
+  for (const row of techNews.slice(0, 3)) {
+    const id = String(row?.agentId || "").trim();
+    const a = byId.get(id);
+    pushHall(a, row?.content);
+  }
+  if (weather) {
+    const id = String(weather?.agentId || "").trim();
+    const a = byId.get(id);
+    pushHall(a, weather?.content);
+  }
 }
 
 /** 进入 1 对 1 员工聊天时，若无记录则写入可读的对话气泡 */

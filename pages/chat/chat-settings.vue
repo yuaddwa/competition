@@ -38,7 +38,7 @@
 			<text class="hero-title">{{ pageTitle }}</text>
 			<text class="hero-desc">{{ t('cs_local_session') }}</text>
 		</view>
-		<view v-if="mode === 'virtual' && kind === 'group'" class="group members-card">
+		<view v-if="mode === 'virtual' && (kind === 'group' || kind === 'hq')" class="group members-card">
 			<view class="members-head">
 				<text class="members-title">群成员</text>
 				<text class="members-count">{{ groupMembers.length }} 人</text>
@@ -168,7 +168,16 @@
 				return r || this.t("cs_digital_employee_role");
 			},
 			groupMembers() {
-				const arr = Array.isArray(this.groupDetail?.members) ? this.groupDetail.members : [];
+				const isHq = String(this.kind || "").trim().toLowerCase() === "hq";
+				const arr = isHq
+					? loadDigitalAgents().map((a) => ({
+							id: a.id,
+							name: a.name,
+							role: a.role,
+							avatar: a.avatar,
+							model: a.model,
+					  }))
+					: (Array.isArray(this.groupDetail?.members) ? this.groupDetail.members : []);
 				const u = getUserInfo() || {};
 				const meName =
 					String(u.nickname || u.name || u.username || t("home_sender_me", getLanguage())).trim() ||
@@ -363,6 +372,15 @@
 					} else {
 						uni.showToast({ title: this.t("load_failed_short"), icon: "none" });
 					}
+					return;
+				}
+				if (kindNorm === "hq") {
+					uni.navigateTo({
+						url: `/pages/team/group-manage-members?kind=hq&id=${encodeURIComponent(this.id || "company_hall")}&gname=${encodeURIComponent(this.pageTitle || this.t("hq_group"))}`,
+						fail: () => {
+							uni.showToast({ title: this.t("load_failed_short"), icon: "none" });
+						},
+					});
 					return;
 				}
 
