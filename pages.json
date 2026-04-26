@@ -167,15 +167,6 @@
 				"navigationBarTitleText": "我的团队"
 			}
 		},
-		{
-			"path": "pages/recommend/recommend",
-			"style": {
-				"navigationBarTitleText": "推荐",
-				"navigationBarBackButtonHidden": true,
-				"navigationStyle": "custom",
-				"navigationBarBackgroundColor": "#ededed"
-			}
-		}
 	],
 	"globalStyle": {
 		"navigationBarTextStyle": "black",

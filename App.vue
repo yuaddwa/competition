@@ -197,6 +197,7 @@
 	.ceo-header,
 	.team-overview,
 	.team-stat-card,
+	.menu-card,
 	.quick-action-item,
 	.hint-card,
 	.msg-tab-strip,
@@ -823,7 +824,7 @@
 	[data-theme="dark"] .profile-header,
 	[data-theme="dark"] .team-overview,
 	[data-theme="dark"] .stat-card,
-	[data-theme="dark"] .quick-tile,
+	[data-theme="dark"] .menu-card,
 	[data-theme="dark"] .hint-card,
 	[data-theme="dark"] .ceo-header {
 		background: var(--bg-secondary) !important;
@@ -837,6 +838,7 @@
 
 	[data-theme="dark"] .nick,
 	[data-theme="dark"] .about-line,
+	[data-theme="dark"] .about-foot-line,
 	[data-theme="dark"] .team-stat-num {
 		color: var(--text-primary) !important;
 	}

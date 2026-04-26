@@ -44,87 +44,79 @@
 				</view>
 			</view>
 
-			<view class="group-spacer" />
-
-			<view class="quick-actions">
-				<view class="quick-tile" hover-class="quick-tile-hover" @click="goCreateAgent">
-					<view class="quick-tile-ico quick-ico-hire">
-						<text class="quick-tile-emoji">⚡</text>
+			<view class="menu-section">
+				<view class="menu-card">
+					<view class="menu-row" hover-class="menu-row-hover" @click="goCreateAgent">
+						<view class="menu-row-icon"><text class="menu-row-emoji">⚡</text></view>
+						<view class="menu-row-body">
+							<text class="menu-row-title">{{ t('profile_quick_hire_title') }}</text>
+							<text class="menu-row-sub">{{ t('profile_quick_hire_sub') }}</text>
+						</view>
+						<text class="menu-row-chev">›</text>
 					</view>
-					<view class="quick-tile-texts">
-						<text class="quick-tile-title">{{ t('profile_quick_hire_title') }}</text>
-						<text class="quick-tile-sub">{{ t('profile_quick_hire_sub') }}</text>
+					<view class="menu-divider" />
+					<view class="menu-row" hover-class="menu-row-hover" @click="goCreateGroup">
+						<view class="menu-row-icon"><text class="menu-row-emoji">🚀</text></view>
+						<view class="menu-row-body">
+							<text class="menu-row-title">{{ t('profile_quick_group_title') }}</text>
+							<text class="menu-row-sub">{{ t('profile_quick_group_sub') }}</text>
+						</view>
+						<text class="menu-row-chev">›</text>
 					</view>
-					<text class="quick-tile-arrow">›</text>
 				</view>
-				<view class="quick-tile" hover-class="quick-tile-hover" @click="goCreateGroup">
-					<view class="quick-tile-ico quick-ico-group">
-						<text class="quick-tile-emoji">🚀</text>
+
+				<view class="menu-card">
+					<view class="menu-row" hover-class="menu-row-hover" @click="showDailyReport">
+						<view class="menu-row-icon"><text class="menu-row-emoji">📊</text></view>
+						<view class="menu-row-body">
+							<text class="menu-row-title">{{ t('profile_daily_report') }}</text>
+							<text class="menu-row-sub">{{ t('profile_daily_report_sub') }}</text>
+						</view>
+						<text class="menu-row-chev">›</text>
 					</view>
-					<view class="quick-tile-texts">
-						<text class="quick-tile-title">{{ t('profile_quick_group_title') }}</text>
-						<text class="quick-tile-sub">{{ t('profile_quick_group_sub') }}</text>
-					</view>
-					<text class="quick-tile-arrow">›</text>
 				</view>
-			</view>
 
-			<view class="group-spacer" />
-
-			<view class="cell-group">
-				<view class="cell" @click="showDailyReport">
-					<view class="cell-icon bg-report">
-						<text class="cell-glyph-text">📊</text>
+				<view v-if="loggedIn" class="menu-card">
+					<view class="menu-row" hover-class="menu-row-hover" @click="goPage('/pages/profile/agent-model-assign')">
+						<view class="menu-row-icon"><text class="menu-row-emoji">🔗</text></view>
+						<view class="menu-row-body">
+							<text class="menu-row-title">{{ t('agent_model_assign_nav') }}</text>
+						</view>
+						<text class="menu-row-chev">›</text>
 					</view>
-					<view class="cell-text-wrap">
-						<text class="cell-title">{{ t('profile_daily_report') }}</text>
-						<text class="cell-sub">{{ t('profile_daily_report_sub') }}</text>
+					<view class="menu-divider" />
+					<view class="menu-row" hover-class="menu-row-hover" @click="goChangePassword">
+						<view class="menu-row-icon menu-row-icon-mono">
+							<text class="iconfont menu-row-ico">&#xe78f;</text>
+						</view>
+						<view class="menu-row-body">
+							<text class="menu-row-title">{{ t('change_password') }}</text>
+						</view>
+						<text class="menu-row-chev">›</text>
 					</view>
-					<text class="cell-arrow">›</text>
 				</view>
-			</view>
 
-			<view class="group-spacer" />
-
-			<view v-if="loggedIn" class="cell-group">
-				<view class="cell" @click="goPage('/pages/profile/agent-model-assign')">
-					<view class="cell-icon bg-font">
-						<text class="cell-glyph-text cell-glyph-emoji">🔗</text>
+				<view class="menu-card">
+					<view class="menu-row" hover-class="menu-row-hover" @click="goSettings">
+						<view class="menu-row-icon menu-row-icon-mono">
+							<text class="iconfont menu-row-ico">&#xe654;</text>
+						</view>
+						<view class="menu-row-body">
+							<text class="menu-row-title">{{ t('settings') }}</text>
+						</view>
+						<text class="menu-row-chev">›</text>
 					</view>
-					<text class="cell-title">{{ t('agent_model_assign_nav') }}</text>
-					<text class="cell-arrow">›</text>
 				</view>
-				<view class="cell" @click="goChangePassword">
-					<view class="cell-icon bg-pwd">
-						<text class="iconfont cell-glyph">&#xe78f;</text>
+
+				<view class="menu-card menu-card-muted">
+					<view class="menu-row menu-row-static">
+						<text class="menu-row-title menu-row-title-only">{{ t('about') }}</text>
+						<text class="menu-row-extra">{{ t('version') }}</text>
 					</view>
-					<text class="cell-title">{{ t('change_password') }}</text>
-					<text class="cell-arrow">›</text>
-				</view>
-			</view>
-
-			<view class="group-spacer" />
-
-			<view class="cell-group">
-				<view class="cell" @click="goSettings">
-					<view class="cell-icon bg-settings">
-						<text class="iconfont cell-glyph">&#xe654;</text>
+					<view class="about-foot">
+						<text class="about-foot-line">{{ t('profile_about_tagline') }}</text>
+						<text class="about-foot-line sub">{{ t('profile_about_sub') }}</text>
 					</view>
-					<text class="cell-title">{{ t('settings') }}</text>
-					<text class="cell-arrow">›</text>
-				</view>
-			</view>
-
-			<view class="group-spacer" />
-
-			<view class="cell-group">
-				<view class="cell cell-static cell-about-row">
-					<text class="cell-title">{{ t('about') }}</text>
-					<text class="cell-extra">{{ t('version') }}</text>
-				</view>
-				<view class="about-desc">
-					<text class="about-line">{{ t('profile_about_tagline') }}</text>
-					<text class="about-line sub">{{ t('profile_about_sub') }}</text>
 				</view>
 			</view>
 
@@ -462,8 +454,9 @@
 		display: flex;
 		flex-direction: column;
 		height: 100vh;
-		background-color: #f1f5f9;
+		background-color: #f2f2f7;
 		box-sizing: border-box;
+		font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Helvetica Neue', sans-serif;
 	}
 
 	.main-scroll {
@@ -476,8 +469,9 @@
 	}
 
 	.header-section {
-		background: linear-gradient(165deg, #f0f9ff 0%, #e0f2fe 38%, #bae6fd 100%);
-		padding: 28rpx 24rpx 32rpx;
+		background: #fff;
+		padding: 24rpx 20rpx 28rpx;
+		border-bottom: 1rpx solid #e8e8ed;
 	}
 
 	.profile-header {
@@ -508,29 +502,28 @@
 	}
 
 	.avatar-wrap {
-		width: 100rpx;
-		height: 100rpx;
+		width: 96rpx;
+		height: 96rpx;
 		border-radius: 50%;
-		background: linear-gradient(135deg, #3b82f6, #6366f1);
-		box-shadow: 0 6rpx 20rpx rgba(37, 99, 235, 0.22);
+		background: #e8ecf1;
 		flex-shrink: 0;
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		overflow: hidden;
-		border: 3rpx solid rgba(255, 255, 255, 0.75);
+		border: 1rpx solid #e0e0e6;
 	}
 
 	.avatar-img {
-		width: 100rpx;
-		height: 100rpx;
+		width: 96rpx;
+		height: 96rpx;
 		border-radius: 50%;
 	}
 
 	.avatar-text {
-		font-size: 40rpx;
-		font-weight: 700;
-		color: #fff;
+		font-size: 36rpx;
+		font-weight: 600;
+		color: #64748b;
 	}
 
 	.header-main {
@@ -547,9 +540,9 @@
 	}
 
 	.nick {
-		font-size: 36rpx;
-		font-weight: 700;
-		color: #0f172a;
+		font-size: 34rpx;
+		font-weight: 600;
+		color: #111;
 		line-height: 1.25;
 		flex: 1;
 		min-width: 0;
@@ -571,12 +564,12 @@
 
 	.ceo-badge-text {
 		font-size: 20rpx;
-		font-weight: 700;
-		color: #b45309;
-		background: rgba(251, 191, 36, 0.35);
+		font-weight: 600;
+		color: #64748b;
+		background: #f1f5f9;
 		padding: 4rpx 10rpx;
-		border-radius: 8rpx;
-		letter-spacing: 1rpx;
+		border-radius: 6rpx;
+		letter-spacing: 0;
 	}
 
 	.account-line {
@@ -591,9 +584,9 @@
 		display: flex;
 		flex-direction: row;
 		align-items: stretch;
-		gap: 14rpx;
-		margin-top: 28rpx;
-		padding: 0 2rpx;
+		gap: 12rpx;
+		margin-top: 24rpx;
+		padding: 0;
 	}
 
 	.stat-card {
@@ -603,16 +596,15 @@
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
-		padding: 22rpx 10rpx 20rpx;
+		padding: 20rpx 10rpx 18rpx;
 		box-sizing: border-box;
-		border-radius: 22rpx;
-		background: rgba(255, 255, 255, 0.88);
-		border: 1rpx solid rgba(255, 255, 255, 0.95);
-		box-shadow: 0 6rpx 22rpx rgba(15, 23, 42, 0.06), 0 1rpx 0 rgba(255, 255, 255, 0.8) inset;
+		border-radius: 12rpx;
+		background: #fafafa;
+		border: 1rpx solid #ececf0;
 	}
 
 	.stat-card-hover {
-		background: rgba(255, 255, 255, 0.98);
+		background: #f4f4f6;
 	}
 
 	.stat-card-top {
@@ -640,26 +632,23 @@
 		line-height: 1;
 	}
 
-	.bg-agents {
-		background: linear-gradient(145deg, #dbeafe 0%, #bfdbfe 100%);
-	}
-
+	.bg-agents,
 	.bg-groups {
-		background: linear-gradient(145deg, #d1fae5 0%, #a7f3d0 100%);
+		background: #eef0f3;
 	}
 
 	.team-stat-num {
-		font-size: 34rpx;
-		font-weight: 800;
-		color: #0f172a;
+		font-size: 30rpx;
+		font-weight: 600;
+		color: #111;
 		line-height: 1;
 		letter-spacing: -0.5rpx;
 	}
 
 	.team-stat-label {
-		font-size: 20rpx;
-		color: #64748b;
-		font-weight: 600;
+		font-size: 22rpx;
+		color: #8e8e93;
+		font-weight: 500;
 		text-align: center;
 		line-height: 1.35;
 		max-width: 100%;
@@ -671,250 +660,133 @@
 		word-break: break-word;
 	}
 
-	.quick-actions {
-		display: flex;
-		flex-direction: column;
-		gap: 16rpx;
-		padding: 0 28rpx;
-		margin-top: 8rpx;
+	.menu-section {
+		padding: 16rpx 20rpx 0;
 	}
 
-	.quick-tile {
+	.menu-card {
+		background: #fff;
+		border-radius: 12rpx;
+		border: 1rpx solid #e8e8ed;
+		overflow: hidden;
+		margin-bottom: 12rpx;
+	}
+
+	.menu-card-muted {
+		background: #fafafa;
+		border-color: #ececf0;
+	}
+
+	.menu-row {
 		display: flex;
 		flex-direction: row;
 		align-items: center;
-		background: #fff;
-		border-radius: 22rpx;
-		padding: 24rpx 22rpx;
-		border: none;
-		box-shadow: 0 8rpx 26rpx rgba(15, 23, 42, 0.06);
-	}
-
-	.quick-tile-hover {
-		background: #f8fafc;
-	}
-
-	.quick-tile-ico {
-		width: 76rpx;
-		height: 76rpx;
-		border-radius: 20rpx;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		flex-shrink: 0;
-		margin-right: 22rpx;
-	}
-
-	.quick-ico-hire {
-		background: linear-gradient(145deg, #fff7ed 0%, #ffedd5 100%);
-	}
-
-	.quick-ico-group {
-		background: linear-gradient(145deg, #fdf2f8 0%, #fce7f3 100%);
-	}
-
-	.quick-tile-emoji {
-		font-size: 36rpx;
-		line-height: 1;
-	}
-
-	.quick-tile-texts {
-		flex: 1;
-		min-width: 0;
-		display: flex;
-		flex-direction: column;
-		gap: 6rpx;
-	}
-
-	.quick-tile-title {
-		font-size: 30rpx;
-		font-weight: 700;
-		color: #0f172a;
-		letter-spacing: 0.2rpx;
-	}
-
-	.quick-tile-sub {
-		font-size: 24rpx;
-		color: #94a3b8;
-		line-height: 1.35;
-	}
-
-	.quick-tile-arrow {
-		flex-shrink: 0;
-		font-size: 34rpx;
-		color: #cbd5e1;
-		font-weight: 300;
-		padding-left: 12rpx;
-	}
-
-	.group-spacer {
-		height: 20rpx;
-		background-color: #f1f5f9;
-	}
-
-	.cell-group {
-		display: flex;
-		flex-direction: column;
-		gap: 16rpx;
-		margin-left: 28rpx;
-		margin-right: 28rpx;
-		background: transparent;
-		border: none;
-		box-shadow: none;
-	}
-
-	.cell-group .cell {
-		background: #fff;
-		border-radius: 22rpx;
-		border: none;
-		box-shadow: 0 8rpx 26rpx rgba(15, 23, 42, 0.06);
-	}
-
-	.cell {
-		display: flex;
-		flex-direction: row;
-		align-items: center;
-		min-height: 112rpx;
-		padding: 26rpx 28rpx;
+		min-height: 96rpx;
+		padding: 18rpx 20rpx;
 		box-sizing: border-box;
 	}
 
-	.cell:active {
-		background-color: #f8fafc;
+	.menu-row-hover {
+		background: #f7f7f8;
 	}
 
-	.cell-static:active {
-		background-color: #fff;
+	.menu-row-static {
+		min-height: 72rpx;
+		padding-bottom: 12rpx;
 	}
 
-	.cell-icon {
-		width: 72rpx;
-		height: 72rpx;
-		border-radius: 18rpx;
-		flex-shrink: 0;
+	.menu-row-icon {
+		width: 44rpx;
+		height: 44rpx;
+		border-radius: 10rpx;
+		background: #f2f2f7;
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		margin-right: 22rpx;
+		margin-right: 16rpx;
+		flex-shrink: 0;
 	}
 
-	.cell-glyph {
-		font-size: 36rpx;
-		color: #fff;
+	.menu-row-icon-mono {
+		background: #f2f2f7;
+	}
+
+	.menu-row-emoji {
+		font-size: 22rpx;
 		line-height: 1;
 	}
 
-	.cell-glyph-text {
+	.menu-row-ico {
 		font-size: 28rpx;
-		font-weight: 700;
-		color: #fff;
+		color: #64748b;
+		line-height: 1;
 	}
 
-	.cell-glyph-emoji {
-		font-size: 34rpx;
-		font-weight: 600;
-	}
-
-	.bg-add {
-		background: linear-gradient(145deg, #4f46e5, #4338ca);
-	}
-	.bg-account {
-		background: linear-gradient(145deg, #3b82f6, #2563eb);
-	}
-	.bg-reg {
-		background: linear-gradient(145deg, #8b5cf6, #7c3aed);
-	}
-	.bg-model {
-		background: linear-gradient(145deg, #0d9488, #14b8a6);
-	}
-
-	.bg-pwd {
-		background: linear-gradient(145deg, #64748b, #475569);
-	}
-	.bg-settings {
-		background: linear-gradient(145deg, #0ea5e9, #0284c7);
-	}
-	.bg-report {
-		background: linear-gradient(145deg, #2563eb, #1d4ed8);
-	}
-
-	.cell-text-wrap {
+	.menu-row-body {
 		flex: 1;
 		min-width: 0;
 		display: flex;
 		flex-direction: column;
-		gap: 6rpx;
-		padding-right: 8rpx;
+		gap: 4rpx;
 	}
 
-	.cell-text-wrap .cell-title {
-		flex: none;
-		font-weight: 600;
+	.menu-row-title {
+		font-size: 30rpx;
+		font-weight: 500;
+		color: #111;
+		line-height: 1.3;
 	}
 
-	.cell-text-wrap .cell-sub {
-		margin-right: 0;
+	.menu-row-title-only {
+		flex: 1;
+	}
+
+	.menu-row-sub {
+		font-size: 24rpx;
+		color: #8e8e93;
 		line-height: 1.35;
 	}
 
-	.cell-title {
-		flex: 1;
-		font-size: 31rpx;
-		color: #0f172a;
-		font-weight: 600;
-		letter-spacing: 0.2rpx;
-	}
-
-	.cell-sub {
-		font-size: 24rpx;
-		color: #94a3b8;
-		margin-right: 16rpx;
-	}
-
-	.cell-extra {
-		font-size: 28rpx;
-		color: #64748b;
-		margin-right: 8rpx;
-	}
-
-	.cell-arrow {
+	.menu-row-chev {
 		flex-shrink: 0;
-		font-size: 36rpx;
-		color: #cbd5e1;
+		font-size: 32rpx;
+		color: #c7c7cc;
 		font-weight: 300;
-		line-height: 1;
-		padding-left: 12rpx;
+		padding-left: 8rpx;
 	}
 
-	.cell-about-row {
-		border-bottom: none;
-	}
-
-	.about-desc {
-		padding: 24rpx 28rpx 32rpx;
-		background: #fafbfc;
-		border-radius: 22rpx;
-		border: none;
-		box-shadow: 0 8rpx 26rpx rgba(15, 23, 42, 0.06);
-	}
-
-	.about-line {
-		display: block;
+	.menu-row-extra {
 		font-size: 26rpx;
-		color: #64748b;
-		line-height: 1.5;
+		color: #8e8e93;
 	}
 
-	.about-line.sub {
-		margin-top: 8rpx;
+	.menu-divider {
+		height: 1rpx;
+		background: #ececf0;
+		margin-left: 80rpx;
+	}
+
+	.about-foot {
+		padding: 0 20rpx 20rpx;
+	}
+
+	.about-foot-line {
+		display: block;
 		font-size: 24rpx;
-		color: #94a3b8;
+		color: #8e8e93;
+		line-height: 1.45;
+	}
+
+	.about-foot-line.sub {
+		margin-top: 6rpx;
+		font-size: 22rpx;
+		color: #aeaeb2;
 	}
 
 	.scroll-pad {
 		height: 200rpx;
 		padding-bottom: env(safe-area-inset-bottom);
-		background-color: #f1f5f9;
+		background-color: #f2f2f7;
 	}
 
 	.mask {
@@ -1263,7 +1135,8 @@
 	}
 
 	[data-theme="dark"] .header-section {
-		background: linear-gradient(165deg, #1e293b 0%, #0f172a 48%, #020617 100%) !important;
+		background: var(--bg-secondary) !important;
+		border-bottom-color: var(--border-color) !important;
 	}
 
 	[data-theme="dark"] .header-arrow {
@@ -1279,14 +1152,14 @@
 	}
 
 	[data-theme="dark"] .ceo-badge-text {
-		color: #fbbf24 !important;
-		background: rgba(251, 191, 36, 0.12) !important;
+		color: var(--text-secondary) !important;
+		background: var(--bg-tertiary) !important;
 	}
 
 	[data-theme="dark"] .stat-card {
-		background: rgba(30, 41, 59, 0.92) !important;
+		background: var(--bg-secondary) !important;
 		border: 1rpx solid var(--border-color) !important;
-		box-shadow: var(--card-shadow) !important;
+		box-shadow: none !important;
 	}
 
 	[data-theme="dark"] .stat-card-hover {
@@ -1306,78 +1179,50 @@
 		color: var(--text-secondary) !important;
 	}
 
-	[data-theme="dark"] .group-spacer {
-		background-color: var(--bg-primary) !important;
-	}
-
-	[data-theme="dark"] .quick-tile {
+	[data-theme="dark"] .menu-card {
 		background: var(--bg-secondary) !important;
-		box-shadow: var(--card-shadow) !important;
+		border-color: var(--border-color) !important;
 	}
 
-	[data-theme="dark"] .quick-tile-hover {
-		background: var(--cell-hover) !important;
-	}
-
-	[data-theme="dark"] .quick-ico-hire {
+	[data-theme="dark"] .menu-card-muted {
 		background: var(--bg-tertiary) !important;
 	}
 
-	[data-theme="dark"] .quick-ico-group {
-		background: linear-gradient(145deg, #38bdf8, #2563eb) !important;
+	[data-theme="dark"] .menu-row-hover {
+		background: var(--cell-hover) !important;
 	}
 
-	[data-theme="dark"] .quick-tile-title {
+	[data-theme="dark"] .menu-row-title {
 		color: var(--text-primary) !important;
 	}
 
-	[data-theme="dark"] .quick-tile-sub {
+	[data-theme="dark"] .menu-row-sub {
 		color: var(--text-secondary) !important;
 	}
 
-	[data-theme="dark"] .quick-tile-arrow {
+	[data-theme="dark"] .menu-row-chev,
+	[data-theme="dark"] .menu-row-extra {
 		color: var(--text-tertiary) !important;
 	}
 
-	[data-theme="dark"] .cell-group .cell {
-		background: var(--bg-secondary) !important;
-		box-shadow: var(--card-shadow) !important;
+	[data-theme="dark"] .menu-divider {
+		background: var(--border-color) !important;
 	}
 
-	[data-theme="dark"] .cell:active {
-		background-color: var(--cell-hover) !important;
+	[data-theme="dark"] .menu-row-icon,
+	[data-theme="dark"] .menu-row-icon-mono {
+		background: var(--bg-tertiary) !important;
 	}
 
-	[data-theme="dark"] .cell-static:active {
-		background-color: var(--bg-secondary) !important;
-	}
-
-	[data-theme="dark"] .cell-title {
-		color: var(--text-primary) !important;
-	}
-
-	[data-theme="dark"] .cell-sub {
+	[data-theme="dark"] .menu-row-ico {
 		color: var(--text-secondary) !important;
 	}
 
-	[data-theme="dark"] .cell-extra {
+	[data-theme="dark"] .about-foot-line {
 		color: var(--text-secondary) !important;
 	}
 
-	[data-theme="dark"] .cell-arrow {
-		color: var(--text-tertiary) !important;
-	}
-
-	[data-theme="dark"] .about-desc {
-		background: var(--bg-secondary) !important;
-		box-shadow: var(--card-shadow) !important;
-	}
-
-	[data-theme="dark"] .about-line {
-		color: var(--text-secondary) !important;
-	}
-
-	[data-theme="dark"] .about-line.sub {
+	[data-theme="dark"] .about-foot-line.sub {
 		color: var(--text-tertiary) !important;
 	}
 

@@ -38,8 +38,20 @@ class="bubble-row"
 @click="onBubbleRowTap(msg)"
 >
 <view class="bubble-line" :class="{ 'bubble-line-mine': msg.isMine }">
-<image v-if="!msg.isMine && avatarSrc(msg, false)" class="bubble-avatar-img" :src="avatarSrc(msg, false)" mode="aspectFill" />
-<view v-else-if="!msg.isMine" class="bubble-avatar">{{ avatarText(msg, false) }}</view>
+<image
+v-if="!msg.isMine && avatarSrc(msg, false)"
+class="bubble-avatar-img"
+:class="{ 'bubble-avatar-tappable': mode === 'virtual' && virtualKind === 'group' }"
+:src="avatarSrc(msg, false)"
+mode="aspectFill"
+@tap.stop="openPeerAvatarPrivateChat(msg)"
+/>
+<view
+v-else-if="!msg.isMine"
+class="bubble-avatar"
+:class="{ 'bubble-avatar-tappable': mode === 'virtual' && virtualKind === 'group' }"
+@tap.stop="openPeerAvatarPrivateChat(msg)"
+>{{ avatarText(msg, false) }}</view>
 <view class="bubble-main">
 <view v-if="!msg.isMine && msg.senderName" class="bubble-sender-row">
 <text class="bubble-sender">{{ msg.senderName }}</text>
@@ -197,6 +209,66 @@ changed = true;
 if (!changed) break;
 }
 return text || orig;
+}
+
+/** 同一条气泡里若新起一行写成「其他同事名：」代他人说话，从该行起整段丢弃 */
+function stripOtherSpeakerLines(raw, member, roster) {
+const full = String(raw || "").trim();
+if (!full || !Array.isArray(roster) || roster.length === 0) return full;
+const sid = String(member?.id || member?.agentId || "").trim();
+const myPlain = String(member?.name || member?.displayName || "").trim();
+const myNav = formatAgentNavTitle({
+name: member?.name || member?.displayName,
+role: member?.role || member?.jobTitle,
+});
+const selfLabels = new Set([myPlain, myNav].map((s) => String(s).trim()).filter(Boolean));
+const peerPrefixes = [];
+for (const m of roster) {
+const pid = String(m?.id || m?.agentId || "").trim();
+if (sid && pid && sid === pid) continue;
+const plain = String(m?.name || m?.displayName || "").trim();
+const nav = formatAgentNavTitle({
+name: m?.name || m?.displayName,
+role: m?.role || m?.jobTitle,
+});
+if (plain && !selfLabels.has(plain)) peerPrefixes.push(plain);
+if (nav && !selfLabels.has(nav)) peerPrefixes.push(nav);
+}
+const uniq = [...new Set(peerPrefixes)].sort((a, b) => b.length - a.length);
+const lines = full.split(/\n+/);
+const out = [];
+for (const line of lines) {
+const t = line.trim();
+if (!t) continue;
+let stolen = false;
+for (const p of uniq) {
+if (p.length < 2) continue;
+const re = new RegExp(`^(?:\\*\\*)?${escapeRegExp(p)}(?:\\*\\*)?\\s*[:：]`, "i");
+if (re.test(t)) {
+stolen = true;
+break;
+}
+}
+if (stolen) break;
+out.push(line);
+}
+const joined = out.join("\n").trim();
+return joined || full.split(/\n/)[0].trim() || full;
+}
+
+/** 控制单条气泡长度，避免一屏刷满 */
+function clampGroupReplyLength(text, maxChars = 200) {
+const s = String(text || "").trim();
+if (s.length <= maxChars) return s;
+const cut = s.slice(0, maxChars);
+const idx = Math.max(
+cut.lastIndexOf("。"),
+cut.lastIndexOf("！"),
+cut.lastIndexOf("？"),
+cut.lastIndexOf("；")
+);
+if (idx >= 48) return `${cut.slice(0, idx + 1)}…`;
+return `${cut.replace(/\s+\S*$/, "").trim()}…`;
 }
 
 const UI_DESIGNER_EMPLOYEE_ID = "des-ui";
@@ -371,10 +443,10 @@ return null;
 buildGroupAutoReplyContent(agentName, agentRole, userText, idx) {
 const brief = String(userText || "").trim().slice(0, 26);
 const templates = [
-`${agentName}已收到，我这边先按「${brief}」推进，30分钟内回传进展。`,
-`收到，我负责${agentRole || "该模块"}，先拆分任务并同步风险点。`,
-`我先给出可执行方案：先确认范围，再给里程碑和交付时间。`,
-`${agentName}这边补充：如果优先级最高，我可以先交付最小可用版本。`,
+`收到哈，我这边先按「${brief}」往前推，有进展马上群里说。`,
+`行，${agentRole || "这块"}我盯着，先把事拆开，风险点我同步一下。`,
+`我先说个能落地的：范围先对齐，再给节点和大概交付时间哈。`,
+`我补一句啊，要是这事最急，我可以先搞个最小能用的版本出来。`,
 ];
 return templates[idx % templates.length];
 },
@@ -400,17 +472,18 @@ const rosterBlock =
       ].join("\n")
     : "";
 return [
-`你是项目群成员「${name}」，职责：${role}。`,
+`你是项目群成员「${name}」本人，职责：${role}。`,
 dept ? `所属部门：${dept}。` : "",
 group ? `当前群聊：${group}。` : "",
 rosterBlock,
-"请在群聊中用简洁中文回复，聚焦执行方案、风险、协作对象。",
-"禁止在正文开头写「同事姓名 + 冒号」或「**姓名:**」当开场（左侧气泡已显示你的名字）；若要呼叫同事只能在句内使用 @显示名。",
-"每次回复 1-3 句，避免空话。"
+"【身份】你只能代表自己发言，一条消息里禁止替其他同事代写、禁止分段扮演多人；不要出现「某某：」另起一段假装别人说话；其他人的话会由他们自己发一条气泡。",
+"【长度】口语自然即可；整段控制在约 2～4 句、中文总字数尽量不超过 160 字，手机上一眼能扫完。",
+"【协作】需要谁配合只用句内 @显示名 点一下即可，不要写长串角色扮演。",
+"【收尾】用一句说清楚你这边下一步或待确认点即可，别堆大段背景。"
 ].filter(Boolean).join("\n");
 },
 buildGroupApiMessages(extraUserPrompt = "") {
-const recent = (Array.isArray(this.chatMessages) ? this.chatMessages : []).slice(-18);
+const recent = (Array.isArray(this.chatMessages) ? this.chatMessages : []).slice(-26);
 const msgs = recent
   .filter((m) => m && String(m.content || "").trim())
   .map((m) => {
@@ -427,7 +500,8 @@ const g = getProjectGroupById(this.virtualId);
 const pickedMembers = Array.isArray(g?.members) ? g.members : [];
 const candidates = pickedMembers.length ? pickedMembers : loadDigitalAgents();
 const roster = pickedMembers.length ? pickedMembers : candidates;
-const picked = candidates.slice(0, Math.min(3, candidates.length));
+const maxAgents = 5;
+const picked = candidates.slice(0, Math.min(maxAgents, candidates.length));
 if (!Array.isArray(picked) || picked.length === 0) return;
 const { apiKey, baseUrl, model } = getLlmSettings();
 if (!apiKey) {
@@ -485,10 +559,12 @@ try {
     }
     this.loadVirtualMessages(false);
     this.$nextTick(() => this.scrollToBottom());
-    await new Promise((r) => setTimeout(r, 260));
+    await new Promise((r) => setTimeout(r, 280));
   }
-  // 第二轮：让成员基于上一轮观点进行简短协作回应（模拟群内互相交流）
-  for (let idx = 1; idx < Math.min(3, picked.length); idx++) {
+  // 第二轮：每人接话，口语化对齐、互相 @，把话补完整
+  const round2Hint =
+    "这是群里刚聊完的一轮。请你接着往下说：语气像微信群同事，口语自然；必须接住上文里至少一个具体点；需要配合就用 @显示名；结尾说清楚「你或对方下一步具体干啥」或「还差哪一句就能定」，别把话撂一半。";
+  for (let idx = 0; idx < picked.length; idx++) {
     const a = picked[idx] || {};
     const name = String(a?.name || a?.displayName || "").trim() || displayAgentName(a) || this.t("digital_employee_fallback");
     const role = String(a?.role || a?.jobTitle || "").trim() || displayAgentRole(a);
@@ -496,8 +572,40 @@ try {
     const aid = String(a?.id || a?.agentId || "").trim();
     const agentModel = (aid && getAgentModelOrDefault(aid)) || model;
     const system = this.buildGroupAgentSystemPrompt(a, g?.name || this.virtualTitle || "", roster);
+    const msgs = this.buildGroupApiMessages(round2Hint);
+    try {
+      const res = await chatCompletion({ apiKey, baseUrl, model: agentModel, system, messages: msgs });
+      const raw = extractAssistantText(res);
+      const text = raw ? stripLeadingRosterSpeakerPrefix(raw, roster) || raw : "";
+      if (text) {
+        appendVirtualChat("group", this.virtualId, {
+          content: text,
+          isMine: false,
+          senderName,
+          senderAvatar: String(a?.avatar || a?.avatarUrl || a?.headImg || a?.headimg || "").trim(),
+          senderId: aid,
+          senderModel: agentModel,
+        });
+        this.loadVirtualMessages(false);
+        this.$nextTick(() => this.scrollToBottom());
+      }
+    } catch {
+      //
+    }
+    await new Promise((r) => setTimeout(r, 260));
+  }
+  // 第三轮：一人做口语小结，帮用户把「目的」收口
+  const closer = picked[picked.length > 1 ? picked.length - 1 : 0] || picked[0];
+  {
+    const a = closer || {};
+    const name = String(a?.name || a?.displayName || "").trim() || displayAgentName(a) || this.t("digital_employee_fallback");
+    const role = String(a?.role || a?.jobTitle || "").trim() || displayAgentRole(a);
+    const senderName = formatAgentNavTitle({ name, role }) || name;
+    const aid = String(a?.id || a?.agentId || "").trim();
+    const agentModel = (aid && getAgentModelOrDefault(aid)) || model;
+    const system = this.buildGroupAgentSystemPrompt(a, g?.name || this.virtualTitle || "", roster);
     const msgs = this.buildGroupApiMessages(
-      "请基于上一位成员的观点补充一句协作建议；需要点名协作对象时，必须使用 @他的显示名（与成员列表一致），不要用 **姓名:** 格式。"
+      "请你代表大家用口语做个**本轮小结**（3～6 句）：① 和用户问题对齐的结论；② 已定下的分工 / 下一步谁干啥；③ 若还有不确定点，明确说出来问用户一句。语气轻松像群里收尾，别像报告标题。"
     );
     try {
       const res = await chatCompletion({ apiKey, baseUrl, model: agentModel, system, messages: msgs });
@@ -518,7 +626,6 @@ try {
     } catch {
       //
     }
-    await new Promise((r) => setTimeout(r, 220));
   }
 } finally {
   this.groupReplying = false;
@@ -544,6 +651,58 @@ return t(key, getLanguage(), params);
 },
 safeScrollId(id) {
 return "sm-" + String(id == null ? "x" : id).replace(/[^a-zA-Z0-9_-]/g, "_");
+},
+resolveGroupMessageAgentId(msg) {
+const sid = String(msg?.senderId || "").trim();
+if (sid) return sid;
+if (this.mode !== "virtual" || this.virtualKind !== "group" || !this.virtualId) return "";
+const g = getProjectGroupById(this.virtualId);
+const members = Array.isArray(g?.members) ? g.members : [];
+const want = String(msg?.senderName || "").trim();
+if (!want || !members.length) return "";
+for (const m of members) {
+const name = String(m?.name || m?.displayName || "").trim();
+const nav = formatAgentNavTitle({
+name: m?.name || m?.displayName,
+role: m?.role || m?.jobTitle,
+});
+if (nav && want === nav) return String(m?.id || m?.agentId || "").trim();
+if (name && want === name) return String(m?.id || m?.agentId || "").trim();
+}
+return "";
+},
+openPeerAvatarPrivateChat(msg) {
+if (this.mode !== "virtual" || this.virtualKind !== "group" || !msg || msg.isMine) return;
+if (this.multiSelectMode) return;
+const agentId = this.resolveGroupMessageAgentId(msg);
+if (!agentId) {
+uni.showToast({ title: this.t("toast_group_member_no_agent_id"), icon: "none" });
+return;
+}
+const local = getDigitalAgentById(agentId);
+const g = getProjectGroupById(this.virtualId);
+const row = (Array.isArray(g?.members) ? g.members : []).find(
+(r) => String(r?.id || r?.agentId || "").trim() === agentId
+);
+let title = "";
+if (local) {
+title =
+formatAgentNavTitle({
+name: displayAgentName(local),
+role: displayAgentRole(local),
+}) || displayAgentName(local);
+} else if (row) {
+title =
+formatAgentNavTitle({
+name: row.name || row.displayName,
+role: row.role || row.jobTitle,
+}) || String(msg.senderName || "").trim();
+} else {
+title = String(msg.senderName || "").trim() || this.t("digital_employee_fallback");
+}
+uni.navigateTo({
+url: `/pages/chat/chat?mode=virtual&kind=agent&id=${encodeURIComponent(agentId)}&title=${encodeURIComponent(title)}`,
+});
 },
 openSettings() {
 const q = [];
@@ -1360,6 +1519,14 @@ height: 56rpx;
 border-radius: 50%;
 flex-shrink: 0;
 background: #e2e8f0;
+}
+
+.bubble-avatar-tappable {
+position: relative;
+}
+
+.bubble-avatar-tappable:active {
+opacity: 0.82;
 }
 .bubble-avatar-img-mine {
 background: #bbf7d0;

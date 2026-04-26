@@ -45,7 +45,13 @@
 			</view>
 			<view v-if="groupMembers.length === 0" class="members-empty">暂无成员</view>
 			<view v-else class="members-grid">
-				<view v-for="m in groupMembers" :key="m.id" class="member-item">
+				<view
+					v-for="m in groupMembers"
+					:key="m.rowKey"
+					class="member-item"
+					hover-class="member-item-hover"
+					@tap="openMemberPrivateChat(m)"
+				>
 					<image v-if="memberAvatar(m)" class="member-avatar-img" :src="memberAvatar(m)" mode="aspectFill" />
 					<view v-else class="member-avatar">{{ memberInitial(m) }}</view>
 					<text class="member-name">{{ m.name }}</text>
@@ -153,17 +159,20 @@
 			groupMembers() {
 				const arr = Array.isArray(this.groupDetail?.members) ? this.groupDetail.members : [];
 				return arr.map((m, idx) => {
-					const id = String(m?.id || m?.agentId || `m_${idx}`);
+					const id = String(m?.id || m?.agentId || "").trim();
+					const rowKey = id || `m_${idx}`;
 					const stored = String(m?.model || "").trim();
-					const full = stored || getAgentModelOrDefault(id);
+					const full = stored || (id ? getAgentModelOrDefault(id) : "");
 					const modelShort = full
 						? full.length > 16
 							? `${full.slice(0, 14)}…`
 							: full
 						: "";
 					return {
+						rowKey,
 						id,
 						name: String(m?.name || m?.displayName || "").trim() || "成员",
+						role: String(m?.role || m?.jobTitle || "").trim(),
 						avatar: String(m?.avatar || m?.avatarUrl || m?.headImg || m?.headimg || "").trim(),
 						modelShort,
 					};
@@ -275,6 +284,22 @@
 			},
 			goSearch() {
 				uni.navigateTo({ url: `/pages/chat/chat-search?${this.buildSearchQuery()}` });
+			},
+			openMemberPrivateChat(m) {
+				const id = String(m?.id || "").trim();
+				if (!id) {
+					uni.showToast({ title: this.t("toast_group_member_no_agent_id"), icon: "none" });
+					return;
+				}
+				const name = String(m?.name || "").trim() || this.t("digital_employee_fallback");
+				const title =
+					formatAgentNavTitle({
+						name: m?.name,
+						role: m?.role,
+					}) || name;
+				uni.navigateTo({
+					url: `/pages/chat/chat?mode=virtual&kind=agent&id=${encodeURIComponent(id)}&title=${encodeURIComponent(title)}`,
+				});
 			},
 			openGroupManage() {
 				const groupMembers = Array.isArray(this.groupDetail?.members) ? this.groupDetail.members : [];
@@ -420,6 +445,13 @@
 		flex-direction: column;
 		align-items: center;
 		margin-bottom: 20rpx;
+		padding: 8rpx 4rpx 12rpx;
+		border-radius: 12rpx;
+		box-sizing: border-box;
+	}
+
+	.member-item-hover {
+		background: rgba(37, 99, 235, 0.08);
 	}
 	.member-avatar-img,
 	.member-avatar {
@@ -593,5 +625,10 @@
 	[data-theme="dark"] .chat-settings-page .member-model-pill {
 		color: var(--text-secondary) !important;
 		background: rgba(51, 65, 85, 0.9) !important;
+	}
+
+	.chat-settings-page.theme-dark .member-item-hover,
+	[data-theme="dark"] .chat-settings-page .member-item-hover {
+		background: rgba(96, 165, 250, 0.12) !important;
 	}
 </style>
