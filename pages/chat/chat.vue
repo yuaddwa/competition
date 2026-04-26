@@ -37,15 +37,48 @@ class="bubble-row"
 }"
 @click="onBubbleRowTap(msg)"
 >
-<text v-if="!msg.isMine && msg.senderName" class="bubble-sender">{{ msg.senderName }}</text>
+<view class="bubble-line" :class="{ 'bubble-line-mine': msg.isMine }">
+<image
+v-if="!msg.isMine && avatarSrc(msg, false)"
+class="bubble-avatar-img"
+:class="{ 'bubble-avatar-tappable': mode === 'virtual' && (virtualKind === 'group' || virtualKind === 'hq') }"
+:src="avatarSrc(msg, false)"
+mode="aspectFill"
+@tap.stop="openPeerAvatarPrivateChat(msg)"
+/>
+<view
+v-else-if="!msg.isMine"
+class="bubble-avatar"
+:class="{ 'bubble-avatar-tappable': mode === 'virtual' && (virtualKind === 'group' || virtualKind === 'hq') }"
+@tap.stop="openPeerAvatarPrivateChat(msg)"
+>{{ avatarText(msg, false) }}</view>
+<view class="bubble-main">
+<view v-if="!msg.isMine && msg.senderName" class="bubble-sender-row">
+<text class="bubble-sender">{{ msg.senderName }}</text>
+<text v-if="(virtualKind === 'group' || virtualKind === 'hq') && msg.senderModel" class="bubble-model-pill">{{ msg.senderModel }}</text>
+</view>
 <view
 class="message-bubble"
 :class="{ 'my-message': msg.isMine }"
 @longpress.stop="onBubbleLongPress(msg)"
 >
-<text class="bubble-text">{{ msg.content }}</text>
+<text class="bubble-text">{{ renderTextContent(msg.content) }}</text>
+<view v-if="extractImageUrls(msg.content).length" class="bubble-images">
+<image
+v-for="(img, idx) in extractImageUrls(msg.content)"
+:key="msg.id + '_img_' + idx"
+class="bubble-image"
+:src="img"
+mode="aspectFill"
+@tap.stop="previewImages(extractImageUrls(msg.content), idx)"
+/>
+</view>
 </view>
 <text class="bubble-meta-time">{{ formatTime(msg.time) }}</text>
+</view>
+<image v-if="msg.isMine && avatarSrc(msg, true)" class="bubble-avatar-img bubble-avatar-img-mine" :src="avatarSrc(msg, true)" mode="aspectFill" />
+<view v-else-if="msg.isMine" class="bubble-avatar bubble-avatar-mine">{{ avatarText(msg, true) }}</view>
+</view>
 </view>
 <view id="chat-bottom-anchor" class="bottom-anchor"></view>
 </view>
@@ -71,7 +104,15 @@ class="message-bubble"
 </view>
 
 <view v-else-if="!loading" class="chat-input safe-bottom">
-<input type="text" v-model="inputText" :placeholder="t('chat_input_placeholder')" class="input-field" confirm-type="send" :disabled="sending" @confirm="sendMessage" />
+<input
+type="text"
+v-model="inputText"
+:placeholder="t('chat_input_placeholder')"
+class="input-field"
+confirm-type="send"
+:disabled="sending"
+@confirm="sendMessage"
+/>
 <view class="send-button" :class="{ 'send-disabled': sending }" @click="sendMessage"><text>{{ sending ? t('chat_requesting') : t('send') }}</text></view>
 </view>
 
@@ -108,6 +149,8 @@ ensureManagerChatSeed,
 removeVirtualChatMessage,
 removeVirtualChatMessagesByIds,
 getDigitalAgentById,
+loadDigitalAgents,
+getProjectGroupById,
 displayAgentName,
 displayAgentRole,
 formatAgentNavTitle,
@@ -116,6 +159,7 @@ import * as workflowApi from "@/clientApi/workflowApi";
 import { pickId } from "@/utils/apiHelpers";
 import { getUserInfo } from "@/utils/index";
 import { getAgentById } from "@/clientApi/agentsApi";
+import { resolveAvatarDisplayUrl } from "@/clientApi/authApi";
 import { getPersonaById } from "@/utils/agentPersonaCatalog";
 import { getLlmSettings } from "@/utils/llmSettings";
 import { getAgentModelOrDefault } from "@/utils/agentModelMap";
@@ -152,6 +196,225 @@ return (name || "")
 .trim();
 }
 
+function escapeRegExp(s) {
+return String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function normalizeWs(s) {
+return String(s || "")
+.replace(/\s+/g, " ")
+.replace(/[（]/g, "(")
+.replace(/[）]/g, ")")
+.trim();
+}
+
+/** 收集当前发言者之外、最近几条同伴气泡正文，用于去掉模型整段复述 */
+function recentPeerMessageBodies(chatMessages, excludeMember, maxCount = 8) {
+const sid = String(excludeMember?.id || excludeMember?.agentId || "").trim();
+const out = [];
+const arr = Array.isArray(chatMessages) ? chatMessages : [];
+for (let i = arr.length - 1; i >= 0 && out.length < maxCount; i--) {
+const m = arr[i];
+if (!m || m.isMine) continue;
+const mid = String(m.senderId || m.agentId || "").trim();
+if (sid && mid && mid === sid) continue;
+const body = String(m.content || m.body || m.text || "").trim();
+if (body.length >= 12) out.push(body);
+}
+return out;
+}
+
+/** 去掉正文开头对同伴上一条（或几条）气泡的整段复制，常见于模型把历史 assistant 又写了一遍 */
+function stripVerbatimEchoFromPriorPeers(text, peerBodies, minLen = 20) {
+let t = String(text || "").trim();
+if (!t || !Array.isArray(peerBodies) || peerBodies.length === 0) return t;
+const bodies = [...new Set(peerBodies.map((b) => String(b || "").trim()).filter((b) => b.length >= minLen))].sort((a, b) => b.length - a.length);
+for (let guard = 0; guard < 6; guard++) {
+let changed = false;
+const chunks = t.split(/\n\n+/);
+if (chunks.length >= 2) {
+const head = chunks[0].trim();
+for (const b of bodies) {
+if (head === b || normalizeWs(head) === normalizeWs(b)) {
+t = chunks.slice(1).join("\n\n").trim();
+changed = true;
+break;
+}
+}
+if (changed) continue;
+}
+if (!changed) {
+const lines = t.split(/\n/);
+if (lines.length >= 2) {
+const head = lines[0].trim();
+for (const b of bodies) {
+if (head.length >= minLen && (head === b || normalizeWs(head) === normalizeWs(b))) {
+t = lines.slice(1).join("\n").trim();
+changed = true;
+break;
+}
+}
+}
+if (changed) continue;
+}
+for (const b of bodies) {
+if (b && t.startsWith(b)) {
+t = t.slice(b.length).replace(/^[\s:：;；,，。.!?！？]+/, "").trim();
+changed = true;
+break;
+}
+const nb = normalizeWs(b);
+const nt = normalizeWs(t);
+if (nb.length >= minLen && nt.startsWith(nb)) {
+let cut = 0;
+for (let i = 1; i <= t.length; i++) {
+if (normalizeWs(t.slice(0, i)) === nb) {
+cut = i;
+break;
+}
+}
+if (cut > 0) {
+t = t.slice(cut).replace(/^[\s:：;；,，。.!?！？]+/, "").trim();
+changed = true;
+break;
+}
+}
+}
+if (!changed) break;
+}
+return t;
+}
+
+/** 去掉正文开头「某成员名：」式重复抬头（气泡上方已有发送者，勿再写一遍） */
+function stripLeadingRosterSpeakerPrefix(raw, roster) {
+const orig = String(raw || "").trim();
+let text = orig;
+if (!text || !Array.isArray(roster) || roster.length === 0) return text;
+const labels = new Set();
+for (const m of roster) {
+const n = String(m?.name || m?.displayName || "").trim();
+if (n.length >= 2) labels.add(n);
+const nn = String(m?.name || m?.displayName || "").trim();
+const role = String(m?.role || m?.jobTitle || "").trim();
+const nav = formatAgentNavTitle({ name: nn, role });
+if (nav && String(nav).trim().length >= 2) labels.add(String(nav).trim());
+if (nn && role) {
+labels.add(`${nn} (${role})`);
+labels.add(`${nn}（${role}）`);
+}
+}
+const sorted = [...labels].sort((a, b) => b.length - a.length);
+for (let loop = 0; loop < 6; loop++) {
+let changed = false;
+for (const label of sorted) {
+const re = new RegExp(`^(?:\\*\\*)?${escapeRegExp(label)}(?:\\*\\*)?\\s*[:：]\\s*`, "i");
+if (re.test(text)) {
+text = text.replace(re, "").trim();
+changed = true;
+}
+}
+if (!changed) break;
+}
+return text || orig;
+}
+
+/** 同一条气泡里若新起一行写成「其他同事名：」代他人说话，从该行起整段丢弃 */
+function stripOtherSpeakerLines(raw, member, roster) {
+const full = String(raw || "").trim();
+if (!full || !Array.isArray(roster) || roster.length === 0) return full;
+const sid = String(member?.id || member?.agentId || "").trim();
+const myPlain = String(member?.name || member?.displayName || "").trim();
+const myNav = formatAgentNavTitle({
+name: member?.name || member?.displayName,
+role: member?.role || member?.jobTitle,
+});
+const selfLabels = new Set([myPlain, myNav].map((s) => String(s).trim()).filter(Boolean));
+const peerPrefixes = [];
+for (const m of roster) {
+const pid = String(m?.id || m?.agentId || "").trim();
+if (sid && pid && sid === pid) continue;
+const plain = String(m?.name || m?.displayName || "").trim();
+const nav = formatAgentNavTitle({
+name: m?.name || m?.displayName,
+role: m?.role || m?.jobTitle,
+});
+if (plain && !selfLabels.has(plain)) peerPrefixes.push(plain);
+if (nav && !selfLabels.has(nav)) peerPrefixes.push(nav);
+}
+const uniq = [...new Set(peerPrefixes)].sort((a, b) => b.length - a.length);
+const lines = full.split(/\n+/);
+const out = [];
+for (const line of lines) {
+const t = line.trim();
+if (!t) continue;
+let stolen = false;
+for (const p of uniq) {
+if (p.length < 2) continue;
+const re = new RegExp(`^(?:\\*\\*)?${escapeRegExp(p)}(?:\\*\\*)?\\s*[:：]`, "i");
+if (re.test(t)) {
+stolen = true;
+break;
+}
+}
+if (stolen) break;
+out.push(line);
+}
+const joined = out.join("\n").trim();
+return joined || full.split(/\n/)[0].trim() || full;
+}
+
+/** 控制单条气泡长度，避免一屏刷满 */
+function clampGroupReplyLength(text, maxChars = 200) {
+const s = String(text || "").trim();
+if (s.length <= maxChars) return s;
+const cut = s.slice(0, maxChars);
+const idx = Math.max(
+cut.lastIndexOf("。"),
+cut.lastIndexOf("！"),
+cut.lastIndexOf("？"),
+cut.lastIndexOf("；")
+);
+if (idx >= 48) return `${cut.slice(0, idx + 1)}…`;
+return `${cut.replace(/\s+\S*$/, "").trim()}…`;
+}
+
+/** 群聊是纯线上协作，移除拟人化“线下实体行动”描述 */
+function sanitizeGroupVirtualTone(raw) {
+let s = String(raw || "").trim();
+if (!s) return s;
+const replacers = [
+[/线下回合/g, "下一步协作"],
+[/线下沟通/g, "群内沟通"],
+[/线下对齐/g, "在线对齐"],
+[/当面(?:沟通|确认|同步|讨论)?/g, "在线沟通"],
+[/见面(?:沟通|确认|同步|讨论)?/g, "在线沟通"],
+[/约个会(?:议)?(?:室)?/g, "开个线上会"],
+[/去会议室/g, "线上开会"],
+[/到现场/g, "在线处理"],
+[/跑一趟/g, "跟进处理"],
+];
+for (const [re, to] of replacers) s = s.replace(re, to);
+s = s.replace(/(?:我们|我)(?:先)?线下(?:再)?聊(?:一下)?/g, "我们在线上继续聊");
+s = s.replace(/\s{2,}/g, " ").trim();
+return s;
+}
+
+/** 群聊接续轮：模型表示无需再说话时，不落气泡 */
+function isContinuationSkipToken(text) {
+const s = String(text || "").trim();
+if (!s) return true;
+const one = s
+.replace(/^[（(]\s*/, "")
+.replace(/\s*[）)]$/, "")
+.replace(/[。….!！?？.]+$/g, "")
+.trim()
+.toLowerCase();
+if (!one) return true;
+if (/^(无|没有|不用|不需要|跳过|略|沒|無)$/.test(one)) return true;
+if (/^(none|no|n\/a|skip|pass|nothing)$/i.test(one)) return true;
+return false;
+}
+
 const UI_DESIGNER_EMPLOYEE_ID = "des-ui";
 
 export default {
@@ -163,6 +426,7 @@ projectName: "",
 mode: "local",
 workflowId: "",
 threadId: "",
+threadKind: "",
 workflowTitle: "",
 threadTitle: "",
 inputText: "",
@@ -178,7 +442,9 @@ showStickBottom: false,
 multiSelectMode: false,
 selectedIds: [],
 personaSystemPrompt: "",
+agentProfileForPrompt: null,
 isDarkMode: false,
+groupReplying: false,
 showBubbleMenu: false,
 bubbleMenuItems: [],
 activeBubbleMenuMsg: null,
@@ -215,14 +481,17 @@ this.statusBarPx = 20;
 const vm = options && options.mode === "virtual";
 if (vm) {
 this.mode = "virtual";
-this.virtualKind = options.kind ? decodeURIComponent(options.kind) : "";
-this.virtualId = options.id ? decodeURIComponent(options.id) : "";
+this.virtualKind = options.kind ? String(decodeURIComponent(options.kind)).trim().toLowerCase() : "";
+this.virtualId = options.id ? String(decodeURIComponent(options.id)).trim() : "";
 this.virtualTitle = options.title ? decodeURIComponent(options.title) : "";
 if (this.virtualKind === "persona") {
 this.fetchPersonaMaterial().finally(() => {
 this.loadVirtualMessages(true);
 });
 } else {
+if (this.virtualKind === "agent" && this.virtualId) {
+this.fetchUserAgentForPrompt();
+}
 this.loadVirtualMessages(true);
 }
 return;
@@ -233,6 +502,7 @@ if (wf && th) {
 this.mode = "remote";
 this.workflowId = wf;
 this.threadId = th;
+this.threadKind = options.threadKind ? decodeURIComponent(options.threadKind) : "";
 this.workflowTitle = options.workflowTitle ? decodeURIComponent(options.workflowTitle) : "";
 this.threadTitle = options.threadTitle ? decodeURIComponent(options.threadTitle) : "";
 this.loadRemoteMessages(true);
@@ -266,6 +536,246 @@ this.markAsRead();
 }
 },
 methods: {
+avatarText(msg, isMine) {
+if (isMine) {
+const me = getUserInfo() || {};
+const nick = String(me.nickname || me.name || me.username || "我").trim();
+return (nick || "我").slice(0, 1);
+}
+const sender = String(msg?.senderName || "").trim();
+return (sender || "A").slice(0, 1);
+},
+avatarSrc(msg, isMine) {
+if (isMine) {
+const me = getUserInfo() || {};
+const raw = String(me.avatarUrl || me.avatar || me.avatarURL || me.headImg || me.headimg || "").trim();
+return resolveAvatarDisplayUrl(raw);
+}
+const raw = String(msg?.senderAvatar || "").trim();
+return resolveAvatarDisplayUrl(raw);
+},
+buildAgentSystemPrompt(agentInfo = {}, fallbackName = "", fallbackRole = "") {
+const name = String(agentInfo.displayName || agentInfo.name || fallbackName || "").trim() || this.t("digital_employee_fallback");
+const role = String(agentInfo.jobTitle || agentInfo.rolePosition || fallbackRole || "").trim() || this.t("agent_seed_role_fallback");
+const department = String(agentInfo.department || "").trim();
+const mainWork = String(agentInfo.mainWork || agentInfo.description || "").trim();
+const goals = String(agentInfo.workGoal || agentInfo.goal || "").trim();
+const constraints = String(agentInfo.constraints || "").trim();
+const pieces = [
+`你是团队中的数字员工「${name}」，岗位：${role}。`,
+department ? `所属部门：${department}。` : "",
+mainWork ? `主要工作：${mainWork}。` : "",
+goals ? `工作目标：${goals}。` : "",
+constraints ? `约束与边界：${constraints}。` : "",
+"请基于以上身份信息回答，保持角色一致，回复简洁、可执行，不要编造未提供的团队事实。",
+];
+return pieces.filter(Boolean).join("\n");
+},
+async fetchUserAgentForPrompt() {
+if (this.virtualKind !== "agent" || !this.virtualId) return null;
+try {
+const local = getDigitalAgentById(this.virtualId);
+if (local && typeof local === "object") {
+this.agentProfileForPrompt = local;
+return local;
+}
+} catch (e) {
+console.warn("[chat] local digital agent fallback", e);
+}
+return null;
+},
+buildGroupAutoReplyContent(agentName, agentRole, userText, idx) {
+const brief = String(userText || "").trim().slice(0, 26);
+const templates = [
+`收到哈，我这边先按「${brief}」往前推，有进展马上群里说。`,
+`行，${agentRole || "这块"}我盯着，先把事拆开，风险点我同步一下。`,
+`我先说个能落地的：范围先对齐，再给节点和大概交付时间哈。`,
+`我补一句啊，要是这事最急，我可以先搞个最小能用的版本出来。`,
+];
+return templates[idx % templates.length];
+},
+buildGroupAgentSystemPrompt(member, groupTitle = "", roster = [], opts = {}) {
+const continuation = !!(opts && opts.continuation);
+const name = String(member?.name || member?.displayName || "").trim() || this.t("digital_employee_fallback");
+const role = String(member?.role || member?.jobTitle || "").trim() || this.t("agent_seed_role_fallback");
+const dept = String(member?.department || "").trim();
+const group = String(groupTitle || this.virtualTitle || "").trim();
+const rosterLines = (Array.isArray(roster) ? roster : [])
+  .map((m) => {
+    const display = String(m?.name || m?.displayName || "").trim();
+    if (!display) return "";
+    const rid = String(m?.id || m?.agentId || "").trim();
+    const rrole = String(m?.role || m?.jobTitle || "").trim() || "成员";
+    return `- @${display}（${rrole}）${rid ? ` id:${rid}` : ""}`;
+  })
+  .filter(Boolean);
+const rosterBlock =
+  rosterLines.length > 0
+    ? [
+        "群内成员（称呼同事时必须使用 @显示名，例如 @张三；不要用 Markdown **姓名:** 或加粗行首当称呼；需要对方配合时请写出 @对方显示名）：",
+        rosterLines.join("\n"),
+      ].join("\n")
+    : "";
+const parts = [
+`你是项目群成员「${name}」本人，职责：${role}。`,
+dept ? `所属部门：${dept}。` : "",
+group ? `当前群聊：${group}。` : "",
+rosterBlock,
+"【身份】你只能代表自己发言，一条消息里禁止替其他同事代写、禁止分段扮演多人；不要出现「某某：」另起一段假装别人说话；其他人的话会由他们自己发一条气泡。",
+"【禁止复述】不要整段复制或复述上一位同事刚发过的气泡内容；若认同对方，用一两句自己的话接一下即可。",
+"【协作介质】你是纯数字员工，没有线下实体行动；禁止使用“线下回合/当面聊/见面/去会议室/到现场/跑一趟”等措辞，统一使用“线上/群内/文档/接口/异步同步”等表达。",
+continuation
+  ? "【长度·接续】若需要接话，控制在约 1～3 句、中文总字数尽量不超过 120 字。"
+  : "【长度】口语自然即可；整段控制在约 2～4 句、中文总字数尽量不超过 160 字，手机上一眼能扫完。",
+"【协作】需要谁配合只用句内 @显示名 点一下即可，不要写长串角色扮演。",
+continuation ? "" : "【收尾】用一句说清楚你这边下一步或待确认点即可，别堆大段背景。",
+continuation ? this.t("group_prompt_continuation_suffix") : "",
+];
+return parts.filter(Boolean).join("\n");
+},
+buildGroupApiMessages(extraUserPrompt = "") {
+const recent = (Array.isArray(this.chatMessages) ? this.chatMessages : []).slice(-26);
+const msgs = recent
+  .filter((m) => m && String(m.content || "").trim())
+  .map((m) => {
+    if (m.isMine) return { role: "user", content: String(m.content).trim() };
+    const speaker = String(m.senderName || "成员").trim();
+    return { role: "assistant", content: `${speaker}：${String(m.content).trim()}` };
+  });
+if (extraUserPrompt) msgs.push({ role: "user", content: extraUserPrompt });
+return msgs;
+},
+async triggerVirtualGroupAutoReplies(userText) {
+if (this.groupReplying) return;
+const isHq = this.virtualKind === "hq";
+const g = isHq ? null : getProjectGroupById(this.virtualId);
+const pickedMembers = isHq ? loadDigitalAgents() : (Array.isArray(g?.members) ? g.members : []);
+const candidates = pickedMembers.length ? pickedMembers : loadDigitalAgents();
+const roster = candidates;
+const maxAgents = Math.min(Math.max(1, candidates.length), 8);
+const picked = candidates.slice(0, maxAgents);
+if (!Array.isArray(picked) || picked.length === 0) return;
+const { apiKey, baseUrl, model } = getLlmSettings();
+if (!apiKey) {
+  uni.showToast({ title: this.t("toast_set_api_key_in_profile"), icon: "none" });
+  picked.forEach((a, idx) => {
+    const name = String(a?.name || a?.displayName || "").trim() || displayAgentName(a) || this.t("digital_employee_fallback");
+    const role = String(a?.role || a?.jobTitle || "").trim() || displayAgentRole(a);
+    const aid = String(a?.id || a?.agentId || "").trim();
+    const agentModel = (aid && getAgentModelOrDefault(aid)) || model;
+    appendVirtualChat(this.virtualKind, this.virtualId, {
+      content:
+        this.buildGroupAutoReplyContent(name, role, userText, idx) +
+        ((this.virtualKind === "hq" || /新闻|news|天气|weather|全球|前沿|趋势/i.test(userText))
+          ? this.buildImageBundleForReply(userText)
+          : ""),
+      isMine: false,
+      senderName: formatAgentNavTitle({ name, role }) || name,
+      senderAvatar: String(a?.avatar || a?.avatarUrl || a?.headImg || a?.headimg || "").trim(),
+      senderId: aid,
+      senderModel: agentModel,
+    });
+  });
+  this.loadVirtualMessages(false);
+  this.$nextTick(() => this.scrollToBottom());
+  return;
+}
+this.groupReplying = true;
+try {
+  for (let idx = 0; idx < picked.length; idx++) {
+    const a = picked[idx] || {};
+    const name = String(a?.name || a?.displayName || "").trim() || displayAgentName(a) || this.t("digital_employee_fallback");
+    const role = String(a?.role || a?.jobTitle || "").trim() || displayAgentRole(a);
+    const senderName = formatAgentNavTitle({ name, role }) || name;
+    const aid = String(a?.id || a?.agentId || "").trim();
+    const agentModel = (aid && getAgentModelOrDefault(aid)) || model;
+    const system = this.buildGroupAgentSystemPrompt(a, (isHq ? this.virtualTitle : g?.name) || this.virtualTitle || "", roster);
+    const msgs = this.buildGroupApiMessages();
+    try {
+      const res = await chatCompletion({ apiKey, baseUrl, model: agentModel, system, messages: msgs });
+      const raw = extractAssistantText(res) || this.buildGroupAutoReplyContent(name, role, userText, idx);
+      let text = stripLeadingRosterSpeakerPrefix(raw, roster) || raw;
+      text = stripVerbatimEchoFromPriorPeers(text, recentPeerMessageBodies(this.chatMessages, a, 8));
+      text = stripOtherSpeakerLines(text, a, roster);
+      text = sanitizeGroupVirtualTone(text);
+      text = clampGroupReplyLength(text, 200);
+      if (!String(text || "").trim()) {
+        text = this.buildGroupAutoReplyContent(name, role, userText, idx);
+      }
+      if (this.virtualKind === "hq" || /新闻|news|天气|weather|全球|前沿|趋势/i.test(userText)) {
+        text += this.buildImageBundleForReply(`${userText}\n${text}`);
+      }
+      appendVirtualChat(this.virtualKind, this.virtualId, {
+        content: text,
+        isMine: false,
+        senderName,
+        senderAvatar: String(a?.avatar || a?.avatarUrl || a?.headImg || a?.headimg || "").trim(),
+        senderId: aid,
+        senderModel: agentModel,
+      });
+    } catch {
+      appendVirtualChat(this.virtualKind, this.virtualId, {
+        content:
+          this.buildGroupAutoReplyContent(name, role, userText, idx) +
+          ((this.virtualKind === "hq" || /新闻|news|天气|weather|全球|前沿|趋势/i.test(userText))
+            ? this.buildImageBundleForReply(userText)
+            : ""),
+        isMine: false,
+        senderName,
+        senderAvatar: String(a?.avatar || a?.avatarUrl || a?.headImg || a?.headimg || "").trim(),
+        senderId: aid,
+        senderModel: agentModel,
+      });
+    }
+    this.loadVirtualMessages(false);
+    this.$nextTick(() => this.scrollToBottom());
+    await new Promise((r) => setTimeout(r, 900));
+  }
+  // 第二轮：同伴互问 / @ 之后可再简短接一句，避免话头悬在半空
+  if (picked.length >= 2) {
+    await new Promise((r) => setTimeout(r, 550));
+    for (let idx = 0; idx < picked.length; idx++) {
+      const a = picked[idx] || {};
+      const name = String(a?.name || a?.displayName || "").trim() || displayAgentName(a) || this.t("digital_employee_fallback");
+      const role = String(a?.role || a?.jobTitle || "").trim() || displayAgentRole(a);
+      const senderName = formatAgentNavTitle({ name, role }) || name;
+      const aid = String(a?.id || a?.agentId || "").trim();
+      const agentModel = (aid && getAgentModelOrDefault(aid)) || model;
+      const system = this.buildGroupAgentSystemPrompt(a, (isHq ? this.virtualTitle : g?.name) || this.virtualTitle || "", roster, { continuation: true });
+      const msgs = this.buildGroupApiMessages();
+      try {
+        const res = await chatCompletion({ apiKey, baseUrl, model: agentModel, system, messages: msgs });
+        const raw = extractAssistantText(res);
+        let text = raw ? stripLeadingRosterSpeakerPrefix(raw, roster) || raw : "";
+        text = stripVerbatimEchoFromPriorPeers(text, recentPeerMessageBodies(this.chatMessages, a, 8));
+        text = stripOtherSpeakerLines(text, a, roster);
+        text = sanitizeGroupVirtualTone(text);
+        text = text ? clampGroupReplyLength(text, 140) : "";
+        if (isContinuationSkipToken(text)) continue;
+        if (!String(text || "").trim()) continue;
+        if (this.virtualKind === "hq" || /新闻|news|天气|weather|全球|前沿|趋势/i.test(userText)) {
+          text += this.buildImageBundleForReply(`${userText}\n${text}`);
+        }
+        appendVirtualChat(this.virtualKind, this.virtualId, {
+          content: text,
+          isMine: false,
+          senderName,
+          senderAvatar: String(a?.avatar || a?.avatarUrl || a?.headImg || a?.headimg || "").trim(),
+          senderId: aid,
+          senderModel: agentModel,
+        });
+        this.loadVirtualMessages(false);
+        this.$nextTick(() => this.scrollToBottom());
+      } catch {
+        //
+      }
+      await new Promise((r) => setTimeout(r, 750));
+    }
+  }
+} finally {
+  this.groupReplying = false;
+}
+},
 loadDarkMode() {
 try {
 const settings = uni.getStorageSync("userSettings");
@@ -284,15 +794,117 @@ this.isDarkMode = !!isDark;
 t(key, params = {}) {
 return t(key, getLanguage(), params);
 },
+extractImageUrls(content) {
+const s = String(content || "");
+const re = /(https?:\/\/[^\s]+?\.(?:png|jpg|jpeg|gif|webp))(?:\?[^\s]*)?/gi;
+const out = [];
+let m;
+while ((m = re.exec(s)) !== null) {
+const u = String(m[0] || "").trim();
+if (u) out.push(u);
+}
+return [...new Set(out)].slice(0, 4);
+},
+renderTextContent(content) {
+const s = String(content || "").trim();
+if (!s) return "";
+return s.replace(/(https?:\/\/[^\s]+?\.(?:png|jpg|jpeg|gif|webp))(?:\?[^\s]*)?/gi, "").trim();
+},
+previewImages(urls, current = 0) {
+const arr = Array.isArray(urls) ? urls.filter(Boolean) : [];
+if (!arr.length) return;
+uni.previewImage({ urls: arr, current: arr[Math.max(0, Math.min(current, arr.length - 1))] });
+},
+buildImageBundleForReply(seed = "") {
+const text = String(seed || "");
+const tech = [
+"https://images.unsplash.com/photo-1518773553398-650c184e0bb3?auto=format&fit=crop&w=1200&q=60",
+"https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1200&q=60",
+"https://images.unsplash.com/photo-1485827404703-89b55fcc595e?auto=format&fit=crop&w=1200&q=60",
+];
+const world = [
+"https://images.unsplash.com/photo-1526778548025-fa2f459cd5ce?auto=format&fit=crop&w=1200&q=60",
+"https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=1200&q=60",
+];
+const weather = [
+"https://images.unsplash.com/photo-1500740516770-92bd004b996e?auto=format&fit=crop&w=1200&q=60",
+"https://images.unsplash.com/photo-1499346030926-9a72daac6c63?auto=format&fit=crop&w=1200&q=60",
+];
+let pool = tech;
+if (/天气|weather|气温|降雨|晴|阴|云|风/i.test(text)) pool = weather;
+else if (/全球|国际|world|economy|policy|地缘|宏观/i.test(text)) pool = world;
+const one = pool[Math.floor(Math.random() * pool.length)];
+const two = pool[(Math.floor(Math.random() * pool.length) + 1) % pool.length];
+return `\n图片参考：\n${one}\n${two}`;
+},
 safeScrollId(id) {
 return "sm-" + String(id == null ? "x" : id).replace(/[^a-zA-Z0-9_-]/g, "_");
+},
+resolveGroupMessageAgentId(msg) {
+const sid = String(msg?.senderId || "").trim();
+if (sid) return sid;
+if (this.mode !== "virtual" || !this.virtualId) return "";
+let members = [];
+if (this.virtualKind === "group") {
+const g = getProjectGroupById(this.virtualId);
+members = Array.isArray(g?.members) ? g.members : [];
+} else if (this.virtualKind === "hq") {
+members = loadDigitalAgents();
+}
+const want = String(msg?.senderName || "").trim();
+if (!want || !members.length) return "";
+for (const m of members) {
+const name = String(m?.name || m?.displayName || "").trim();
+const nav = formatAgentNavTitle({
+name: m?.name || m?.displayName,
+role: m?.role || m?.jobTitle,
+});
+if (nav && want === nav) return String(m?.id || m?.agentId || "").trim();
+if (name && want === name) return String(m?.id || m?.agentId || "").trim();
+}
+return "";
+},
+openPeerAvatarPrivateChat(msg) {
+if (this.mode !== "virtual" || !["group", "hq"].includes(this.virtualKind) || !msg || msg.isMine) return;
+if (this.multiSelectMode) return;
+const agentId = this.resolveGroupMessageAgentId(msg);
+if (!agentId) {
+uni.showToast({ title: this.t("toast_group_member_no_agent_id"), icon: "none" });
+return;
+}
+const local = getDigitalAgentById(agentId);
+const g = this.virtualKind === "group" ? getProjectGroupById(this.virtualId) : null;
+const row = (this.virtualKind === "hq" ? loadDigitalAgents() : (Array.isArray(g?.members) ? g.members : [])).find(
+(r) => String(r?.id || r?.agentId || "").trim() === agentId
+);
+let title = "";
+if (local) {
+title =
+formatAgentNavTitle({
+name: displayAgentName(local),
+role: displayAgentRole(local),
+}) || displayAgentName(local);
+} else if (row) {
+title =
+formatAgentNavTitle({
+name: row.name || row.displayName,
+role: row.role || row.jobTitle,
+}) || String(msg.senderName || "").trim();
+} else {
+title = String(msg.senderName || "").trim() || this.t("digital_employee_fallback");
+}
+uni.navigateTo({
+url: `/pages/chat/chat?mode=virtual&kind=agent&id=${encodeURIComponent(agentId)}&title=${encodeURIComponent(title)}`,
+});
 },
 openSettings() {
 const q = [];
 if (this.mode === "virtual") {
 q.push("mode=virtual");
-q.push(`kind=${encodeURIComponent(this.virtualKind)}`);
-q.push(`id=${encodeURIComponent(this.virtualId)}`);
+const vk = String(this.virtualKind || "").trim().toLowerCase();
+const vid = String(this.virtualId || "").trim();
+q.push(`kind=${encodeURIComponent(vk)}`);
+q.push(`id=${encodeURIComponent(vid)}`);
 q.push(`title=${encodeURIComponent(this.virtualTitle || this.headerTitle)}`);
 } else if (this.mode === "remote") {
 q.push("mode=remote");
@@ -525,7 +1137,10 @@ markMessagesAsRead(this.projectName);
 async loadRemoteMessages(alsoScroll) {
 this.loading = true;
 try {
-const list = await workflowApi.listMessages(this.workflowId, this.threadId);
+const isProjectGroup = (this.threadKind || "").toUpperCase() === "PROJECT_GROUP";
+const list = isProjectGroup
+? await workflowApi.listProjectGroupMessages(this.workflowId, this.threadId, { limit: 200 })
+: await workflowApi.listMessages(this.workflowId, this.threadId);
 const arr = Array.isArray(list) ? list : [];
 const sorted = [...arr].sort((a, b) => {
 const ta = new Date(messageTime(a) || 0).getTime();
@@ -554,7 +1169,8 @@ loadVirtualMessages(alsoScroll) {
 this.loading = true;
 try {
 if (this.virtualKind === "agent" && this.virtualId) {
-ensureAgentChatSeed(this.virtualId);
+const localAgent = getDigitalAgentById(this.virtualId);
+if (localAgent) ensureAgentChatSeed(this.virtualId);
 }
 if (this.virtualKind === "persona" && this.virtualId) {
 const exists = loadVirtualChatMessages("persona", this.virtualId);
@@ -566,13 +1182,36 @@ if (this.virtualKind === "manager") {
 ensureManagerChatSeed();
 }
 const list = loadVirtualChatMessages(this.virtualKind, this.virtualId);
-this.chatMessages = list.map((m) => ({
+let groupRoster = [];
+if ((this.virtualKind === "group" || this.virtualKind === "hq") && this.virtualId) {
+if (this.virtualKind === "hq") {
+groupRoster = loadDigitalAgents();
+} else {
+const gd = getProjectGroupById(this.virtualId);
+groupRoster = Array.isArray(gd?.members) ? gd.members : [];
+}
+}
+this.chatMessages = list.map((m) => {
+const sid = String(m.senderId || "").trim();
+const storedModel = String(m.senderModel || "").trim();
+const senderModel =
+  storedModel ||
+  ((this.virtualKind === "group" || this.virtualKind === "hq") && sid ? getAgentModelOrDefault(sid) : "");
+let content = m.content;
+if ((this.virtualKind === "group" || this.virtualKind === "hq") && groupRoster.length && !m.isMine) {
+content = stripLeadingRosterSpeakerPrefix(m.content, groupRoster) || m.content;
+}
+return {
 id: m.id,
-content: m.content,
+content,
 time: m.time,
 isMine: !!m.isMine,
 senderName: m.senderName || "",
-}));
+senderAvatar: m.senderAvatar || "",
+senderId: sid,
+senderModel,
+};
+});
 } finally {
 this.loading = false;
 }
@@ -607,14 +1246,12 @@ return;
 }
 const model = getAgentModelOrDefault(this.virtualId) || globalModel;
 const agent = getDigitalAgentById(this.virtualId);
+const liveAgent = (await this.fetchUserAgentForPrompt()) || this.agentProfileForPrompt || null;
 const name = agent
 ? displayAgentName(agent)
 : (this.virtualTitle || "").trim() || this.t("digital_employee_fallback");
 const role = agent ? displayAgentRole(agent) : "";
-const system = this.t("agent_llm_system_prompt", {
-name,
-role: role || this.t("agent_seed_role_fallback"),
-});
+const system = this.buildAgentSystemPrompt(liveAgent || {}, name, role);
 this.sending = true;
 appendVirtualChat("agent", this.virtualId, {
 content: body,
@@ -626,6 +1263,13 @@ this.loadVirtualMessages(false);
 try {
 const slice = this.chatMessages
 .filter((m) => m.content && String(m.content).trim())
+.filter((m) => {
+const s = String(m.content || "").trim();
+if (!s) return false;
+if (s.includes("数字员工（岗位）")) return false;
+if (s.includes("【岗位】")) return false;
+return true;
+})
 .slice(-24);
 const apiMsgs = slice.map((m) => ({
 role: m.isMine ? "user" : "assistant",
@@ -640,9 +1284,12 @@ messages: apiMsgs,
 });
 const text = extractAssistantText(res);
 if (!text) throw new Error("empty reply");
-const navTitle = agent
-? formatAgentNavTitle(agent)
-: name;
+const navTitle = liveAgent
+? formatAgentNavTitle({
+name: liveAgent.displayName || liveAgent.name || name,
+role: liveAgent.jobTitle || liveAgent.rolePosition || role,
+})
+: (agent ? formatAgentNavTitle(agent) : name);
 const senderName = (navTitle || name).slice(0, 24);
 appendVirtualChat("agent", this.virtualId, {
 content: text,
@@ -753,6 +1400,9 @@ senderName: "",
 this.inputText = "";
 this.loadVirtualMessages(false);
 this.$nextTick(() => this.scrollToBottom());
+if (this.virtualKind === "group" || this.virtualKind === "hq") {
+this.triggerVirtualGroupAutoReplies(body);
+}
 return;
 }
 if (this.mode === "remote") {
@@ -810,12 +1460,37 @@ this.$nextTick(() => this.scrollToBottom());
 async sendRemote() {
 if (this.sending) return;
 const body = this.inputText.trim();
-this.sending = true;
-try {
-await workflowApi.sendMessage(this.workflowId, this.threadId, {
+if (!body) return;
+const user = getUserInfo() || {};
+const authorId =
+String(
+user.department ||
+user.departmentId ||
+user.dept ||
+user.deptId ||
+"产品部"
+).trim() || "产品部";
+const authorLabel = authorId;
+const payload = {
+text: body,
 content: body,
 body,
-});
+author: {
+type: "INTERNAL_DEPARTMENT",
+id: authorId,
+label: authorLabel,
+},
+fromDepartment: authorId,
+toDepartment: "",
+};
+this.sending = true;
+try {
+const isProjectGroup = (this.threadKind || "").toUpperCase() === "PROJECT_GROUP";
+if (isProjectGroup) {
+await workflowApi.sendProjectGroupMessage(this.workflowId, this.threadId, payload);
+} else {
+await workflowApi.sendMessage(this.workflowId, this.threadId, payload);
+}
 this.inputText = "";
 await this.loadRemoteMessages(false);
 this.$nextTick(() => this.scrollToBottom());
@@ -860,7 +1535,6 @@ background-color: #eef2f7 !important;
 .chat-header-wrap {
 flex-shrink: 0;
 background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-border-bottom: 1rpx solid rgba(148, 163, 184, 0.35);
 box-shadow: 0 4rpx 20rpx rgba(15, 23, 42, 0.05);
 }
 
@@ -1010,6 +1684,55 @@ align-items: flex-start;
 width: 100%;
 box-sizing: border-box;
 }
+.bubble-line {
+display: flex;
+align-items: flex-start;
+gap: 12rpx;
+width: 100%;
+}
+.bubble-line-mine {
+justify-content: flex-end;
+}
+.bubble-main {
+display: flex;
+flex-direction: column;
+max-width: 72%;
+min-width: 0;
+}
+.bubble-avatar {
+width: 56rpx;
+height: 56rpx;
+border-radius: 50%;
+background: linear-gradient(145deg, #8b5cf6, #2563eb);
+color: #fff;
+font-size: 24rpx;
+font-weight: 700;
+display: flex;
+align-items: center;
+justify-content: center;
+flex-shrink: 0;
+}
+.bubble-avatar-img {
+width: 56rpx;
+height: 56rpx;
+border-radius: 50%;
+flex-shrink: 0;
+background: #e2e8f0;
+}
+
+.bubble-avatar-tappable {
+position: relative;
+}
+
+.bubble-avatar-tappable:active {
+opacity: 0.82;
+}
+.bubble-avatar-img-mine {
+background: #bbf7d0;
+}
+.bubble-avatar-mine {
+background: linear-gradient(145deg, #10b981, #059669);
+}
 
 .bubble-row.my-message {
 align-items: flex-end;
@@ -1019,12 +1742,33 @@ align-items: flex-end;
 box-shadow: 0 0 0 4rpx rgba(34, 197, 94, 0.45) !important;
 }
 
+.bubble-sender-row {
+display: flex;
+flex-wrap: wrap;
+align-items: center;
+gap: 8rpx;
+margin-bottom: 8rpx;
+margin-left: 6rpx;
+max-width: 100%;
+}
+
 .bubble-sender {
 font-size: 22rpx;
 color: #64748b;
-margin-bottom: 8rpx;
-margin-left: 6rpx;
 font-weight: 500;
+}
+
+.bubble-model-pill {
+font-size: 18rpx;
+color: #475569;
+background: #f1f5f9;
+padding: 2rpx 12rpx;
+border-radius: 999rpx;
+max-width: 70%;
+overflow: hidden;
+text-overflow: ellipsis;
+white-space: nowrap;
+border: 1rpx solid rgba(148, 163, 184, 0.35);
 }
 
 .bubble-row.my-message .bubble-sender {
@@ -1032,7 +1776,7 @@ display: none;
 }
 
 .message-bubble {
-max-width: 76%;
+max-width: 100%;
 padding: 20rpx 24rpx;
 border-radius: 18rpx 18rpx 18rpx 6rpx;
 background-color: #ffffff;
@@ -1055,6 +1799,24 @@ font-size: 28rpx;
 line-height: 1.55;
 letter-spacing: 0.2rpx;
 color: #1e293b;
+white-space: pre-wrap;
+word-break: break-word;
+writing-mode: horizontal-tb;
+}
+
+.bubble-images {
+display: flex;
+flex-direction: row;
+flex-wrap: wrap;
+gap: 10rpx;
+margin-top: 10rpx;
+}
+
+.bubble-image {
+width: 180rpx;
+height: 132rpx;
+border-radius: 10rpx;
+background: #e2e8f0;
 }
 
 .message-bubble.my-message .bubble-text {
@@ -1075,7 +1837,6 @@ padding-bottom: env(safe-area-inset-bottom);
 .chat-input {
 min-height: 100rpx;
 background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
-border-top: 1rpx solid rgba(148, 163, 184, 0.28);
 display: flex;
 align-items: center;
 padding-left: 24rpx;
@@ -1267,6 +2028,12 @@ box-shadow: 0 6rpx 22rpx rgba(34, 197, 94, 0.18) !important;
 .chat-page.theme-dark .bubble-sender,
 .chat-page.theme-dark .bubble-meta-time {
 color: var(--text-tertiary) !important;
+}
+
+.chat-page.theme-dark .bubble-model-pill {
+color: var(--text-secondary) !important;
+background: rgba(51, 65, 85, 0.85) !important;
+border-color: var(--border-color) !important;
 }
 
 .chat-page.theme-dark .chat-empty {

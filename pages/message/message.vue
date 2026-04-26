@@ -50,24 +50,31 @@
 						<view
 							v-for="row in feedRows"
 							:key="row.id"
-							class="msg-row-card"
-							hover-class="msg-row-card-hover"
-							@click="onRowTap(row)"
+							class="swipe-wrap"
+							@touchstart="onRowTouchStart($event, row)"
+							@touchmove="onRowTouchMove($event, row)"
+							@touchend="onRowTouchEnd(row)"
 						>
-							<view class="msg-avatar" :style="{ background: avatarBg(row) }">
-								<text class="msg-avatar-t">{{ avatarLetter(row) }}</text>
+							<view v-if="swipeRowId === row.id" class="swipe-actions">
+								<view class="swipe-pin" @tap.stop="onPinRow(row)">{{ isRowPinned(row) ? '取消置顶' : '置顶' }}</view>
+								<view class="swipe-delete" @tap.stop="onDeleteRow(row)">删除</view>
 							</view>
-							<view class="msg-body">
-								<view class="msg-row-top">
-									<view class="msg-title-wrap">
-										<text class="msg-title">{{ row.title }}</text>
-										<text v-if="row.badge" class="msg-pill">{{ row.badge }}</text>
-									</view>
-									<text class="msg-time">{{ formatRowTime(row.time) }}</text>
+							<view class="msg-row-card" :class="{ 'msg-row-open': swipeRowId === row.id }" hover-class="msg-row-card-hover" @click="onRowTap(row)">
+								<view class="msg-avatar" :style="{ background: avatarBg(row) }">
+									<text class="msg-avatar-t">{{ avatarLetter(row) }}</text>
 								</view>
-								<view class="msg-row-bottom">
-									<text class="msg-preview">{{ row.subtitle }}</text>
-									<view v-if="row.unread > 0" class="msg-unread">{{ row.unread > 99 ? "99+" : row.unread }}</view>
+								<view class="msg-body">
+									<view class="msg-row-top">
+										<view class="msg-title-wrap">
+											<text class="msg-title">{{ row.title }}</text>
+											<text v-if="row.badge" class="msg-pill">{{ row.badge }}</text>
+										</view>
+										<text class="msg-time">{{ formatRowTime(row.time) }}</text>
+									</view>
+									<view class="msg-row-bottom">
+										<text class="msg-preview">{{ row.subtitle }}</text>
+										<view v-if="row.unread > 0" class="msg-unread">{{ row.unread > 99 ? "99+" : row.unread }}</view>
+									</view>
 								</view>
 							</view>
 						</view>
@@ -110,6 +117,10 @@
 				<view class="popup-header">
 					<text class="popup-title">{{ t('add_department') }}</text>
 					<text class="popup-close" @click="closeAddDeptPopup">×</text>
+				</view>
+				<view class="add-dept-create">
+					<input class="add-dept-input" v-model="newDeptName" placeholder="输入新部门名" placeholder-class="add-dept-input-ph" />
+					<button class="add-dept-create-btn" :loading="addingDept" @click="createDepartment">新增并添加</button>
 				</view>
 				<scroll-view scroll-y class="add-dept-list">
 					<view v-if="availableDepts.length === 0" class="add-dept-empty">
@@ -157,16 +168,10 @@
 
 <script>
 	import AppTabBar from "@/components/AppTabBar.vue";
+	import * as agentsApi from "@/clientApi/agentsApi";
+	import { listMyUserAgents } from "@/clientApi/agentsApi";
+	import { getApiErrorMessage } from "@/utils/apiHelpers";
 	import { t, getLanguage } from "@/utils/lang";
-	import {
-		getDailyBriefing,
-		buildMessageFeedRows,
-		loadProjectGroups,
-		loadDigitalAgents,
-		displayGroupName,
-		formatAgentNavTitle,
-		MANAGER_ID,
-	} from "@/utils/virtualTeamStore";
 	import { loadUnifiedConversationList } from "@/utils/conversationInbox";
 	import {
 		buildMessageDepartmentBlocks,
@@ -174,9 +179,10 @@
 		setCustomDepartments,
 		getHiddenDepartments,
 		setHiddenDepartments,
-		getAvailablePresetDepartments,
 		FALLBACK_ICON,
 	} from "@/utils/messageDepartmentConfig";
+	import { departmentToZh, normalizeDeptKey } from "@/utils/agentDisplayZh";
+	import { deleteProjectGroupById, clearVirtualChatMessages, touchAgentLastMsg } from "@/utils/virtualTeamStore";
 
 	export default {
 		components: { AppTabBar },
@@ -201,13 +207,23 @@
 				quickMenuItems: [],
 				availableDepts: [],
 				selectedAddDepts: [],
+				newDeptName: "",
+				addingDept: false,
+				listReqId: 0,
+				lastLoadedAt: 0,
+				lastSuccessFeedRows: [],
+				departmentMap: {},
+				apiDepartmentRows: [],
+				swipeRowId: "",
+				swipeStartX: 0,
+				swipeDeltaX: 0,
 			};
 		},
 		onLoad() {
 			const sys = uni.getSystemInfoSync();
 			this.statusBarPx = sys.statusBarHeight || 20;
 			uni.hideTabBar({ animation: false });
-			this.loadList();
+			this.loadList(true);
 		},
 		onShow() {
 			uni.hideTabBar({ animation: false });
@@ -216,14 +232,111 @@
 			} catch (e) {
 				//
 			}
-			this.loadList();
+			// 避免页面切回时短时间重复加载，降低“加载中”停留时间
+			if (Date.now() - this.lastLoadedAt > 3000) {
+				this.loadList();
+			}
 		},
 		methods: {
 			t(key, params = {}) {
 				return t(key, getLanguage(), params);
 			},
+			sessionKeyFromRow(row) {
+				const n = row && row.navigate;
+				if (!n) return "";
+				if (n.mode === "virtual") return `v_${String(n.kind || "").trim()}_${String(n.id || "").trim()}`;
+				if (n.mode === "remote")
+					return `r_${String(n.workflowId || "").trim()}_${String(n.threadId || "").trim()}`;
+				return `l_${String(row.title || "").trim()}`;
+			},
+			isRowPinned(row) {
+				const k = this.sessionKeyFromRow(row);
+				if (!k) return false;
+				return uni.getStorageSync(`chat_pin_${k}`) === "1";
+			},
+			isRowDeleted(row) {
+				const k = this.sessionKeyFromRow(row);
+				if (!k) return false;
+				return uni.getStorageSync(`chat_deleted_${k}`) === "1";
+			},
 			rebuildDepartmentBlocks() {
-				this.departmentBlocks = buildMessageDepartmentBlocks();
+				const preset = buildMessageDepartmentBlocks().map((b) => {
+					const title = departmentToZh(b.title || b.slug, this.departmentMap);
+					return { ...b, title };
+				});
+				const existed = new Set(
+					preset.map((b) => this.normalizeDeptText(b.slug)).filter(Boolean)
+				);
+				const extras = (this.apiDepartmentRows || [])
+					.map((d) => {
+						const slug = String(d.slug || "").trim();
+						if (!slug) return null;
+						const key = this.normalizeDeptText(slug);
+						if (!key || existed.has(key)) return null;
+						return {
+							slug,
+							agentDeptId: "",
+							title: departmentToZh(d.name || slug, this.departmentMap),
+							desc: "",
+							count: 0,
+							icon: FALLBACK_ICON,
+							isCustom: true,
+						};
+					})
+					.filter(Boolean);
+				this.departmentBlocks = [...preset, ...extras];
+			},
+			normalizeDeptText(v) {
+				return normalizeDeptKey(v);
+			},
+			async loadDepartmentMap() {
+				try {
+					const list = await agentsApi.listUserAgentDepartments();
+					const map = {};
+					const apiRows = [];
+					(Array.isArray(list) ? list : []).forEach((item) => {
+						if (typeof item === "string") {
+							const n = item.trim();
+							if (!n) return;
+							map[normalizeDeptKey(n)] = departmentToZh(n);
+							apiRows.push({ slug: n, name: n });
+							return;
+						}
+						const id = String(item?.id || "").trim();
+						const name = String(item?.name || "").trim();
+						if (id) map[normalizeDeptKey(id)] = departmentToZh(name || id);
+						if (name) map[normalizeDeptKey(name)] = departmentToZh(name);
+						if (name || id) apiRows.push({ slug: name || id, name: name || id });
+					});
+					this.departmentMap = map;
+					this.apiDepartmentRows = apiRows;
+				} catch {
+					this.departmentMap = {};
+					this.apiDepartmentRows = [];
+				}
+			},
+			async refreshDepartmentCounts() {
+				try {
+					const list = await listMyUserAgents();
+					const rows = Array.isArray(list) ? list : [];
+					const countMap = new Map();
+					rows.forEach((a) => {
+						const key = this.normalizeDeptText(a?.department);
+						if (!key) return;
+						countMap.set(key, (countMap.get(key) || 0) + 1);
+					});
+					this.departmentBlocks = (this.departmentBlocks || []).map((b) => {
+						const slugKey = this.normalizeDeptText(b.slug);
+						const titleKey = this.normalizeDeptText(b.title);
+						const count =
+							countMap.get(slugKey) ??
+							countMap.get(titleKey) ??
+							0;
+						return { ...b, count };
+					});
+				} catch {
+					//
+				}
 			},
 			goDepartmentRoles(block) {
 				if (!block || !block.slug) return;
@@ -232,17 +345,20 @@
 					url: `/pages/message/department-roles?slug=${encodeURIComponent(block.slug)}&title=${encodeURIComponent(title)}`,
 				});
 			},
-			async loadList() {
-				this.loading = true;
+			async loadList(force = false) {
+				const reqId = ++this.listReqId;
+				this.loading = force ? true : this.feedRows.length === 0;
 				try {
-					this.briefing = getDailyBriefing();
+					await this.loadDepartmentMap();
 					this.rebuildDepartmentBlocks();
-					const feed = buildMessageFeedRows().filter((r) => r.rowKind !== "daily_agent");
-					let mapped = [];
-					try {
-						const unified = await loadUnifiedConversationList();
-						const extra = unified.filter((u) => u.convType === "workflow" || u.convType === "local");
-						mapped = extra.map((u) => ({
+					this.refreshDepartmentCounts();
+					// 会话列表使用前端本地会话，先回填上次成功数据避免闪烁
+					this.feedRows = this.lastSuccessFeedRows.length ? this.lastSuccessFeedRows : [];
+					this.loading = false;
+
+					const unified = await loadUnifiedConversationList();
+					const mapped = (Array.isArray(unified) ? unified : [])
+						.map((u) => ({
 							id: u.id,
 							rowKind: "unified",
 							convType: u.convType,
@@ -250,20 +366,30 @@
 							subtitle: u.subtitle || "",
 							time: u.time,
 							unread: u.unread || 0,
-							badge: "",
+							badge: u.convType === "vgroup" ? "项目群" : "",
 							navigate: u.navigate,
-						}));
-					} catch (e2) {
-						console.warn("[message] unified inbox", e2);
-					}
-					this.feedRows = [...feed, ...mapped];
+						}))
+						.filter((row) => !this.isRowDeleted(row));
+					mapped.sort((a, b) => {
+						const ap = this.isRowPinned(a) ? 1 : 0;
+						const bp = this.isRowPinned(b) ? 1 : 0;
+						if (ap !== bp) return bp - ap;
+						return new Date(b.time || 0).getTime() - new Date(a.time || 0).getTime();
+					});
+					if (reqId !== this.listReqId) return;
+					this.feedRows = mapped;
+					this.lastSuccessFeedRows = mapped;
+					this.lastLoadedAt = Date.now();
 				} catch (e) {
 					console.warn("[message] load", e);
 					this.rebuildDepartmentBlocks();
-					this.feedRows = buildMessageFeedRows().filter((r) => r.rowKind !== "daily_agent");
+					// 网络异常时保留上次成功列表，避免“会话突然消失”
+					this.feedRows = this.lastSuccessFeedRows.length ? this.lastSuccessFeedRows : [];
 				} finally {
-					this.loading = false;
-					this.refreshing = false;
+					if (reqId === this.listReqId) {
+						this.loading = false;
+						this.refreshing = false;
+					}
 				}
 			},
 			async onRefresh() {
@@ -311,19 +437,35 @@
 					uni.navigateTo({ url: "/pages/team/create-agent" });
 				}
 			},
-			addDepartment() {
-				const available = getAvailablePresetDepartments();
-				if (!available.length) {
-					uni.showToast({ title: this.t('no_department_to_add'), icon: 'none' });
-					return;
-				}
-				this.availableDepts = available;
+			async addDepartment() {
+				await this.loadAvailableDepartments();
 				this.selectedAddDepts = [];
+				this.newDeptName = "";
 				this.showAddDeptPopup = true;
+			},
+			async loadAvailableDepartments() {
+				try {
+					const rows = await agentsApi.listUserAgentDepartments();
+					const custom = getCustomDepartments();
+					const existing = new Set(custom.map((c) => String(c.slug || "").trim()).filter(Boolean));
+					this.availableDepts = (Array.isArray(rows) ? rows : [])
+						.map((r) => {
+							const raw = typeof r === "string" ? r.trim() : String(r?.name || r?.id || "").trim();
+							return {
+								slug: raw,
+								title: departmentToZh(raw, this.departmentMap),
+							};
+						})
+						.filter((d) => d.slug && !existing.has(d.slug));
+				} catch (e) {
+					this.availableDepts = [];
+					uni.showToast({ title: getApiErrorMessage(e) || "读取部门失败", icon: "none" });
+				}
 			},
 			closeAddDeptPopup() {
 				this.showAddDeptPopup = false;
 				this.selectedAddDepts = [];
+				this.newDeptName = "";
 			},
 			toggleAddDept(slug) {
 				const idx = this.selectedAddDepts.indexOf(slug);
@@ -335,11 +477,58 @@
 			},
 			confirmAddDepts() {
 				if (!this.selectedAddDepts.length) return;
+				const custom = getCustomDepartments();
+				const existed = new Set(custom.map((c) => String(c.slug || "").trim()));
+				const picked = this.availableDepts
+					.filter((d) => this.selectedAddDepts.includes(d.slug) && !existed.has(d.slug))
+					.map((d) => ({
+						slug: d.slug,
+						title: d.title,
+						icon: FALLBACK_ICON,
+						count: 0,
+						desc: "",
+					}));
+				if (picked.length > 0) {
+					setCustomDepartments([...custom, ...picked]);
+				}
 				const hidden = getHiddenDepartments().filter((s) => !this.selectedAddDepts.includes(s));
 				setHiddenDepartments(hidden);
 				this.rebuildDepartmentBlocks();
 				this.closeAddDeptPopup();
 				uni.showToast({ title: this.t('added'), icon: 'success' });
+			},
+			async createDepartment() {
+				const name = String(this.newDeptName || "").trim();
+				if (!name) {
+					uni.showToast({ title: "请输入部门名", icon: "none" });
+					return;
+				}
+				this.addingDept = true;
+				try {
+					await agentsApi.createUserAgentDepartment(name);
+					const custom = getCustomDepartments();
+					const exists = custom.some((c) => String(c.slug || "").trim() === name);
+					if (!exists) {
+						setCustomDepartments([
+							...custom,
+							{
+								slug: name,
+								title: departmentToZh(name, this.departmentMap),
+								icon: FALLBACK_ICON,
+								count: 0,
+								desc: "",
+							},
+						]);
+					}
+					this.rebuildDepartmentBlocks();
+					this.newDeptName = "";
+					this.closeAddDeptPopup();
+					uni.showToast({ title: "已新增并添加", icon: "success" });
+				} catch (e) {
+					uni.showToast({ title: getApiErrorMessage(e) || "新增部门失败", icon: "none" });
+				} finally {
+					this.addingDept = false;
+				}
 			},
 			removeDepartment(block) {
 				if (!block) return;
@@ -356,9 +545,63 @@
 				this.rebuildDepartmentBlocks();
 				uni.showToast({ title: this.t('deleted'), icon: 'success' });
 			},
+			onRowTouchStart(e, row) {
+				if (!row) return;
+				this.swipeStartX = Number(e?.changedTouches?.[0]?.clientX || 0);
+				this.swipeDeltaX = 0;
+			},
+			onRowTouchMove(e, row) {
+				if (!row) return;
+				const x = Number(e?.changedTouches?.[0]?.clientX || 0);
+				this.swipeDeltaX = x - this.swipeStartX;
+			},
+			onRowTouchEnd(row) {
+				if (!row) return;
+				if (this.swipeDeltaX <= -36) this.swipeRowId = row.id;
+				else if (this.swipeDeltaX >= 12) this.swipeRowId = "";
+				this.swipeDeltaX = 0;
+			},
+			onPinRow(row) {
+				const key = this.sessionKeyFromRow(row);
+				if (!key) return;
+				const pinned = this.isRowPinned(row);
+				if (pinned) uni.removeStorageSync(`chat_pin_${key}`);
+				else uni.setStorageSync(`chat_pin_${key}`, "1");
+				this.swipeRowId = "";
+				this.loadList(true);
+			},
+			onDeleteRow(row) {
+				const n = row?.navigate || {};
+				const title = row?.title || "会话";
+				uni.showModal({
+					title: "删除会话",
+					content: `确认删除「${title}」吗？`,
+					success: (res) => {
+						if (!res.confirm) return;
+						const key = this.sessionKeyFromRow(row);
+						if (n.mode === "virtual") {
+							const kind = String(n.kind || "").trim();
+							const id = String(n.id || "").trim();
+							if (kind === "group") {
+								if (!deleteProjectGroupById(id)) return;
+							} else if (id) {
+								clearVirtualChatMessages(kind, id);
+								if (kind === "agent") touchAgentLastMsg(id, this.t("chat_no_messages"));
+							}
+						}
+						if (key) {
+							uni.setStorageSync(`chat_deleted_${key}`, "1");
+							uni.removeStorageSync(`chat_pin_${key}`);
+						}
+						this.swipeRowId = "";
+						this.loadList(true);
+						uni.showToast({ title: "已删除", icon: "success" });
+					},
+				});
+			},
 			avatarBg(row) {
 				/* 项目群：固定偏亮渐变，避免哈希到深蓝/紫导致「图案」发暗难辨 */
-				if (row && row.rowKind === "group") {
+				if (row && (row.rowKind === "group" || row.convType === "vgroup")) {
 					return "linear-gradient(145deg, #38bdf8, #2563eb)";
 				}
 				const colors = [
@@ -375,8 +618,8 @@
 				return colors[h % colors.length];
 			},
 			avatarLetter(row) {
-				if (row.rowKind === "manager") return this.t("abbr_manager");
-				if (row.rowKind === "group") return this.t("abbr_group");
+				if (row.convType === "manager" || row.rowKind === "manager") return this.t("abbr_manager");
+				if (row.convType === "vgroup" || row.rowKind === "group") return this.t("abbr_group");
 				if (row.rowKind === "unified" && row.convType === "workflow") return this.t("abbr_project");
 				const tit = (row.title || "?").trim();
 				return tit.slice(0, 1);
@@ -400,47 +643,34 @@
 				return String(t);
 			},
 			onRowTap(row) {
+				if (this.swipeRowId && this.swipeRowId === row.id) {
+					this.swipeRowId = "";
+					return;
+				}
 				if (row.rowKind === "unified" && row.navigate) {
 					const n = row.navigate;
+					if (n.mode === "virtual") {
+						const q = [
+							"mode=virtual",
+							`kind=${encodeURIComponent(n.kind || "")}`,
+							`id=${encodeURIComponent(n.id || "")}`,
+							`title=${encodeURIComponent(n.title || row.title || "")}`,
+						].join("&");
+						uni.navigateTo({ url: `/pages/chat/chat?${q}` });
+						return;
+					}
 					if (n.mode === "remote") {
 						const q = [
 							`workflowId=${encodeURIComponent(n.workflowId)}`,
 							`threadId=${encodeURIComponent(n.threadId)}`,
 							`workflowTitle=${encodeURIComponent(n.workflowTitle || "")}`,
 							`threadTitle=${encodeURIComponent(n.threadTitle || "")}`,
+							`threadKind=${encodeURIComponent(n.kind || "THREAD")}`,
 						].join("&");
 						uni.navigateTo({ url: `/pages/chat/chat?${q}` });
 						return;
 					}
-					if (n.mode === "local" && n.projectName) {
-						uni.navigateTo({
-							url: `/pages/chat/chat?projectName=${encodeURIComponent(n.projectName)}`,
-						});
-					}
 					return;
-				}
-				if (row.rowKind === "manager") {
-					uni.navigateTo({
-						url: `/pages/chat/chat?mode=virtual&kind=manager&id=${encodeURIComponent(MANAGER_ID)}&title=${encodeURIComponent(this.t("manager_overview_title"))}`,
-					});
-					return;
-				}
-				if (row.rowKind === "daily_agent" && row.agentId) {
-					const agents = loadDigitalAgents();
-					const a = agents.find((x) => x.id === row.agentId);
-					const title = a ? formatAgentNavTitle(a) : this.t("digital_employee_fallback");
-					uni.navigateTo({
-						url: `/pages/chat/chat?mode=virtual&kind=agent&id=${encodeURIComponent(row.agentId)}&title=${encodeURIComponent(title)}`,
-					});
-					return;
-				}
-				if (row.rowKind === "group" && row.groupId) {
-					const groups = loadProjectGroups();
-					const g = groups.find((x) => x.id === row.groupId);
-					const name = g ? displayGroupName(g) : this.t("project_group_fallback");
-					uni.navigateTo({
-						url: `/pages/chat/chat?mode=virtual&kind=group&id=${encodeURIComponent(row.groupId)}&title=${encodeURIComponent(name)}`,
-					});
 				}
 			},
 		},
@@ -605,17 +835,56 @@
 	.msg-list {
 		padding: 8rpx 24rpx 24rpx;
 	}
+	.swipe-wrap {
+		position: relative;
+		margin-bottom: 16rpx;
+		border-radius: 20rpx;
+		overflow: hidden;
+	}
+	.swipe-actions {
+		position: absolute;
+		right: 0;
+		top: 0;
+		bottom: 0;
+		width: 264rpx;
+		display: flex;
+		flex-direction: row;
+	}
+	.swipe-pin {
+		width: 132rpx;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		background: #64748b;
+		color: #fff;
+		font-size: 26rpx;
+		font-weight: 700;
+	}
+	.swipe-delete {
+		width: 132rpx;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		background: #ef4444;
+		color: #fff;
+		font-size: 28rpx;
+		font-weight: 700;
+	}
 
 	.msg-row-card {
 		display: flex;
 		flex-direction: row;
 		align-items: stretch;
 		padding: 24rpx 22rpx;
-		margin-bottom: 16rpx;
+		margin-bottom: 0;
 		background: #fff;
 		border-radius: 20rpx;
 		border: none;
 		box-shadow: 0 8rpx 28rpx rgba(15, 23, 42, 0.06);
+		transition: transform 0.16s ease;
+	}
+	.msg-row-open {
+		transform: translateX(-264rpx);
 	}
 
 	.msg-row-card-hover {
@@ -836,6 +1105,38 @@
 		flex: 1;
 		overflow-y: auto;
 		padding: 16rpx 28rpx;
+	}
+
+	.add-dept-create {
+		display: flex;
+		align-items: center;
+		gap: 16rpx;
+		padding: 16rpx 28rpx 12rpx;
+		border-bottom: 1rpx solid #eef2f7;
+	}
+
+	.add-dept-input {
+		flex: 1;
+		height: 72rpx;
+		background: #f8fafc;
+		border-radius: 12rpx;
+		padding: 0 18rpx;
+		font-size: 28rpx;
+		color: #0f172a;
+	}
+
+	.add-dept-input-ph {
+		color: #94a3b8;
+	}
+
+	.add-dept-create-btn {
+		height: 72rpx;
+		line-height: 72rpx;
+		padding: 0 24rpx;
+		font-size: 24rpx;
+		border-radius: 36rpx;
+		background: #2563eb !important;
+		color: #fff !important;
 	}
 
 	.add-dept-empty {

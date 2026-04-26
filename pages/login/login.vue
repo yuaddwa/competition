@@ -117,10 +117,11 @@
 					rememberLoginAccount(phone, localUser);
 					uni.showToast({ title: this.t('login_success'), icon: "success" });
 					setTimeout(() => {
+						// 登录成功后跳转到首页
 						uni.switchTab({
-							url: "/pages/profile/profile",
+							url: "/pages/home/home",
 							fail: () => {
-								uni.reLaunch({ url: "/pages/profile/profile" });
+								uni.reLaunch({ url: "/pages/home/home" });
 							},
 						});
 					}, 400);

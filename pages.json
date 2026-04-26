@@ -81,6 +81,14 @@
 			}
 		},
 		{
+			"path": "pages/worklog/worklog",
+			"style": {
+				"navigationBarTitleText": "工作日报",
+				"navigationStyle": "custom",
+				"navigationBarBackgroundColor": "#ffffff"
+			}
+		},
+		{
 			"path": "pages/profile/profile",
 			"style": {
 				"navigationBarTitleText": "我的",
@@ -156,9 +164,27 @@
 			}
 		},
 		{
+			"path": "pages/team/group-add-members",
+			"style": {
+				"navigationBarTitleText": "邀请成员"
+			}
+		},
+		{
+			"path": "pages/team/group-manage-members",
+			"style": {
+				"navigationBarTitleText": "群管理"
+			}
+		},
+		{
 			"path": "pages/team/create-agent",
 			"style": {
 				"navigationBarTitleText": "创建数字员工"
+			}
+		},
+		{
+			"path": "pages/team/my-team",
+			"style": {
+				"navigationBarTitleText": "我的团队"
 			}
 		}
 	],

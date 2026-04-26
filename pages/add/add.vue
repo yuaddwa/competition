@@ -6,7 +6,7 @@
 				<view class="hero-icon">⚡</view>
 				<view class="hero-copy">
 				<text class="head-title">{{ t('add') }}</text>
-				<text class="head-sub">{{ t('add_subtitle') }}</text>
+				<text class="head-sub">一句话自动创建并分配工作流任务（ai-one-shot / ai-auto）</text>
 			</view>
 			</view>
 
@@ -39,8 +39,8 @@
 		</view>
 
 		<view class="boss-strip">
-			<text class="boss-title">老板指令台</text>
-			<text class="boss-sub">选择模板并确认流向，用一句话下达可执行任务</text>
+			<text class="boss-title">{{ t('boss_dashboard') }}</text>
+			<text class="boss-sub">{{ t('boss_dashboard_sub') }}</text>
 		</view>
 
 		<scroll-view scroll-x class="tpl-scroll" show-scrollbar="false">
@@ -56,8 +56,8 @@
 		</scroll-view>
 
 		<view class="card">
-			<text class="label">指令流向</text>
-			<text class="mini-label">来源部门</text>
+			<text class="label">{{ t('instruction_flow') }}</text>
+			<text class="mini-label">{{ t('source_dept') }}</text>
 			<view class="dept-row">
 				<view
 					v-for="(d, i) in deptOptions"
@@ -69,7 +69,7 @@
 					<text class="dept-chip-t">{{ d.label }}</text>
 				</view>
 			</view>
-			<text class="mini-label">目标部门</text>
+			<text class="mini-label">{{ t('target_dept') }}</text>
 			<view class="dept-row">
 				<view
 					v-for="(d, i) in deptOptions"
@@ -84,7 +84,7 @@
 		</view>
 
 		<view class="card">
-			<text class="label">任务目标（老板口吻）</text>
+			<text class="label">{{ t('task_goal') }}</text>
 			<textarea
 				class="goal"
 				v-model="goal"
@@ -96,7 +96,7 @@
 			<text class="counter">{{ goal.length }} / 2000</text>
 		</view>
 
-		<view class="card">
+		<view v-if="showAdvanced" class="card">
 			<text class="label">{{ t('priority') }}</text>
 			<view class="pri-row">
 				<view
@@ -112,22 +112,19 @@
 		</view>
 
 		<view class="preview-card">
-			<text class="preview-title">下发预览</text>
-			<text class="preview-line">发起人：{{ operatorName || '老板' }}</text>
-			<text class="preview-line">流向：{{ sourceDeptLabel }} → {{ targetDeptLabel }}</text>
-			<text class="preview-line">优先级：{{ priorityLabel }}（L{{ hierarchyLevel }}）</text>
-			<text class="preview-text">{{ goalTrimmed || '请在上方输入任务目标，建议包含结果、时间、验收标准。' }}</text>
+			<text class="preview-title">{{ t('dispatch_preview') }}</text>
+			<text class="preview-line">{{ t('operator_label') }}：{{ operatorName || t('boss_fallback') }}</text>
+			<text class="preview-line">{{ t('flow_preview') }}：{{ sourceDeptLabel }} → {{ targetDeptLabel }}</text>
+			<text class="preview-line">{{ t('priority_preview') }}：{{ priorityLabel }}（L{{ hierarchyLevel }}）</text>
+			<text class="preview-text">{{ goalTrimmed || t('input_task_hint') }}</text>
+		</view>
+
+		<view class="adv-toggle" @tap="showAdvanced = !showAdvanced">
+			<text class="adv-toggle-t">{{ showAdvanced ? "收起高级设置" : "展开高级设置（流向/优先级）" }}</text>
 		</view>
 
 		<view class="actions">
-			<button class="btn ghost" :disabled="submitting" @click="reset">{{ t('clear') }}</button>
-			<button class="btn main" type="primary" :loading="submitting" @click="submit">{{ t('submit_task') }}</button>
-		</view>
-
-		<view class="hint-card">
-			<text class="hint-title">{{ t('tips') }}</text>
-			<text class="hint-t">{{ t('no_workflow_tip') }}</text>
-			<button class="hint-btn" @click="goProject">{{ t('open_project') }}</button>
+			<button class="btn main confirm-btn" type="primary" :loading="submitting" @click="submit">确认</button>
 		</view>
 
 			<view class="pad-bottom" />
@@ -220,10 +217,9 @@
 </template>
 
 <script>
-	import * as workflowApi from "@/clientApi/workflowApi";
+	import * as workflowApi from "@/utils/localWorkflowStore";
 	import { pickId, getApiErrorMessage } from "@/utils/apiHelpers";
 	import { getUserInfo } from "@/utils/index";
-	import { switchMainTab } from "@/utils/tabNav";
 	import { t, getLanguage, translateDepartment } from "@/utils/lang";
 	import agentDepartments from "@/data/agentDepartments";
 	import AppTabBar from "@/components/AppTabBar.vue";
@@ -242,6 +238,8 @@ const STORAGE_WF_LIST = "cachedWorkflowList";
 				goal: "",
 				priorityIdx: 1,
 				submitting: false,
+				showAdvanced: false,
+				templateIdx: -1,
 				showCreateProject: false,
 				showWorkflowPicker: false,
 				loadingWorkflows: false,
@@ -250,35 +248,44 @@ const STORAGE_WF_LIST = "cachedWorkflowList";
 				creatingProject: false,
 				sourceDeptIdx: 0,
 				targetDeptIdx: 1,
-				templateIdx: -1,
 				operatorName: "",
+				currentLanguage: getLanguage(),
 				quickTemplates: [
 					{
 						key: "mvp",
 						name: "MVP 冲刺",
+						name_en: "MVP Sprint",
 						text: "请在两周内交付可演示 MVP，覆盖核心流程并可给客户试用；同步输出风险清单与回滚方案。",
+						text_en: "Deliver a demo-ready MVP within 2 weeks, covering core flows and ready for customer trial; output risk list and rollback plan.",
 						level: 2,
 						source: "product",
 						target: "engineering",
 						title: "两周 MVP 冲刺",
+						title_en: "2-Week MVP Sprint",
 					},
 					{
 						key: "bugfix",
 						name: "线上修复",
+						name_en: "Hotfix",
 						text: "优先修复线上高优先级问题，今天内给出根因和修复计划，明早前完成验证并回传结论。",
+						text_en: "Fix critical production issues first. Provide root cause and fix plan today, complete verification and report back by tomorrow morning.",
 						level: 3,
 						source: "pm",
 						target: "engineering",
 						title: "线上问题紧急修复",
+						title_en: "Urgent Production Fix",
 					},
 					{
 						key: "campaign",
 						name: "营销联动",
+						name_en: "Marketing Campaign",
 						text: "围绕本周增长目标，产出可执行活动方案，明确渠道、预算、转化指标与复盘口径。",
+						text_en: "Based on this week's growth targets, produce an actionable campaign plan with channels, budget, conversion metrics, and review criteria.",
 						level: 2,
 						source: "product",
 						target: "marketing",
 						title: "增长活动方案",
+						title_en: "Growth Campaign Plan",
 					},
 				],
 			};
@@ -294,7 +301,7 @@ const STORAGE_WF_LIST = "cachedWorkflowList";
 				return [{ key: "low" }, { key: "mid" }, { key: "high" }];
 			},
 			deptOptions() {
-				const lang = getLanguage();
+				const lang = this.currentLanguage;
 				return agentDepartments.map((d) => {
 					const td = translateDepartment(d, lang);
 					return { id: d.id, label: td.name || d.name || d.id };
@@ -322,9 +329,12 @@ const STORAGE_WF_LIST = "cachedWorkflowList";
 		},
 		onLoad() {
 			uni.hideTabBar({ animation: false });
+			this.currentLanguage = getLanguage();
+			this.updateQuickTemplates();
 		},
 		onShow() {
 			uni.hideTabBar({ animation: false });
+			this.currentLanguage = getLanguage();
 			try {
 				uni.setNavigationBarTitle({ title: this.t("add") });
 			} catch (e) {
@@ -347,13 +357,38 @@ const STORAGE_WF_LIST = "cachedWorkflowList";
 			if (this.deptOptions.length > 1 && this.targetDeptIdx === this.sourceDeptIdx) {
 				this.targetDeptIdx = 1;
 			}
+			this.updateQuickTemplates();
 			setTimeout(() => {
 				this.prefetchWorkflows();
 			}, 0);
 		},
 		methods: {
 			t(key, params = {}) {
-				return t(key, getLanguage(), params);
+				return t(key, this.currentLanguage, params);
+			},
+			updateQuickTemplates() {
+				const lang = this.currentLanguage;
+				const isEn = lang === "en";
+				this.quickTemplates = this.quickTemplates.map((tpl) => ({
+					...tpl,
+					name: isEn ? tpl.name_en || tpl.name : tpl.name,
+					text: isEn ? tpl.text_en || tpl.text : tpl.text,
+					title: isEn ? tpl.title_en || tpl.title : tpl.title,
+				}));
+			},
+			applyTemplate(i) {
+				this.templateIdx = i;
+				const tpl = this.quickTemplates[i];
+				if (!tpl) return;
+				this.goal = tpl.text;
+				const sIdx = this.deptOptions.findIndex((d) => d.id === tpl.source);
+				const tIdx = this.deptOptions.findIndex((d) => d.id === tpl.target);
+				if (sIdx >= 0) this.sourceDeptIdx = sIdx;
+				if (tIdx >= 0) this.targetDeptIdx = tIdx;
+				const lv = Number(tpl.level);
+				if (Number.isFinite(lv) && lv >= 1 && lv <= 3) {
+					this.priorityIdx = lv - 1;
+				}
 			},
 			async prefetchWorkflows(options = {}) {
 				const keepExisting = options.keepExisting !== false;
@@ -496,61 +531,58 @@ const STORAGE_WF_LIST = "cachedWorkflowList";
 					this.creatingProject = false;
 				}
 			},
-			goProject() {
-				switchMainTab("project");
-			},
-			reset() {
-				this.goal = "";
-				this.priorityIdx = 1;
-				this.templateIdx = -1;
-			},
-			indexOfDeptId(deptId) {
-				const idx = this.deptOptions.findIndex((d) => d.id === deptId);
-				return idx >= 0 ? idx : 0;
-			},
-			applyTemplate(idx) {
-				const tpl = this.quickTemplates[idx];
-				if (!tpl) return;
-				this.templateIdx = idx;
-				this.goal = tpl.text || "";
-				if (typeof tpl.level === "number") {
-					this.priorityIdx = Math.max(0, Math.min(2, Number(tpl.level) - 1));
-				}
-				if (tpl.source) this.sourceDeptIdx = this.indexOfDeptId(tpl.source);
-				if (tpl.target) this.targetDeptIdx = this.indexOfDeptId(tpl.target);
-			},
 			async submit() {
 				const text = (this.goal || "").trim();
 				if (!text) {
 					uni.showToast({ title: this.t("please_write_task_content"), icon: "none" });
 					return;
 				}
-				if (!this.workflowId) {
-					this.openCreateProject();
-					return;
-				}
-				if (this.sourceDeptId === this.targetDeptId) {
-					uni.showToast({ title: "来源部门和目标部门不能相同", icon: "none" });
-					return;
-				}
 				this.submitting = true;
 				try {
-					const selectedTpl = this.templateIdx >= 0 ? this.quickTemplates[this.templateIdx] : null;
-					await workflowApi.postCommand(this.workflowId, {
-						sourceDepartment: this.sourceDeptId,
-						targetDepartment: this.targetDeptId,
-						hierarchyLevel: this.hierarchyLevel,
-						content: text,
-						body: text,
-						commandText: text,
-						createTaskTitle: selectedTpl?.title || text.slice(0, 28),
-					});
-					uni.showToast({ title: this.t("issued"), icon: "success" });
+					const source = this.sourceDeptId || "product";
+					const target = this.targetDeptId && this.targetDeptId !== source ? this.targetDeptId : "engineering";
+					const payload = {
+						brief: text,
+						title: this.workflowTitle || text.slice(0, 28),
+						fromDepartment: source,
+						toDepartment: target,
+						fromLevel: 0,
+						toLevel: this.showAdvanced ? this.hierarchyLevel : 1,
+						maxTasks: 6,
+					};
+					let result = null;
+					let wid = this.workflowId;
+					if (!wid) {
+						result = await workflowApi.aiOneShot(payload);
+						wid =
+							pickId(result) ||
+							result?.workflowId ||
+							result?.id ||
+							result?.workflow?.id ||
+							"";
+						if (!wid) throw new Error("创建成功但未返回 workflowId");
+						this.workflowId = wid;
+						this.workflowTitle = payload.title || this.t("workflow");
+						try {
+							uni.setStorageSync(STORAGE_WF, wid);
+							uni.setStorageSync(STORAGE_WF_TITLE, this.workflowTitle);
+						} catch {
+							//
+						}
+					} else {
+						result = await workflowApi.aiAuto(wid, payload);
+					}
+					uni.showToast({ title: "已自动创建并分配", icon: "success" });
 					this.goal = "";
+					uni.navigateTo({
+						url: `/pages/workflow/workbench?id=${encodeURIComponent(wid)}`,
+					});
 				} catch (err) {
-					const detail = getApiErrorMessage(err);
+					const mk = err && err.messageKey;
+					const fromKey = mk ? this.t(mk) : "";
+					const detail = fromKey || getApiErrorMessage(err);
 					uni.showToast({
-						title: detail || "下发失败，请稍后重试",
+						title: detail || (err && err.message) || "自动分配失败，请稍后重试",
 						icon: "none",
 						duration: 3200,
 					});
@@ -686,111 +718,6 @@ const STORAGE_WF_LIST = "cachedWorkflowList";
 		flex-shrink: 0;
 	}
 
-	.wf-bar {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		background: #fff;
-		border-radius: 18rpx;
-		padding: 22rpx 24rpx;
-		margin-bottom: 20rpx;
-		border: none;
-		box-shadow: 0 8rpx 28rpx rgba(15, 23, 42, 0.06);
-	}
-
-	.wf-right {
-		display: flex;
-		align-items: center;
-		gap: 10rpx;
-	}
-
-	.wf-new {
-		font-size: 22rpx;
-		font-weight: 700;
-		color: #2563eb;
-		padding: 8rpx 14rpx;
-		border-radius: 999rpx;
-		background: #eff6ff;
-		border: 1rpx solid #bfdbfe;
-	}
-
-	.wf-info {
-		flex: 1;
-		min-width: 0;
-	}
-
-	.wf-label {
-		display: block;
-		font-size: 22rpx;
-		color: #94a3b8;
-		margin-bottom: 6rpx;
-	}
-
-	.wf-name {
-		display: block;
-		font-size: 30rpx;
-		font-weight: 700;
-		color: #1e293b;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
-
-	.wf-arrow {
-		font-size: 40rpx;
-		color: #cbd5e1;
-		font-weight: 300;
-		padding-left: 16rpx;
-	}
-
-	.boss-strip {
-		background: linear-gradient(135deg, #1e3a8a, #4338ca);
-		border-radius: 18rpx;
-		padding: 20rpx 22rpx;
-		margin-bottom: 14rpx;
-	}
-
-	.boss-title {
-		display: block;
-		font-size: 28rpx;
-		font-weight: 800;
-		color: #fff;
-	}
-
-	.boss-sub {
-		display: block;
-		margin-top: 6rpx;
-		font-size: 22rpx;
-		color: rgba(255, 255, 255, 0.85);
-	}
-
-	.tpl-scroll {
-		white-space: nowrap;
-		margin-bottom: 18rpx;
-	}
-
-	.tpl-chip {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		padding: 14rpx 22rpx;
-		margin-right: 12rpx;
-		border-radius: 999rpx;
-		background: #fff;
-		border: 1rpx solid #dbeafe;
-	}
-
-	.tpl-chip.on {
-		background: #dbeafe;
-		border-color: #2563eb;
-	}
-
-	.tpl-name {
-		font-size: 24rpx;
-		font-weight: 700;
-		color: #1e3a8a;
-	}
-
 	.card {
 		background: #fff;
 		border-radius: 18rpx;
@@ -900,8 +827,7 @@ const STORAGE_WF_LIST = "cachedWorkflowList";
 	}
 
 	.actions {
-		display: flex;
-		gap: 16rpx;
+		display: block;
 		margin-top: 8rpx;
 		margin-bottom: 20rpx;
 	}
@@ -937,6 +863,20 @@ const STORAGE_WF_LIST = "cachedWorkflowList";
 		color: #0f172a;
 	}
 
+	.adv-toggle {
+		margin: 4rpx 0 14rpx;
+		padding: 18rpx 16rpx;
+		border-radius: 14rpx;
+		background: #eef2ff;
+		border: 1rpx solid #c7d2fe;
+	}
+
+	.adv-toggle-t {
+		font-size: 24rpx;
+		font-weight: 600;
+		color: #3730a3;
+	}
+
 	.btn {
 		flex: 1;
 		height: 92rpx;
@@ -957,45 +897,15 @@ const STORAGE_WF_LIST = "cachedWorkflowList";
 		box-shadow: 0 10rpx 28rpx rgba(37, 99, 235, 0.35);
 	}
 
-	.hint-card {
-		padding: 24rpx;
-		background: #fff;
-		border-radius: 18rpx;
-		border: none;
-		box-shadow: 0 8rpx 26rpx rgba(15, 23, 42, 0.06);
-		margin-bottom: 24rpx;
-	}
-
-	.hint-title {
-		display: block;
-		font-size: 26rpx;
-		font-weight: 700;
-		color: #334155;
-		margin-bottom: 10rpx;
-	}
-
-	.hint-t {
-		display: block;
-		font-size: 24rpx;
-		color: #94a3b8;
-		line-height: 1.5;
-		margin-bottom: 20rpx;
-	}
-
-	.hint-btn {
+	.confirm-btn {
 		width: 100%;
-		height: 76rpx;
-		line-height: 76rpx;
-		border-radius: 38rpx;
-		font-size: 28rpx;
-		font-weight: 700;
-		background: #f8fafc !important;
-		color: #2563eb !important;
-		border: 2rpx solid #bfdbfe !important;
+		background: linear-gradient(135deg, #5b8cff, #6478ff) !important;
+		color: #ffffff !important;
+		border: none !important;
 	}
 
-	.hint-btn::after {
-		border: none;
+	.confirm-btn::after {
+		border: none !important;
 	}
 
 	.mask {
@@ -1018,44 +928,45 @@ const STORAGE_WF_LIST = "cachedWorkflowList";
 		position: relative;
 		z-index: 1;
 		width: 100%;
-		max-width: 680rpx;
+		max-width: 700rpx;
 		background: #fff !important;
-		border-radius: 20rpx;
-		padding: 24rpx;
+		border-radius: 26rpx;
+		padding: 30rpx 26rpx 24rpx;
 		box-sizing: border-box;
-		box-shadow: 0 20rpx 60rpx rgba(15, 23, 42, 0.18);
+		box-shadow: 0 24rpx 70rpx rgba(15, 23, 42, 0.22);
 	}
 
 	.dialog-title {
-		font-size: 32rpx;
+		font-size: 34rpx;
 		font-weight: 800;
 		color: #0f172a;
-		margin-bottom: 16rpx;
+		margin-bottom: 18rpx;
 	}
 
 	.dialog-input {
 		width: 100%;
-		height: 84rpx;
-		border: 1rpx solid #e2e8f0;
-		border-radius: 14rpx;
-		padding: 0 18rpx;
-		margin-bottom: 12rpx;
+		height: 86rpx;
+		border: 2rpx solid #dbe3ee;
+		border-radius: 16rpx;
+		padding: 0 20rpx;
+		margin-bottom: 14rpx;
 		font-size: 28rpx;
 		box-sizing: border-box;
 		background: #f8fafc;
+		color: #0f172a;
 	}
 
 	.dialog-actions {
 		display: flex;
 		justify-content: space-between;
-		gap: 12rpx;
-		margin-top: 14rpx;
+		gap: 14rpx;
+		margin-top: 10rpx;
 	}
 
 	.modal-btn {
 		flex: 1;
-		height: 76rpx;
-		border-radius: 38rpx;
+		height: 82rpx;
+		border-radius: 18rpx;
 		font-size: 28rpx;
 		font-weight: 700;
 		display: flex;
@@ -1070,7 +981,8 @@ const STORAGE_WF_LIST = "cachedWorkflowList";
 	}
 
 	.modal-btn-ghost {
-		background: #f1f5f9 !important;
+		background: #f3f6fb !important;
+		border: 1rpx solid #e2e8f0;
 	}
 
 	.modal-btn-ghost .modal-btn-t {
@@ -1078,7 +990,8 @@ const STORAGE_WF_LIST = "cachedWorkflowList";
 	}
 
 	.modal-btn-primary {
-		background: linear-gradient(135deg, #2563eb, #4f46e5) !important;
+		background: linear-gradient(135deg, #7aa2ff, #8f95ff) !important;
+		box-shadow: 0 10rpx 22rpx rgba(122, 162, 255, 0.35);
 	}
 
 	.modal-btn-primary .modal-btn-t {

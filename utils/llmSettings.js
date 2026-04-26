@@ -22,16 +22,16 @@ export function validateLlmSettings({ apiKey, baseUrl, model }) {
 		return { ok: false, messageKey: "model_validate_url_required" };
 	}
 
-	let u;
-	try {
-		u = new URL(urlRaw);
-	} catch {
+	const match = urlRaw.match(/^(https?):\/\/([^/\s?#]+)(\/[^\s?#]*)?(?:\?[^#\s]*)?(?:#\S*)?$/i);
+	if (!match) {
 		return { ok: false, messageKey: "model_validate_url_invalid" };
 	}
-	if (u.protocol !== "http:" && u.protocol !== "https:") {
+	const protocol = String(match[1] || "").toLowerCase();
+	const pathname = match[3] || "/";
+	if (protocol !== "http" && protocol !== "https") {
 		return { ok: false, messageKey: "model_validate_url_protocol" };
 	}
-	const path = (u.pathname || "/").replace(/\/+$/, "") || "/";
+	const path = String(pathname).replace(/\/+$/, "") || "/";
 	if (!/\/v1$/i.test(path)) {
 		return { ok: false, messageKey: "model_validate_url_need_v1" };
 	}
@@ -68,4 +68,19 @@ export function setLlmSettings({ apiKey, baseUrl, model }) {
 	if (apiKey !== undefined) uni.setStorageSync(K_API_KEY, String(apiKey));
 	if (baseUrl !== undefined) uni.setStorageSync(K_BASE_URL, String(baseUrl).trim());
 	if (model !== undefined) uni.setStorageSync(K_MODEL, String(model).trim());
+}
+
+/**
+ * 供工作台展示：是否已配置、模型名、真实请求地址（不含密钥）
+ */
+export function getLlmConnectionSummary() {
+	const { apiKey, baseUrl, model } = getLlmSettings();
+	const configured = !!String(apiKey || "").trim();
+	const root = String(baseUrl || "").trim().replace(/\/+$/, "") || DEFAULT_BASE.replace(/\/+$/, "");
+	const m = String(model || "").trim() || DEFAULT_MODEL;
+	return {
+		configured,
+		model: m,
+		apiEndpoint: `${root}/chat/completions`,
+	};
 }

@@ -38,6 +38,37 @@
 			<text class="hero-title">{{ pageTitle }}</text>
 			<text class="hero-desc">{{ t('cs_local_session') }}</text>
 		</view>
+		<view v-if="mode === 'virtual' && (kind === 'group' || kind === 'hq')" class="group members-card">
+			<view class="members-head">
+				<text class="members-title">群成员</text>
+				<text class="members-count">{{ groupMembers.length }} 人</text>
+			</view>
+			<view v-if="groupMembers.length === 0" class="members-empty">暂无成员</view>
+			<view v-else class="members-grid">
+				<view
+					v-for="m in groupMembers"
+					:key="m.rowKey"
+					class="member-item"
+					hover-class="member-item-hover"
+					@tap="openMemberPrivateChat(m)"
+				>
+					<image v-if="memberAvatar(m)" class="member-avatar-img" :src="memberAvatar(m)" mode="aspectFill" />
+					<view v-else class="member-avatar">{{ memberInitial(m) }}</view>
+					<view class="member-name-block">
+						<text class="member-name">{{ m.name }}</text>
+						<text v-if="m.badgeText" class="member-role-badge">{{ m.badgeText }}</text>
+					</view>
+					<text v-if="m.modelShort" class="member-model-pill">{{ m.modelShort }}</text>
+				</view>
+			</view>
+		</view>
+
+		<view v-if="mode === 'virtual' && kind === 'group'" class="group">
+			<view class="cell" hover-class="cell-hover" @click="goInviteMembers">
+				<text class="cell-main">{{ t('cs_group_invite_members') }}</text>
+				<text class="cell-arrow">›</text>
+			</view>
+		</view>
 
 		<view class="group">
 			<view class="cell" hover-class="cell-hover" @click="goSearch">
@@ -76,6 +107,8 @@
 </template>
 
 <script>
+	import { resolveAvatarDisplayUrl } from "@/clientApi/authApi";
+	import { getUserInfo } from "@/utils/index";
 	import {
 		clearVirtualChatMessages,
 		getProjectGroupById,
@@ -92,6 +125,7 @@
 	} from "@/utils/virtualTeamStore";
 	import { clearLocalProjectChat } from "@/utils/messageUtils";
 	import { t, getLanguage } from "@/utils/lang";
+	import { getAgentModelOrDefault } from "@/utils/agentModelMap";
 
 	function storageSessionKey(vm) {
 		if (vm.mode === "virtual") return `v_${vm.kind}_${vm.id}`;
@@ -133,17 +167,71 @@
 				const r = this.agentDetail && displayAgentRole(this.agentDetail);
 				return r || this.t("cs_digital_employee_role");
 			},
+			groupMembers() {
+				const isHq = String(this.kind || "").trim().toLowerCase() === "hq";
+				const arr = isHq
+					? loadDigitalAgents().map((a) => ({
+							id: a.id,
+							name: a.name,
+							role: a.role,
+							avatar: a.avatar,
+							model: a.model,
+					  }))
+					: (Array.isArray(this.groupDetail?.members) ? this.groupDetail.members : []);
+				const u = getUserInfo() || {};
+				const meName =
+					String(u.nickname || u.name || u.username || t("home_sender_me", getLanguage())).trim() ||
+					t("home_sender_me", getLanguage());
+				const meAvatar = String(u.avatarUrl || u.avatar || u.avatarURL || u.headImg || u.headimg || "").trim();
+				const ownerRow = {
+					rowKey: "vt_user_owner",
+					id: "",
+					name: meName,
+					role: "",
+					avatar: meAvatar,
+					modelShort: "",
+					badgeText: t("group_badge_owner", getLanguage()),
+					isUserOwner: true,
+				};
+				const mapped = arr.map((m, idx) => {
+					const id = String(m?.id || m?.agentId || "").trim();
+					const rowKey = id || `m_${idx}`;
+					const stored = String(m?.model || "").trim();
+					const full = stored || (id ? getAgentModelOrDefault(id) : "");
+					const modelShort = full
+						? full.length > 16
+							? `${full.slice(0, 14)}…`
+							: full
+						: "";
+					const isAdmin = !!m?.isAdmin;
+					let badgeText = "";
+					if (isAdmin) badgeText = t("group_badge_admin", getLanguage());
+					return {
+						rowKey,
+						id,
+						name: String(m?.name || m?.displayName || "").trim() || "成员",
+						role: String(m?.role || m?.jobTitle || "").trim(),
+						avatar: String(m?.avatar || m?.avatarUrl || m?.headImg || m?.headimg || "").trim(),
+						modelShort,
+						badgeText,
+						isUserOwner: false,
+					};
+				});
+				return [ownerRow, ...mapped];
+			},
 		},
 		onShow() {
 			this.loadDarkMode();
-			this.$forceUpdate();
+			if (this.mode === "virtual" && this.kind === "group" && this.id) {
+				this.groupDetail = getProjectGroupById(this.id);
+			}
 		},
 		onLoad(options) {
 			this.loadDarkMode();
 			this.mode = (options && options.mode) || "local";
 			if (this.mode === "virtual") {
-				this.kind = options.kind ? decodeURIComponent(options.kind) : "";
-				this.id = options.id ? decodeURIComponent(options.id) : "";
+				this.kind = options.kind ? String(decodeURIComponent(options.kind)).trim().toLowerCase() : "";
+				this.id = options.id ? String(decodeURIComponent(options.id)).trim() : "";
 				this.pageTitle = options.title ? decodeURIComponent(options.title) : t("chat_settings_title", getLanguage());
 				if (this.kind === "group" && this.id) {
 					this.groupDetail = getProjectGroupById(this.id);
@@ -188,6 +276,12 @@
 			},
 			displayGroupName,
 			displayAgentName,
+			memberAvatar(m) {
+				return resolveAvatarDisplayUrl(String(m?.avatar || "").trim());
+			},
+			memberInitial(m) {
+				return String(m?.name || "员").trim().slice(0, 1);
+			},
 			t(key, params = {}) {
 				return t(key, getLanguage(), params);
 			},
@@ -231,27 +325,83 @@
 				}
 				return p.join("&");
 			},
+			goInviteMembers() {
+				const gid = String(this.id || "").trim();
+				if (!gid) return;
+				const gname = this.groupDetail ? encodeURIComponent(displayGroupName(this.groupDetail)) : "";
+				uni.navigateTo({
+					url: `/pages/team/group-add-members?groupId=${encodeURIComponent(gid)}&gname=${gname}`,
+				});
+			},
 			goSearch() {
 				uni.navigateTo({ url: `/pages/chat/chat-search?${this.buildSearchQuery()}` });
 			},
+			openMemberPrivateChat(m) {
+				if (m && m.isUserOwner) {
+					uni.showToast({ title: this.t("group_owner_is_me"), icon: "none" });
+					return;
+				}
+				const id = String(m?.id || "").trim();
+				if (!id) {
+					uni.showToast({ title: this.t("toast_group_member_no_agent_id"), icon: "none" });
+					return;
+				}
+				const name = String(m?.name || "").trim() || this.t("digital_employee_fallback");
+				const title =
+					formatAgentNavTitle({
+						name: m?.name,
+						role: m?.role,
+					}) || name;
+				uni.navigateTo({
+					url: `/pages/chat/chat?mode=virtual&kind=agent&id=${encodeURIComponent(id)}&title=${encodeURIComponent(title)}`,
+				});
+			},
 			openGroupManage() {
-				const agents = loadDigitalAgents();
-				const lines = agents.map((a) => `· ${formatAgentNavTitle(a)}`).join("\n");
-				if (this.kind === "hq") {
+				const kindNorm = String(this.kind || "").trim().toLowerCase();
+				const resolvedGroupId = String(this.id || this.groupDetail?.id || "").trim();
+
+				if (kindNorm === "group") {
+					if (resolvedGroupId) {
+						const gname = this.groupDetail ? encodeURIComponent(displayGroupName(this.groupDetail)) : "";
+						uni.navigateTo({
+							url: `/pages/team/group-manage-members?groupId=${encodeURIComponent(resolvedGroupId)}&gname=${gname}`,
+							fail: () => {
+								uni.showToast({ title: this.t("load_failed_short"), icon: "none" });
+							},
+						});
+					} else {
+						uni.showToast({ title: this.t("load_failed_short"), icon: "none" });
+					}
+					return;
+				}
+				if (kindNorm === "hq") {
+					uni.navigateTo({
+						url: `/pages/team/group-manage-members?kind=hq&id=${encodeURIComponent(this.id || "company_hall")}&gname=${encodeURIComponent(this.pageTitle || this.t("hq_group"))}`,
+						fail: () => {
+							uni.showToast({ title: this.t("load_failed_short"), icon: "none" });
+						},
+					});
+					return;
+				}
+
+				const groupMembers = Array.isArray(this.groupDetail?.members) ? this.groupDetail.members : [];
+				const source = groupMembers.length
+					? groupMembers.map((m) => ({ name: m.name, role: m.role }))
+					: loadDigitalAgents().map((a) => ({ name: a.name, role: a.role }));
+				const lines = source
+					.map((a) => `· ${formatAgentNavTitle({ name: a.name, role: a.role })}`)
+					.join("\n");
+				if (kindNorm === "hq") {
 					uni.showModal({
 						title: this.t("cs_group_manage"),
-						content: `${this.t("cs_hq_members_modal", { count: agents.length })}\n${lines || this.t("cs_no_members")}`,
+						content: `${this.t("cs_hq_members_modal", { count: source.length })}\n${lines || this.t("cs_no_members")}`,
 						showCancel: false,
 					});
 					return;
 				}
-				const g = this.groupDetail;
-				const head = g
-					? `${this.t("cs_collab_members_named", { name: displayGroupName(g) })}\n`
-					: `${this.t("cs_collab_members_plain")}\n`;
 				uni.showModal({
 					title: this.t("cs_group_manage"),
-					content: `${head}${lines || this.t("cs_no_members")}`,
+					content: lines || this.t("cs_no_members"),
 					showCancel: false,
 				});
 			},
@@ -339,6 +489,100 @@
 
 	.hero-meta.mono {
 		word-break: break-all;
+	}
+	.members-card {
+		padding: 24rpx 24rpx 12rpx;
+	}
+	.members-head {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		padding: 0 8rpx 18rpx;
+	}
+	.members-title {
+		font-size: 30rpx;
+		font-weight: 600;
+		color: #111;
+	}
+	.members-count {
+		font-size: 24rpx;
+		color: #999;
+	}
+	.members-empty {
+		padding: 16rpx 8rpx 24rpx;
+		font-size: 24rpx;
+		color: #999;
+	}
+	.members-grid {
+		display: flex;
+		flex-wrap: wrap;
+	}
+	.member-item {
+		width: 25%;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		margin-bottom: 20rpx;
+		padding: 8rpx 4rpx 12rpx;
+		border-radius: 12rpx;
+		box-sizing: border-box;
+	}
+
+	.member-item-hover {
+		background: rgba(37, 99, 235, 0.08);
+	}
+	.member-avatar-img,
+	.member-avatar {
+		width: 84rpx;
+		height: 84rpx;
+		border-radius: 18rpx;
+	}
+	.member-avatar {
+		background: linear-gradient(145deg, #60a5fa, #6366f1);
+		color: #fff;
+		font-size: 32rpx;
+		font-weight: 700;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+	.member-name-block {
+		margin-top: 8rpx;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		max-width: 100%;
+		gap: 4rpx;
+	}
+	.member-name {
+		max-width: 100%;
+		font-size: 22rpx;
+		color: #333;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.member-role-badge {
+		font-size: 18rpx;
+		color: #2563eb;
+		background: #eff6ff;
+		padding: 2rpx 8rpx;
+		border-radius: 6rpx;
+		line-height: 1.2;
+	}
+
+	.member-model-pill {
+		margin-top: 4rpx;
+		max-width: 100%;
+		font-size: 18rpx;
+		color: #64748b;
+		background: #f1f5f9;
+		padding: 2rpx 8rpx;
+		border-radius: 8rpx;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		box-sizing: border-box;
 	}
 
 	.group {
@@ -463,5 +707,27 @@
 	.chat-settings-page.theme-dark .cell-danger .cell-main,
 	[data-theme="dark"] .chat-settings-page .cell-danger .cell-main {
 		color: #f87171 !important;
+	}
+
+	.chat-settings-page.theme-dark .member-name,
+	[data-theme="dark"] .chat-settings-page .member-name {
+		color: var(--text-primary) !important;
+	}
+
+	.chat-settings-page.theme-dark .member-role-badge,
+	[data-theme="dark"] .chat-settings-page .member-role-badge {
+		color: #93c5fd !important;
+		background: rgba(37, 99, 235, 0.2) !important;
+	}
+
+	.chat-settings-page.theme-dark .member-model-pill,
+	[data-theme="dark"] .chat-settings-page .member-model-pill {
+		color: var(--text-secondary) !important;
+		background: rgba(51, 65, 85, 0.9) !important;
+	}
+
+	.chat-settings-page.theme-dark .member-item-hover,
+	[data-theme="dark"] .chat-settings-page .member-item-hover {
+		background: rgba(96, 165, 250, 0.12) !important;
 	}
 </style>

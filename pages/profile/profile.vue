@@ -23,103 +23,91 @@
 				</view>
 
 				<view class="team-overview">
-					<view class="stat-card" hover-class="stat-card-hover" @click="showAgentList">
-						<view class="stat-card-top">
-							<view class="stat-ico bg-agents">
-								<text class="stat-ico-emoji">🤖</text>
-							</view>
-							<text class="team-stat-num">{{ agentCount }}</text>
-						</view>
+					<view class="team-strip-half" hover-class="team-strip-half-hover" @tap="showAgentList">
 						<text class="team-stat-label">{{ t('digital_employee_fallback') }}</text>
+						<text class="team-stat-num">{{ agentCount }}</text>
 					</view>
-					<view class="stat-card" hover-class="stat-card-hover" @click="goCreateGroup">
-						<view class="stat-card-top">
-							<view class="stat-ico bg-groups">
-								<text class="stat-ico-emoji">👥</text>
-							</view>
-							<text class="team-stat-num">{{ groupCount }}</text>
-						</view>
+					<view class="team-strip-divider" />
+					<view class="team-strip-half" hover-class="team-strip-half-hover" @click="goCreateGroup">
 						<text class="team-stat-label">{{ t('project_group_fallback') }}</text>
+						<text class="team-stat-num">{{ groupCount }}</text>
 					</view>
 				</view>
 			</view>
 
-			<view class="group-spacer" />
-
-			<view class="quick-actions">
-				<view class="quick-tile" hover-class="quick-tile-hover" @click="goCreateAgent">
-					<view class="quick-tile-ico quick-ico-hire">
-						<text class="quick-tile-emoji">⚡</text>
+			<view class="menu-section">
+				<view class="menu-card">
+					<view class="menu-row" hover-class="menu-row-hover" @click="goCreateAgent">
+						<view class="menu-row-icon"><text class="menu-row-emoji">⚡</text></view>
+						<view class="menu-row-body">
+							<text class="menu-row-title">{{ t('profile_quick_hire_title') }}</text>
+							<text class="menu-row-sub">{{ t('profile_quick_hire_sub') }}</text>
+						</view>
+						<text class="menu-row-chev">›</text>
 					</view>
-					<view class="quick-tile-texts">
-						<text class="quick-tile-title">{{ t('profile_quick_hire_title') }}</text>
-						<text class="quick-tile-sub">{{ t('profile_quick_hire_sub') }}</text>
+					<view class="menu-divider" />
+					<view class="menu-row" hover-class="menu-row-hover" @click="goCreateGroup">
+						<view class="menu-row-icon"><text class="menu-row-emoji">🚀</text></view>
+						<view class="menu-row-body">
+							<text class="menu-row-title">{{ t('profile_quick_group_title') }}</text>
+							<text class="menu-row-sub">{{ t('profile_quick_group_sub') }}</text>
+						</view>
+						<text class="menu-row-chev">›</text>
 					</view>
-					<text class="quick-tile-arrow">›</text>
 				</view>
-				<view class="quick-tile" hover-class="quick-tile-hover" @click="goCreateGroup">
-					<view class="quick-tile-ico quick-ico-group">
-						<text class="quick-tile-emoji">🚀</text>
-					</view>
-					<view class="quick-tile-texts">
-						<text class="quick-tile-title">{{ t('profile_quick_group_title') }}</text>
-						<text class="quick-tile-sub">{{ t('profile_quick_group_sub') }}</text>
-					</view>
-					<text class="quick-tile-arrow">›</text>
-				</view>
-			</view>
 
-			<view class="group-spacer" />
-
-			<view class="cell-group">
-				<view class="cell" @click="showDailyReport">
-					<view class="cell-icon bg-report">
-						<text class="cell-glyph-text">📊</text>
+				<view class="menu-card">
+					<view class="menu-row" hover-class="menu-row-hover" @click="goPage('/pages/worklog/worklog')">
+						<view class="menu-row-icon"><text class="menu-row-emoji">📊</text></view>
+						<view class="menu-row-body">
+							<text class="menu-row-title">{{ t('profile_daily_report') }}</text>
+							<text class="menu-row-sub">{{ t('profile_daily_report_sub') }}</text>
+						</view>
+						<text class="menu-row-chev">›</text>
 					</view>
-					<view class="cell-text-wrap">
-						<text class="cell-title">{{ t('profile_daily_report') }}</text>
-						<text class="cell-sub">{{ t('profile_daily_report_sub') }}</text>
-					</view>
-					<text class="cell-arrow">›</text>
 				</view>
-			</view>
 
-			<view class="group-spacer" />
-
-			<view class="cell-group">
-				<view class="cell" @click="goPage('/pages/profile/agent-model-assign')">
-					<view class="cell-icon bg-font">
-						<text class="cell-glyph-text cell-glyph-emoji">🔗</text>
+				<view v-if="loggedIn" class="menu-card">
+					<view class="menu-row" hover-class="menu-row-hover" @click="goPage('/pages/profile/agent-model-assign')">
+						<view class="menu-row-icon"><text class="menu-row-emoji">🔗</text></view>
+						<view class="menu-row-body">
+							<text class="menu-row-title">{{ t('agent_model_assign_nav') }}</text>
+						</view>
+						<text class="menu-row-chev">›</text>
 					</view>
-					<text class="cell-title">{{ t('agent_model_assign_nav') }}</text>
-					<text class="cell-arrow">›</text>
-				</view>
-				<view v-if="loggedIn" class="cell" @click="goChangePassword">
-					<view class="cell-icon bg-pwd">
-						<text class="iconfont cell-glyph">&#xe78f;</text>
+					<view class="menu-divider" />
+					<view class="menu-row" hover-class="menu-row-hover" @click="goChangePassword">
+						<view class="menu-row-icon menu-row-icon-mono">
+							<text class="iconfont menu-row-ico">&#xe78f;</text>
+						</view>
+						<view class="menu-row-body">
+							<text class="menu-row-title">{{ t('change_password') }}</text>
+						</view>
+						<text class="menu-row-chev">›</text>
 					</view>
-					<text class="cell-title">{{ t('change_password') }}</text>
-					<text class="cell-arrow">›</text>
 				</view>
-				<view class="cell" @click="goSettings">
-					<view class="cell-icon bg-settings">
-						<text class="iconfont cell-glyph">&#xe654;</text>
+
+				<view class="menu-card">
+					<view class="menu-row" hover-class="menu-row-hover" @click="goSettings">
+						<view class="menu-row-icon menu-row-icon-mono">
+							<text class="iconfont menu-row-ico">&#xe654;</text>
+						</view>
+						<view class="menu-row-body">
+							<text class="menu-row-title">{{ t('settings') }}</text>
+						</view>
+						<text class="menu-row-chev">›</text>
 					</view>
-					<text class="cell-title">{{ t('settings') }}</text>
-					<text class="cell-arrow">›</text>
 				</view>
-			</view>
 
-			<view class="group-spacer" />
-
-			<view class="cell-group">
-				<view class="cell cell-static cell-about-row">
-					<text class="cell-title">{{ t('about') }}</text>
-					<text class="cell-extra">{{ t('version') }}</text>
-				</view>
-				<view class="about-desc">
-					<text class="about-line">{{ t('profile_about_tagline') }}</text>
-					<text class="about-line sub">{{ t('profile_about_sub') }}</text>
+				<view class="menu-card menu-card-muted">
+					<view class="menu-row menu-row-static">
+						<text class="menu-row-title menu-row-title-only">{{ t('about') }}</text>
+						<text class="menu-row-extra">{{ t('version') }}</text>
+					</view>
+					<view class="about-foot">
+						<text class="about-foot-line">{{ t('profile_about_tagline') }}</text>
+						<text class="about-foot-line sub">{{ t('profile_about_sub') }}</text>
+					</view>
 				</view>
 			</view>
 
@@ -170,51 +158,6 @@
 				</view>
 			</view>
 		</view>
-
-		<view v-if="showDailyReportPopup" class="mask" @click="closeDailyReportPopup">
-			<view class="report-popup" @click.stop>
-				<view class="popup-header">
-					<text class="popup-title">{{ t('profile_daily_report') }}</text>
-					<view class="popup-header-right">
-						<text class="popup-count">{{ dailyReport ? dailyReport.date : '' }}</text>
-						<text class="popup-close" @click="closeDailyReportPopup">×</text>
-					</view>
-				</view>
-				<scroll-view scroll-y class="report-list">
-					<view v-if="dailyReport" class="report-content">
-						<view class="report-summary">
-							<view class="summary-item">
-								<text class="summary-num">{{ dailyReport.agentCount }}</text>
-								<text class="summary-label">{{ t('digital_employee_fallback') }}</text>
-							</view>
-							<view class="summary-item">
-								<text class="summary-num">{{ dailyReport.groupCount }}</text>
-								<text class="summary-label">{{ t('project_group_fallback') }}</text>
-							</view>
-						</view>
-						<view class="report-divider" />
-						<view class="report-section">
-							<text class="section-title">{{ t('profile_report_team_status') }}</text>
-							<view v-if="dailyReport.agentList.length === 0" class="report-empty">
-								<text class="report-empty-text">{{ t('profile_report_no_agents') }}</text>
-							</view>
-							<view v-for="agent in dailyReport.agentList" :key="agent.name" class="report-agent">
-								<view class="report-agent-avatar" :style="{ background: avatarColor(agent.name) }">
-									<text class="report-agent-text">{{ avatarLetter(agent.name) }}</text>
-								</view>
-								<view class="report-agent-info">
-									<text class="report-agent-name">{{ agent.name }}</text>
-									<text class="report-agent-role">{{ agent.role }}</text>
-								</view>
-								<view class="report-agent-status" :class="{ busy: agent.status === 'busy' }">
-									<text>{{ agent.status === 'busy' ? t('agent_status_busy') : t('agent_status_ready') }}</text>
-								</view>
-							</view>
-						</view>
-					</view>
-				</scroll-view>
-			</view>
-		</view>
 	</view>
 </template>
 
@@ -224,7 +167,8 @@
 	import { t as translate, getLanguage } from "@/utils/lang";
 	import AppTabBar from "@/components/AppTabBar.vue";
 	import { getAuthProfile, mergeProfileIntoUser, resolveAvatarDisplayUrl } from "@/clientApi/authApi";
-	import { loadDigitalAgents, loadProjectGroups } from "@/utils/virtualTeamStore";
+	import { listMyUserAgents } from "@/clientApi/agentsApi";
+	import { loadProjectGroups } from "@/utils/virtualTeamStore";
 
 	export default {
 		components: { AppTabBar },
@@ -234,12 +178,12 @@
 				user: null,
 				statusBarPx: 20,
 				showAgentPopup: false,
-				showDailyReportPopup: false,
-				dailyReport: null,
+				remoteAgents: [],
 			};
 		},
 		computed: {
 			displayName() {
+				const _ = this.currentLanguage;
 				if (!this.loggedIn) return this.t('not_logged_in');
 				const u = this.user || {};
 				const nick = u.nickname != null ? String(u.nickname).trim() : "";
@@ -252,10 +196,12 @@
 				return u.name || this.t('my_account');
 			},
 			accountSubLine() {
+				const _ = this.currentLanguage;
 				if (!this.loggedIn) return this.t("account_sub_guest");
 				return this.t("account_sub_logged");
 			},
 			avatarChar() {
+				const _ = this.currentLanguage;
 				const n = this.displayName;
 				if (!this.loggedIn) return this.t("profile_avatar_guest");
 				return n && n.length ? n.slice(0, 1) : this.t("profile_avatar_guest");
@@ -265,10 +211,10 @@
 				return resolveAvatarDisplayUrl(this.user.avatarUrl);
 			},
 			agentList() {
-				return loadDigitalAgents();
+				return this.remoteAgents;
 			},
 			agentCount() {
-				return loadDigitalAgents().length;
+				return this.remoteAgents.length;
 			},
 			groupCount() {
 				return loadProjectGroups().length;
@@ -281,22 +227,27 @@
 		},
 		onShow() {
 			uni.hideTabBar({ animation: false });
+			this.currentLanguage = getLanguage();
 			try {
-				uni.setNavigationBarTitle({ title: translate("profile", getLanguage()) });
+				uni.setNavigationBarTitle({ title: translate("profile", this.currentLanguage) });
 			} catch (e) {
 				//
 			}
 			this.refreshAuth();
+			this.loadRemoteAgents();
 		},
 		methods: {
 			t(key, params = {}) {
-				return translate(key, getLanguage(), params);
+				return translate(key, this.currentLanguage, params);
 			},
 			refreshAuth() {
 				const token = getToken();
 				this.loggedIn = !!token;
 				this.user = getUserInfo();
-				if (!token) return;
+				if (!token) {
+					this.remoteAgents = [];
+					return;
+				}
 				getAuthProfile()
 					.then((profile) => {
 						if (!profile || typeof profile !== "object") return;
@@ -306,51 +257,35 @@
 					})
 					.catch(() => {});
 			},
+			async loadRemoteAgents() {
+				if (!this.loggedIn) {
+					this.remoteAgents = [];
+					return;
+				}
+				try {
+					const list = await listMyUserAgents();
+					const rows = Array.isArray(list) ? list : [];
+					this.remoteAgents = rows.map((a, idx) => ({
+						id: a.id || String(idx),
+						name: a.displayName || a.name || "未命名 Agent",
+						role: a.jobTitle || a.rolePosition || "-",
+						lastMsg: a.mainWork || "",
+						unread: 0,
+					}));
+				} catch {
+					this.remoteAgents = [];
+				}
+			},
 			showAgentList() {
-				this.showAgentPopup = true;
+				uni.navigateTo({
+					url: "/pages/team/my-team",
+					fail: () => {
+						uni.showToast({ title: "打开团队页失败，请重试", icon: "none" });
+					},
+				});
 			},
 			closeAgentPopup() {
 				this.showAgentPopup = false;
-			},
-			showDailyReport() {
-				this.generateDailyReport();
-				this.showDailyReportPopup = true;
-			},
-			closeDailyReportPopup() {
-				this.showDailyReportPopup = false;
-			},
-			generateDailyReport() {
-				const today = new Date();
-				const lang = getLanguage();
-				const y = today.getFullYear();
-				const m = today.getMonth() + 1;
-				const d = today.getDate();
-				const dateStr = translate("profile_report_date", lang, { y, m, d });
-				const agents = loadDigitalAgents();
-				const groups = loadProjectGroups();
-				try {
-					this.dailyReport = {
-						date: dateStr,
-						agentCount: agents.length,
-						groupCount: groups.length,
-						agentList: agents.map(a => ({
-							name: a.name,
-							role: a.role,
-							status: a.unread > 0 ? "busy" : "ready",
-						})),
-					};
-				} catch {
-					this.dailyReport = {
-						date: dateStr,
-						agentCount: agents.length,
-						groupCount: groups.length,
-						agentList: agents.map(a => ({
-							name: a.name,
-							role: a.role,
-							status: "ready",
-						})),
-					};
-				}
 			},
 			onAgentTap(agent) {
 				if (!agent || !agent.id) return;
@@ -394,7 +329,12 @@
 					switchMainTab(tabKey);
 					return;
 				}
-				uni.navigateTo({ url });
+				uni.navigateTo({
+					url,
+					fail: () => {
+						uni.showToast({ title: translate("load_failed_short", getLanguage()), icon: "none" });
+					},
+				});
 			},
 			goLogin() {
 				uni.navigateTo({ url: "/pages/login/login" });
@@ -428,8 +368,9 @@
 		display: flex;
 		flex-direction: column;
 		height: 100vh;
-		background-color: #f1f5f9;
+		background-color: #f2f2f7;
 		box-sizing: border-box;
+		font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Helvetica Neue', sans-serif;
 	}
 
 	.main-scroll {
@@ -442,8 +383,9 @@
 	}
 
 	.header-section {
-		background: linear-gradient(165deg, #f0f9ff 0%, #e0f2fe 38%, #bae6fd 100%);
-		padding: 28rpx 24rpx 32rpx;
+		background: #fff;
+		padding: 24rpx 20rpx 28rpx;
+		border-bottom: 1rpx solid #e8e8ed;
 	}
 
 	.profile-header {
@@ -474,29 +416,28 @@
 	}
 
 	.avatar-wrap {
-		width: 100rpx;
-		height: 100rpx;
+		width: 96rpx;
+		height: 96rpx;
 		border-radius: 50%;
-		background: linear-gradient(135deg, #3b82f6, #6366f1);
-		box-shadow: 0 6rpx 20rpx rgba(37, 99, 235, 0.22);
+		background: #e8ecf1;
 		flex-shrink: 0;
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		overflow: hidden;
-		border: 3rpx solid rgba(255, 255, 255, 0.75);
+		border: 1rpx solid #e0e0e6;
 	}
 
 	.avatar-img {
-		width: 100rpx;
-		height: 100rpx;
+		width: 96rpx;
+		height: 96rpx;
 		border-radius: 50%;
 	}
 
 	.avatar-text {
-		font-size: 40rpx;
-		font-weight: 700;
-		color: #fff;
+		font-size: 36rpx;
+		font-weight: 600;
+		color: #64748b;
 	}
 
 	.header-main {
@@ -513,9 +454,9 @@
 	}
 
 	.nick {
-		font-size: 36rpx;
-		font-weight: 700;
-		color: #0f172a;
+		font-size: 34rpx;
+		font-weight: 600;
+		color: #111;
 		line-height: 1.25;
 		flex: 1;
 		min-width: 0;
@@ -537,12 +478,12 @@
 
 	.ceo-badge-text {
 		font-size: 20rpx;
-		font-weight: 700;
-		color: #b45309;
-		background: rgba(251, 191, 36, 0.35);
+		font-weight: 600;
+		color: #64748b;
+		background: #f1f5f9;
 		padding: 4rpx 10rpx;
-		border-radius: 8rpx;
-		letter-spacing: 1rpx;
+		border-radius: 6rpx;
+		letter-spacing: 0;
 	}
 
 	.account-line {
@@ -557,330 +498,185 @@
 		display: flex;
 		flex-direction: row;
 		align-items: stretch;
-		gap: 14rpx;
-		margin-top: 28rpx;
-		padding: 0 2rpx;
+		margin-top: 24rpx;
+		padding: 0;
+		border-radius: 12rpx;
+		background: #f7f7f8;
+		border: 1rpx solid #ececf0;
+		overflow: hidden;
 	}
 
-	.stat-card {
+	.team-strip-half {
 		flex: 1;
 		min-width: 0;
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		padding: 22rpx 10rpx 20rpx;
-		box-sizing: border-box;
-		border-radius: 22rpx;
-		background: rgba(255, 255, 255, 0.88);
-		border: 1rpx solid rgba(255, 255, 255, 0.95);
-		box-shadow: 0 6rpx 22rpx rgba(15, 23, 42, 0.06), 0 1rpx 0 rgba(255, 255, 255, 0.8) inset;
-	}
-
-	.stat-card-hover {
-		background: rgba(255, 255, 255, 0.98);
-	}
-
-	.stat-card-top {
 		display: flex;
 		flex-direction: row;
 		align-items: center;
 		justify-content: center;
-		gap: 12rpx;
-		margin-bottom: 10rpx;
+		gap: 14rpx;
+		padding: 22rpx 16rpx;
+		box-sizing: border-box;
 	}
 
-	.stat-ico {
-		width: 56rpx;
-		height: 56rpx;
-		border-radius: 16rpx;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		margin-bottom: 0;
+	.team-strip-half-hover {
+		background: rgba(0, 0, 0, 0.04);
+	}
+
+	.team-strip-divider {
+		width: 1rpx;
+		align-self: stretch;
+		background: #e0e0e6;
 		flex-shrink: 0;
-	}
-
-	.stat-ico-emoji {
-		font-size: 30rpx;
-		line-height: 1;
-	}
-
-	.bg-agents {
-		background: linear-gradient(145deg, #dbeafe 0%, #bfdbfe 100%);
-	}
-
-	.bg-groups {
-		background: linear-gradient(145deg, #d1fae5 0%, #a7f3d0 100%);
+		margin: 16rpx 0;
 	}
 
 	.team-stat-num {
-		font-size: 34rpx;
-		font-weight: 800;
-		color: #0f172a;
+		font-size: 32rpx;
+		font-weight: 700;
+		color: #111;
 		line-height: 1;
 		letter-spacing: -0.5rpx;
+		flex-shrink: 0;
 	}
 
 	.team-stat-label {
-		font-size: 20rpx;
-		color: #64748b;
-		font-weight: 600;
-		text-align: center;
-		line-height: 1.35;
-		max-width: 100%;
-		padding: 0 4rpx;
-		overflow: hidden;
-		display: -webkit-box;
-		-webkit-box-orient: vertical;
-		-webkit-line-clamp: 2;
-		word-break: break-word;
-	}
-
-	.quick-actions {
-		display: flex;
-		flex-direction: column;
-		gap: 16rpx;
-		padding: 0 28rpx;
-		margin-top: 8rpx;
-	}
-
-	.quick-tile {
-		display: flex;
-		flex-direction: row;
-		align-items: center;
-		background: #fff;
-		border-radius: 22rpx;
-		padding: 24rpx 22rpx;
-		border: none;
-		box-shadow: 0 8rpx 26rpx rgba(15, 23, 42, 0.06);
-	}
-
-	.quick-tile-hover {
-		background: #f8fafc;
-	}
-
-	.quick-tile-ico {
-		width: 76rpx;
-		height: 76rpx;
-		border-radius: 20rpx;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		flex-shrink: 0;
-		margin-right: 22rpx;
-	}
-
-	.quick-ico-hire {
-		background: linear-gradient(145deg, #fff7ed 0%, #ffedd5 100%);
-	}
-
-	.quick-ico-group {
-		background: linear-gradient(145deg, #fdf2f8 0%, #fce7f3 100%);
-	}
-
-	.quick-tile-emoji {
-		font-size: 36rpx;
-		line-height: 1;
-	}
-
-	.quick-tile-texts {
-		flex: 1;
-		min-width: 0;
-		display: flex;
-		flex-direction: column;
-		gap: 6rpx;
-	}
-
-	.quick-tile-title {
-		font-size: 30rpx;
-		font-weight: 700;
-		color: #0f172a;
-		letter-spacing: 0.2rpx;
-	}
-
-	.quick-tile-sub {
 		font-size: 24rpx;
-		color: #94a3b8;
-		line-height: 1.35;
+		color: #64748b;
+		font-weight: 500;
+		line-height: 1.3;
+		max-width: 56%;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 
-	.quick-tile-arrow {
-		flex-shrink: 0;
-		font-size: 34rpx;
-		color: #cbd5e1;
-		font-weight: 300;
-		padding-left: 12rpx;
+	.menu-section {
+		padding: 16rpx 20rpx 0;
 	}
 
-	.group-spacer {
-		height: 20rpx;
-		background-color: #f1f5f9;
-	}
-
-	.cell-group {
-		display: flex;
-		flex-direction: column;
-		gap: 16rpx;
-		margin-left: 28rpx;
-		margin-right: 28rpx;
-		background: transparent;
-		border: none;
-		box-shadow: none;
-	}
-
-	.cell-group .cell {
+	.menu-card {
 		background: #fff;
-		border-radius: 22rpx;
-		border: none;
-		box-shadow: 0 8rpx 26rpx rgba(15, 23, 42, 0.06);
+		border-radius: 12rpx;
+		border: 1rpx solid #e8e8ed;
+		overflow: hidden;
+		margin-bottom: 12rpx;
 	}
 
-	.cell {
+	.menu-card-muted {
+		background: #fafafa;
+		border-color: #ececf0;
+	}
+
+	.menu-row {
 		display: flex;
 		flex-direction: row;
 		align-items: center;
-		min-height: 112rpx;
-		padding: 26rpx 28rpx;
+		min-height: 96rpx;
+		padding: 18rpx 20rpx;
 		box-sizing: border-box;
 	}
 
-	.cell:active {
-		background-color: #f8fafc;
+	.menu-row-hover {
+		background: #f7f7f8;
 	}
 
-	.cell-static:active {
-		background-color: #fff;
+	.menu-row-static {
+		min-height: 72rpx;
+		padding-bottom: 12rpx;
 	}
 
-	.cell-icon {
-		width: 72rpx;
-		height: 72rpx;
-		border-radius: 18rpx;
-		flex-shrink: 0;
+	.menu-row-icon {
+		width: 44rpx;
+		height: 44rpx;
+		border-radius: 10rpx;
+		background: #f2f2f7;
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		margin-right: 22rpx;
+		margin-right: 16rpx;
+		flex-shrink: 0;
 	}
 
-	.cell-glyph {
-		font-size: 36rpx;
-		color: #fff;
+	.menu-row-icon-mono {
+		background: #f2f2f7;
+	}
+
+	.menu-row-emoji {
+		font-size: 22rpx;
 		line-height: 1;
 	}
 
-	.cell-glyph-text {
+	.menu-row-ico {
 		font-size: 28rpx;
-		font-weight: 700;
-		color: #fff;
+		color: #64748b;
+		line-height: 1;
 	}
 
-	.cell-glyph-emoji {
-		font-size: 34rpx;
-		font-weight: 600;
-	}
-
-	.bg-add {
-		background: linear-gradient(145deg, #4f46e5, #4338ca);
-	}
-	.bg-account {
-		background: linear-gradient(145deg, #3b82f6, #2563eb);
-	}
-	.bg-reg {
-		background: linear-gradient(145deg, #8b5cf6, #7c3aed);
-	}
-	.bg-model {
-		background: linear-gradient(145deg, #0d9488, #14b8a6);
-	}
-
-	.bg-pwd {
-		background: linear-gradient(145deg, #64748b, #475569);
-	}
-	.bg-settings {
-		background: linear-gradient(145deg, #0ea5e9, #0284c7);
-	}
-	.bg-report {
-		background: linear-gradient(145deg, #2563eb, #1d4ed8);
-	}
-
-	.cell-text-wrap {
+	.menu-row-body {
 		flex: 1;
 		min-width: 0;
 		display: flex;
 		flex-direction: column;
-		gap: 6rpx;
-		padding-right: 8rpx;
+		gap: 4rpx;
 	}
 
-	.cell-text-wrap .cell-title {
-		flex: none;
-		font-weight: 600;
+	.menu-row-title {
+		font-size: 30rpx;
+		font-weight: 500;
+		color: #111;
+		line-height: 1.3;
 	}
 
-	.cell-text-wrap .cell-sub {
-		margin-right: 0;
+	.menu-row-title-only {
+		flex: 1;
+	}
+
+	.menu-row-sub {
+		font-size: 24rpx;
+		color: #8e8e93;
 		line-height: 1.35;
 	}
 
-	.cell-title {
-		flex: 1;
-		font-size: 31rpx;
-		color: #0f172a;
-		font-weight: 600;
-		letter-spacing: 0.2rpx;
-	}
-
-	.cell-sub {
-		font-size: 24rpx;
-		color: #94a3b8;
-		margin-right: 16rpx;
-	}
-
-	.cell-extra {
-		font-size: 28rpx;
-		color: #64748b;
-		margin-right: 8rpx;
-	}
-
-	.cell-arrow {
+	.menu-row-chev {
 		flex-shrink: 0;
-		font-size: 36rpx;
-		color: #cbd5e1;
+		font-size: 32rpx;
+		color: #c7c7cc;
 		font-weight: 300;
-		line-height: 1;
-		padding-left: 12rpx;
+		padding-left: 8rpx;
 	}
 
-	.cell-about-row {
-		border-bottom: none;
-	}
-
-	.about-desc {
-		padding: 24rpx 28rpx 32rpx;
-		background: #fafbfc;
-		border-radius: 22rpx;
-		border: none;
-		box-shadow: 0 8rpx 26rpx rgba(15, 23, 42, 0.06);
-	}
-
-	.about-line {
-		display: block;
+	.menu-row-extra {
 		font-size: 26rpx;
-		color: #64748b;
-		line-height: 1.5;
+		color: #8e8e93;
 	}
 
-	.about-line.sub {
-		margin-top: 8rpx;
+	.menu-divider {
+		height: 1rpx;
+		background: #ececf0;
+		margin-left: 80rpx;
+	}
+
+	.about-foot {
+		padding: 0 20rpx 20rpx;
+	}
+
+	.about-foot-line {
+		display: block;
 		font-size: 24rpx;
-		color: #94a3b8;
+		color: #8e8e93;
+		line-height: 1.45;
+	}
+
+	.about-foot-line.sub {
+		margin-top: 6rpx;
+		font-size: 22rpx;
+		color: #aeaeb2;
 	}
 
 	.scroll-pad {
 		height: 200rpx;
 		padding-bottom: env(safe-area-inset-bottom);
-		background-color: #f1f5f9;
+		background-color: #f2f2f7;
 	}
 
 	.mask {
@@ -1071,141 +867,6 @@
 		border-top: 1rpx solid #e2e8f0;
 	}
 
-	.report-popup {
-		width: 100%;
-		max-height: 75vh;
-		background: #fff;
-		border-radius: 24rpx 24rpx 0 0;
-		display: flex;
-		flex-direction: column;
-		overflow: hidden;
-	}
-
-	.report-list {
-		flex: 1;
-		height: 0;
-		min-height: 500rpx;
-	}
-
-	.report-content {
-		padding: 24rpx 28rpx;
-	}
-
-	.report-summary {
-		display: flex;
-		flex-direction: row;
-		gap: 16rpx;
-	}
-
-	.summary-item {
-		flex: 1;
-		background: linear-gradient(135deg, #eff6ff, #dbeafe);
-		border-radius: 16rpx;
-		padding: 20rpx 12rpx;
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		gap: 8rpx;
-	}
-
-	.summary-num {
-		font-size: 40rpx;
-		font-weight: 800;
-		color: #1e40af;
-	}
-
-	.summary-label {
-		font-size: 22rpx;
-		color: #64748b;
-	}
-
-	.report-divider {
-		height: 1rpx;
-		background: #e2e8f0;
-		margin: 24rpx 0;
-	}
-
-	.report-section {
-		display: flex;
-		flex-direction: column;
-		gap: 16rpx;
-	}
-
-	.section-title {
-		font-size: 28rpx;
-		font-weight: 700;
-		color: #1e293b;
-	}
-
-	.report-empty {
-		padding: 40rpx 0;
-		text-align: center;
-	}
-
-	.report-empty-text {
-		font-size: 26rpx;
-		color: #94a3b8;
-	}
-
-	.report-agent {
-		display: flex;
-		flex-direction: row;
-		align-items: center;
-		padding: 16rpx 0;
-		border-bottom: 1rpx solid #f1f5f9;
-	}
-
-	.report-agent:last-child {
-		border-bottom: none;
-	}
-
-	.report-agent-avatar {
-		width: 64rpx;
-		height: 64rpx;
-		border-radius: 12rpx;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		margin-right: 16rpx;
-	}
-
-	.report-agent-text {
-		font-size: 28rpx;
-		font-weight: 700;
-		color: #fff;
-	}
-
-	.report-agent-info {
-		flex: 1;
-		display: flex;
-		flex-direction: column;
-		gap: 4rpx;
-	}
-
-	.report-agent-name {
-		font-size: 28rpx;
-		font-weight: 600;
-		color: #0f172a;
-	}
-
-	.report-agent-role {
-		font-size: 22rpx;
-		color: #64748b;
-	}
-
-	.report-agent-status {
-		font-size: 22rpx;
-		color: #07c160;
-		background: #dcfce7;
-		padding: 6rpx 16rpx;
-		border-radius: 8rpx;
-	}
-
-	.report-agent-status.busy {
-		color: #f59e0b;
-		background: #fef3c7;
-	}
-
 	.popup-btn {
 		width: 100%;
 		height: 88rpx;
@@ -1229,7 +890,8 @@
 	}
 
 	[data-theme="dark"] .header-section {
-		background: linear-gradient(165deg, #1e293b 0%, #0f172a 48%, #020617 100%) !important;
+		background: var(--bg-secondary) !important;
+		border-bottom-color: var(--border-color) !important;
 	}
 
 	[data-theme="dark"] .header-arrow {
@@ -1245,23 +907,21 @@
 	}
 
 	[data-theme="dark"] .ceo-badge-text {
-		color: #fbbf24 !important;
-		background: rgba(251, 191, 36, 0.12) !important;
+		color: var(--text-secondary) !important;
+		background: var(--bg-tertiary) !important;
 	}
 
-	[data-theme="dark"] .stat-card {
-		background: rgba(30, 41, 59, 0.92) !important;
+	[data-theme="dark"] .team-overview {
+		background: var(--bg-tertiary) !important;
 		border: 1rpx solid var(--border-color) !important;
-		box-shadow: var(--card-shadow) !important;
 	}
 
-	[data-theme="dark"] .stat-card-hover {
+	[data-theme="dark"] .team-strip-half-hover {
 		background: var(--cell-hover) !important;
 	}
 
-	[data-theme="dark"] .bg-agents,
-	[data-theme="dark"] .bg-groups {
-		background: var(--bg-tertiary) !important;
+	[data-theme="dark"] .team-strip-divider {
+		background: var(--border-color) !important;
 	}
 
 	[data-theme="dark"] .team-stat-num {
@@ -1272,78 +932,50 @@
 		color: var(--text-secondary) !important;
 	}
 
-	[data-theme="dark"] .group-spacer {
-		background-color: var(--bg-primary) !important;
-	}
-
-	[data-theme="dark"] .quick-tile {
+	[data-theme="dark"] .menu-card {
 		background: var(--bg-secondary) !important;
-		box-shadow: var(--card-shadow) !important;
+		border-color: var(--border-color) !important;
 	}
 
-	[data-theme="dark"] .quick-tile-hover {
-		background: var(--cell-hover) !important;
-	}
-
-	[data-theme="dark"] .quick-ico-hire {
+	[data-theme="dark"] .menu-card-muted {
 		background: var(--bg-tertiary) !important;
 	}
 
-	[data-theme="dark"] .quick-ico-group {
-		background: linear-gradient(145deg, #38bdf8, #2563eb) !important;
+	[data-theme="dark"] .menu-row-hover {
+		background: var(--cell-hover) !important;
 	}
 
-	[data-theme="dark"] .quick-tile-title {
+	[data-theme="dark"] .menu-row-title {
 		color: var(--text-primary) !important;
 	}
 
-	[data-theme="dark"] .quick-tile-sub {
+	[data-theme="dark"] .menu-row-sub {
 		color: var(--text-secondary) !important;
 	}
 
-	[data-theme="dark"] .quick-tile-arrow {
+	[data-theme="dark"] .menu-row-chev,
+	[data-theme="dark"] .menu-row-extra {
 		color: var(--text-tertiary) !important;
 	}
 
-	[data-theme="dark"] .cell-group .cell {
-		background: var(--bg-secondary) !important;
-		box-shadow: var(--card-shadow) !important;
+	[data-theme="dark"] .menu-divider {
+		background: var(--border-color) !important;
 	}
 
-	[data-theme="dark"] .cell:active {
-		background-color: var(--cell-hover) !important;
+	[data-theme="dark"] .menu-row-icon,
+	[data-theme="dark"] .menu-row-icon-mono {
+		background: var(--bg-tertiary) !important;
 	}
 
-	[data-theme="dark"] .cell-static:active {
-		background-color: var(--bg-secondary) !important;
-	}
-
-	[data-theme="dark"] .cell-title {
-		color: var(--text-primary) !important;
-	}
-
-	[data-theme="dark"] .cell-sub {
+	[data-theme="dark"] .menu-row-ico {
 		color: var(--text-secondary) !important;
 	}
 
-	[data-theme="dark"] .cell-extra {
+	[data-theme="dark"] .about-foot-line {
 		color: var(--text-secondary) !important;
 	}
 
-	[data-theme="dark"] .cell-arrow {
-		color: var(--text-tertiary) !important;
-	}
-
-	[data-theme="dark"] .about-desc {
-		background: var(--bg-secondary) !important;
-		box-shadow: var(--card-shadow) !important;
-	}
-
-	[data-theme="dark"] .about-line {
-		color: var(--text-secondary) !important;
-	}
-
-	[data-theme="dark"] .about-line.sub {
+	[data-theme="dark"] .about-foot-line.sub {
 		color: var(--text-tertiary) !important;
 	}
 
@@ -1351,8 +983,7 @@
 		background-color: var(--bg-primary) !important;
 	}
 
-	[data-theme="dark"] .agent-popup,
-	[data-theme="dark"] .report-popup {
+	[data-theme="dark"] .agent-popup {
 		background: var(--bg-secondary) !important;
 	}
 
@@ -1404,42 +1035,6 @@
 
 	[data-theme="dark"] .popup-footer {
 		border-top-color: var(--border-color) !important;
-	}
-
-	[data-theme="dark"] .summary-item {
-		background: rgba(37, 99, 235, 0.14) !important;
-	}
-
-	[data-theme="dark"] .summary-num {
-		color: #93c5fd !important;
-	}
-
-	[data-theme="dark"] .summary-label {
-		color: var(--text-secondary) !important;
-	}
-
-	[data-theme="dark"] .report-divider {
-		background: var(--border-color) !important;
-	}
-
-	[data-theme="dark"] .section-title {
-		color: var(--text-primary) !important;
-	}
-
-	[data-theme="dark"] .report-empty-text {
-		color: var(--text-secondary) !important;
-	}
-
-	[data-theme="dark"] .report-agent {
-		border-bottom-color: var(--border-color) !important;
-	}
-
-	[data-theme="dark"] .report-agent-name {
-		color: var(--text-primary) !important;
-	}
-
-	[data-theme="dark"] .report-agent-role {
-		color: var(--text-secondary) !important;
 	}
 </style>
 

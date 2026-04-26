@@ -5,9 +5,19 @@
 		<view class="scroll-clip">
 		<scroll-view scroll-y class="scroll" refresher-enabled :refresher-triggered="refreshing" @refresherrefresh="onRefresh">
 			<view class="top-actions">
-				<text class="hero-new" @tap.stop="openCreate">＋ 创建项目</text>
+				<text class="hero-new" @tap.stop="openCreate">＋ {{ t('create_project') }}</text>
 				<text class="hero-link" @tap.stop="goAdd">{{ t('go_assign_task') }}</text>
 			</view>
+			<scroll-view v-if="workflowNavList.length" scroll-x class="project-strip" show-scrollbar="false">
+				<view
+					v-for="w in workflowNavList"
+					:key="workflowKey(w)"
+					class="project-chip"
+					@click="openWorkbench(w)"
+				>
+					<text class="project-chip-t">{{ workflowTitle(w) }}</text>
+				</view>
+			</scroll-view>
 
 			<view v-if="loading" class="loading-row">
 				<view class="loading-dot"></view>
@@ -16,9 +26,9 @@
 
 			<view v-else-if="workflows.length === 0" class="empty">
 				<text class="empty-emoji">📂</text>
-				<text class="empty-title">还没有项目</text>
-				<text class="empty-desc">点右上角「创建项目」，或下面按钮开始。</text>
-				<view class="empty-cta" @tap="openCreate">＋ 创建项目</view>
+				<text class="empty-title">{{ t('no_projects_yet') }}</text>
+				<text class="empty-desc">{{ t('no_projects_desc') }}</text>
+				<view class="empty-cta" @tap="openCreate">＋ {{ t('create_project') }}</view>
 			</view>
 
 			<view
@@ -34,6 +44,7 @@
 						<text v-if="workflowDesc(w)" class="wf-desc">{{ workflowDesc(w) }}</text>
 						<text class="wf-id">{{ workflowKey(w) }}</text>
 					</view>
+					<text class="wf-del" @click.stop="confirmDeleteWorkflow(w)">删除</text>
 					<text class="wf-go">›</text>
 				</view>
 			</view>
@@ -43,42 +54,59 @@
 		</view>
 	</view>
 
-		<!-- 弹窗打开时隐藏底栏，避免与自定义 Tab 层叠导致按钮被挡（各端表现不一致） -->
 		<AppTabBar v-if="!showCreate" current="project" />
-
-		<view v-if="showCreate" class="mask" @click.self="showCreate = false">
-			<view class="dialog" @click.stop>
-				<text class="dialog-title">{{ t('add_new_project_title') }}</text>
-				<input
-					class="dialog-input"
-					v-model="newTitle"
-					:placeholder="t('add_new_project_name_ph')"
-					placeholder-class="ph"
-					confirm-type="next"
-				/>
-				<input
-					class="dialog-input"
-					v-model="newDesc"
-					:placeholder="t('add_new_project_desc_ph')"
-					placeholder-class="ph"
-					confirm-type="done"
-					@confirm="submitCreate"
-				/>
-				<view class="dialog-actions">
-					<view class="dialog-btn dialog-btn-ghost" @tap.stop="showCreate = false">
-						<text class="dialog-btn-t">{{ t('cancel') }}</text>
-					</view>
+		<view v-else class="create-page">
+			<text class="create-title">{{ t('add_new_project_title') }}</text>
+			<input
+				class="create-input"
+				v-model="newTitle"
+				:placeholder="t('add_new_project_name_ph')"
+				placeholder-class="ph"
+				confirm-type="next"
+			/>
+			<input
+				class="create-input"
+				v-model="newDesc"
+				:placeholder="t('add_new_project_desc_ph')"
+				placeholder-class="ph"
+				confirm-type="next"
+			/>
+			<textarea
+				class="create-input create-ta"
+				v-model="newGoal"
+				:placeholder="t('add_new_project_goal_ph')"
+				placeholder-class="ph"
+			/>
+			<view class="create-agent-wrap">
+				<text class="create-agent-title">{{ t('project_choose_agents') }}</text>
+				<view v-if="loadingAgents" class="agent-empty">{{ t('loading') }}…</view>
+				<view v-else-if="!agentOptions.length" class="agent-empty">{{ t('group_invite_none_available') }}</view>
+				<scroll-view v-else scroll-y class="create-agent-list">
 					<view
-						class="dialog-btn dialog-btn-primary"
-						:class="{
-							'is-loading': creating,
-							'is-disabled': !canSubmitCreate && !creating,
-						}"
-						@tap.stop="submitCreate"
+						v-for="a in agentOptions"
+						:key="a.id"
+						class="create-agent-row"
+						@click="toggleAgent(a.id)"
 					>
-						<text v-if="creating" class="dialog-btn-t">{{ t('loading') }}…</text>
-						<text v-else class="dialog-btn-t">{{ t('create') }}</text>
+						<view class="create-radio" :class="{ on: selectedAgentIds.includes(a.id) }" />
+						<view class="create-agent-main">
+							<text class="create-agent-name">{{ a.name }}</text>
+							<text class="create-agent-meta">{{ a.department || t('vt_member_default') }} · {{ a.role || t('vt_member_default') }}</text>
+						</view>
+						<text class="create-agent-model">{{ modelShort(a.id) }}</text>
 					</view>
+				</scroll-view>
+			</view>
+			<view class="create-actions">
+				<view class="create-btn create-btn-cancel" @tap.stop="showCreate = false">
+					<text class="create-btn-t">{{ t('cancel') }}</text>
+				</view>
+				<view
+					class="create-btn create-btn-ok"
+					:class="{ 'is-disabled': !canSubmitCreate && !creating }"
+					@tap.stop="submitCreate"
+				>
+					<text class="create-btn-t">{{ creating ? `${t('loading')}…` : t('create') }}</text>
 				</view>
 			</view>
 		</view>
@@ -86,52 +114,132 @@
 </template>
 
 <script>
-	import * as workflowApi from "@/clientApi/workflowApi";
+	import * as workflowApi from "@/utils/localWorkflowStore";
 	import { pickId, getApiErrorMessage } from "@/utils/apiHelpers";
 	import { switchMainTab } from "@/utils/tabNav";
 	import { t, getLanguage } from "@/utils/lang";
 	import AppTabBar from "@/components/AppTabBar.vue";
+	import { listMyUserAgents, listUserAgents } from "@/clientApi/agentsApi";
+	import { getAgentModelOrDefault } from "@/utils/agentModelMap";
+	const STORAGE_WF = "lastWorkflowId";
+	const STORAGE_WF_TITLE = "lastWorkflowTitle";
+	const STORAGE_WF_LIST = "cachedWorkflowList";
 
 	export default {
 		components: { AppTabBar },
 		data() {
 			return {
 				workflows: [],
+				workflowNavList: [],
 				loading: true,
 				refreshing: false,
 				showCreate: false,
 				newTitle: "",
 				newDesc: "",
+				newGoal: "",
 				creating: false,
+				loadingAgents: false,
+				agentOptions: [],
+				selectedAgentIds: [],
+				currentLanguage: getLanguage(),
 			};
 		},
 		computed: {
 			/** 仅项目名必填 */
 			canSubmitCreate() {
-				return (this.newTitle || "").trim().length > 0;
+				return (
+					(this.newTitle || "").trim().length > 0 &&
+					(this.newGoal || "").trim().length > 0 &&
+					this.selectedAgentIds.length > 0
+				);
 			},
 		},
 		onLoad() {
 			uni.hideTabBar({ animation: false });
+			try {
+				uni.$on("openProjectCreateFromPlus", this.handleOpenCreateFromPlus);
+			} catch {
+				//
+			}
+		},
+		onUnload() {
+			try {
+				uni.$off("openProjectCreateFromPlus", this.handleOpenCreateFromPlus);
+			} catch {
+				//
+			}
 		},
 		onShow() {
 			uni.hideTabBar({ animation: false });
+			this.currentLanguage = getLanguage();
 			try {
 				uni.setNavigationBarTitle({ title: this.t("project") });
 			} catch (e) {
 				//
 			}
+			try {
+				const cached = uni.getStorageSync(STORAGE_WF_LIST);
+				if (Array.isArray(cached) && cached.length) {
+					this.workflowNavList = cached;
+				}
+			} catch {
+				//
+			}
 			this.loadList();
+			this.loadAgentOptions();
+			try {
+				if (uni.getStorageSync("open_project_create_from_plus") === "1") {
+					uni.removeStorageSync("open_project_create_from_plus");
+					this.openCreate();
+				}
+			} catch {
+				//
+			}
 		},
 		methods: {
+			handleOpenCreateFromPlus() {
+				this.openCreate();
+			},
 			t(key, params = {}) {
-				return t(key, getLanguage(), params);
+				return t(key, this.currentLanguage, params);
+			},
+			async loadAgentOptions() {
+				this.loadingAgents = true;
+				try {
+					let rows = await listMyUserAgents();
+					if (!Array.isArray(rows) || rows.length === 0) rows = await listUserAgents();
+					this.agentOptions = (Array.isArray(rows) ? rows : [])
+						.map((r) => ({
+							id: String(r?.id || r?.agentId || "").trim(),
+							name: String(r?.displayName || r?.name || "").trim(),
+							role: String(r?.jobTitle || r?.rolePosition || "").trim(),
+							department: String(r?.department || "").trim(),
+							avatar: String(r?.avatar || r?.avatarUrl || r?.headImg || r?.headimg || "").trim(),
+						}))
+						.filter((r) => r.id && r.name);
+					this.selectedAgentIds = this.selectedAgentIds.filter((id) => this.agentOptions.some((a) => a.id === id));
+				} catch {
+					this.agentOptions = [];
+				} finally {
+					this.loadingAgents = false;
+				}
+			},
+			toggleAgent(id) {
+				const i = this.selectedAgentIds.indexOf(id);
+				if (i >= 0) this.selectedAgentIds.splice(i, 1);
+				else this.selectedAgentIds.push(id);
+			},
+			modelShort(agentId) {
+				const s = String(getAgentModelOrDefault(agentId) || "").trim();
+				if (!s) return "默认模型";
+				return s.length > 20 ? `${s.slice(0, 18)}…` : s;
 			},
 			pickId,
 			workflowKey(w) {
 				return pickId(w) || w?.workflowId || "";
 			},
 			workflowTitle(w) {
+				const _ = this.currentLanguage;
 				return w?.title || w?.name || this.t("unnamed_workflow");
 			},
 			workflowDesc(w) {
@@ -141,9 +249,16 @@
 				this.loading = true;
 				try {
 					const list = await workflowApi.listWorkflows();
-					this.workflows = Array.isArray(list) ? list : [];
+					const arr = Array.isArray(list) ? list : [];
+					this.workflows = arr;
+					this.workflowNavList = arr;
+					try {
+						uni.setStorageSync(STORAGE_WF_LIST, arr);
+					} catch {
+						//
+					}
 				} catch {
-					this.workflows = [];
+					this.workflows = Array.isArray(this.workflowNavList) ? this.workflowNavList : [];
 				} finally {
 					this.loading = false;
 				}
@@ -160,13 +275,43 @@
 					return;
 				}
 				try {
-					uni.setStorageSync("lastWorkflowId", id);
-					uni.setStorageSync("lastWorkflowTitle", this.workflowTitle(w));
+					uni.setStorageSync(STORAGE_WF, id);
+					uni.setStorageSync(STORAGE_WF_TITLE, this.workflowTitle(w));
 				} catch {
 					//
 				}
 				uni.navigateTo({
 					url: `/pages/workflow/workbench?id=${encodeURIComponent(id)}`,
+				});
+			},
+			confirmDeleteWorkflow(w) {
+				const id = this.workflowKey(w);
+				if (!id) return;
+				uni.showModal({
+					title: "删除项目",
+					content: `确认删除「${this.workflowTitle(w)}」？删除后不可恢复。`,
+					confirmColor: "#dc2626",
+					success: async (res) => {
+						if (!res.confirm) return;
+						try {
+							await workflowApi.deleteWorkflow(id);
+							this.workflows = (this.workflows || []).filter((x) => this.workflowKey(x) !== id);
+							this.workflowNavList = (this.workflowNavList || []).filter((x) => this.workflowKey(x) !== id);
+							try {
+								uni.setStorageSync(STORAGE_WF_LIST, this.workflowNavList);
+								if (uni.getStorageSync(STORAGE_WF) === id) {
+									uni.removeStorageSync(STORAGE_WF);
+									uni.removeStorageSync(STORAGE_WF_TITLE);
+								}
+							} catch {
+								//
+							}
+							uni.showToast({ title: "已删除", icon: "success" });
+						} catch (err) {
+							const detail = getApiErrorMessage(err);
+							uni.showToast({ title: detail || "删除失败", icon: "none" });
+						}
+					},
 				});
 			},
 			goAdd() {
@@ -175,6 +320,7 @@
 			openCreate() {
 				uni.hideTabBar({ animation: false });
 				this.showCreate = true;
+				if (!this.agentOptions.length) this.loadAgentOptions();
 			},
 			mergeCreatedIfMissing(created, title, id) {
 				if (!id || this.workflows.some((w) => this.workflowKey(w) === id)) return;
@@ -190,19 +336,45 @@
 				if (this.creating) return;
 				const title = (this.newTitle || "").trim();
 				const desc = (this.newDesc || "").trim();
+				const goal = (this.newGoal || "").trim();
 				if (!title) {
 					uni.showToast({ title: this.t("please_enter_project_name"), icon: "none" });
 					return;
 				}
+				if (!goal) {
+					uni.showToast({ title: this.t("please_enter_project_goal"), icon: "none" });
+					return;
+				}
+				if (!this.selectedAgentIds.length) {
+					uni.showToast({ title: this.t("project_choose_agent_first"), icon: "none" });
+					return;
+				}
 				this.creating = true;
 				try {
+					const agents = this.agentOptions
+						.filter((a) => this.selectedAgentIds.includes(a.id))
+						.map((a) => ({ ...a, model: getAgentModelOrDefault(a.id) }));
 					const created = await workflowApi.createWorkflow(
-						desc ? { name: title, description: desc } : { name: title }
+						{ name: title, description: desc, goal, agents }
 					);
 					const id = pickId(created) || (created && created.workflowId) || "";
+					if (id) {
+						const brief = desc ? `${goal}\n补充说明：${desc}` : goal;
+						try {
+							await workflowApi.aiAuto(id, {
+								brief,
+								title,
+								maxTasks: Math.max(4, Math.min(10, agents.length * 2)),
+							});
+						} catch (e) {
+							uni.showToast({ title: getApiErrorMessage(e) || "自动分配失败，可在项目内补充需求后再次分配", icon: "none", duration: 2600 });
+						}
+					}
 					this.showCreate = false;
 					this.newTitle = "";
 					this.newDesc = "";
+					this.newGoal = "";
+					this.selectedAgentIds = [];
 					uni.showToast({ title: this.t("created"), icon: "success" });
 					await this.loadList();
 					if (id) {
@@ -265,6 +437,33 @@
 		flex-wrap: wrap;
 		gap: 16rpx;
 		margin-bottom: 20rpx;
+	}
+
+	.project-strip {
+		white-space: nowrap;
+		margin-bottom: 16rpx;
+	}
+
+	.project-chip {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		height: 62rpx;
+		padding: 0 20rpx;
+		margin-right: 12rpx;
+		border-radius: 999rpx;
+		background: #ffffff;
+		border: 1rpx solid #dbe3ef;
+	}
+
+	.project-chip-t {
+		max-width: 260rpx;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		font-size: 24rpx;
+		font-weight: 600;
+		color: #334155;
 	}
 
 	.hero-new {
@@ -472,114 +671,187 @@
 		padding-left: 8rpx;
 	}
 
+	.wf-del {
+		align-self: center;
+		font-size: 22rpx;
+		color: #dc2626;
+		padding: 8rpx 10rpx;
+		border-radius: 10rpx;
+		background: #fef2f2;
+		margin-right: 6rpx;
+	}
+
 	.bottom-spacer {
 		height: 40rpx;
 	}
 
-	.mask {
+	.create-page {
 		position: fixed;
 		left: 0;
 		right: 0;
 		top: 0;
 		bottom: 0;
-		background: rgba(15, 23, 42, 0.38);
 		z-index: 100000;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		padding: 28rpx;
-		padding-bottom: calc(28rpx + env(safe-area-inset-bottom));
+		background: #f2f4f8;
+		padding: 24rpx;
+		padding-top: calc(24rpx + env(safe-area-inset-top));
+		padding-bottom: calc(120rpx + env(safe-area-inset-bottom));
 		box-sizing: border-box;
-		isolation: isolate;
-	}
-
-	.dialog {
-		position: relative;
-		z-index: 1;
-		width: 100%;
-		max-width: 680rpx;
-		max-height: calc(85vh - env(safe-area-inset-bottom));
 		overflow-y: auto;
-		background: #fff !important;
-		background-color: #fff !important;
-		opacity: 1;
-		border-radius: 24rpx;
-		padding: 32rpx;
-		box-sizing: border-box;
-		box-shadow: 0 24rpx 80rpx rgba(15, 23, 42, 0.18);
-		transform: translateZ(0);
-		-webkit-transform: translateZ(0);
 	}
 
-	.dialog-title {
-		font-size: 34rpx;
+	.create-title {
+		font-size: 40rpx;
 		font-weight: 800;
 		color: #0f172a;
-		margin-bottom: 24rpx;
+		margin-bottom: 20rpx;
 	}
 
-	.dialog-input {
+	.create-input {
 		width: 100%;
-		height: 84rpx;
-		border: 1rpx solid #e2e8f0;
-		border-radius: 16rpx;
-		padding: 0 22rpx;
+		height: 96rpx;
+		border: 1rpx solid #dde3ec;
+		border-radius: 20rpx;
+		padding: 0 24rpx;
 		margin-bottom: 16rpx;
-		font-size: 28rpx;
+		font-size: 30rpx;
 		box-sizing: border-box;
-		background: #f8fafc;
+		background: #f9fbff;
+	}
+
+	.create-ta {
+		height: 180rpx;
+		padding-top: 20rpx;
+		padding-bottom: 20rpx;
 	}
 
 	.ph {
-		color: #aaa;
+		color: #a4aec0;
 	}
 
-	.dialog-actions {
+	.create-agent-wrap {
+		margin-top: 6rpx;
+	}
+
+	.create-agent-title {
+		display: block;
+		font-size: 24rpx;
+		font-weight: 700;
+		color: #334155;
+		margin-bottom: 8rpx;
+	}
+
+	.agent-empty {
+		font-size: 22rpx;
+		color: #94a3b8;
+		padding: 12rpx 0;
+	}
+
+	.create-agent-list {
+		max-height: 430rpx;
+		border: 1rpx solid #dde3ec;
+		border-radius: 18rpx;
+		background: #fff;
+	}
+
+	.create-agent-row {
 		display: flex;
-		justify-content: space-between;
-		gap: 16rpx;
-		margin-top: 12rpx;
+		align-items: center;
+		padding: 16rpx 14rpx;
+		border-bottom: 1rpx solid #edf1f6;
 	}
 
-	.dialog-btn {
+	.create-agent-row:last-child {
+		border-bottom: none;
+	}
+
+	.create-radio {
+		width: 32rpx;
+		height: 32rpx;
+		border-radius: 50%;
+		border: 2rpx solid #95a3ba;
+		margin-right: 10rpx;
+		box-sizing: border-box;
+	}
+
+	.create-radio.on {
+		border-color: #4f66f6;
+		background: radial-gradient(circle, #4f66f6 48%, transparent 50%);
+	}
+
+	.create-agent-main {
 		flex: 1;
-		height: 76rpx;
-		border-radius: 38rpx;
+		min-width: 0;
+	}
+
+	.create-agent-name {
+		display: block;
+		font-size: 34rpx;
+		color: #0f172a;
+		font-weight: 700;
+	}
+
+	.create-agent-meta {
+		display: block;
+		font-size: 24rpx;
+		color: #64748b;
+		margin-top: 4rpx;
+	}
+
+	.create-agent-model {
+		font-size: 24rpx;
+		color: #475569;
+		background: #e2e8f0;
+		padding: 4rpx 14rpx;
+		border-radius: 999rpx;
+		margin-left: 8rpx;
+	}
+
+	.create-actions {
+		position: fixed;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		padding: 18rpx 24rpx calc(18rpx + env(safe-area-inset-bottom));
+		background: #f2f4f8;
+		display: flex;
+		gap: 16rpx;
+		box-sizing: border-box;
+	}
+
+	.create-btn {
+		flex: 1;
+		height: 88rpx;
+		border-radius: 44rpx;
 		font-size: 28rpx;
 		font-weight: 700;
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		box-shadow: 0 8rpx 24rpx rgba(37, 99, 235, 0.15);
 	}
 
-	.dialog-btn-t {
+	.create-btn-t {
 		font-size: 28rpx;
 		font-weight: 700;
 	}
 
-	.dialog-btn-ghost {
-		background: #f1f5f9;
-		box-shadow: none;
+	.create-btn-cancel {
+		background: #e8ecf2;
 	}
 
-	.dialog-btn-ghost .dialog-btn-t {
+	.create-btn-cancel .create-btn-t {
 		color: #475569;
 	}
 
-	.dialog-btn-primary {
-		background: linear-gradient(135deg, #2563eb, #4f46e5);
+	.create-btn-ok {
+		background: linear-gradient(135deg, #5d8dfa, #9a95f5);
 	}
 
-	.dialog-btn-primary .dialog-btn-t {
+	.create-btn-ok .create-btn-t {
 		color: #fff;
 	}
 
-	.dialog-btn-primary.is-loading {
-		opacity: 0.8;
-	}
-
-	.dialog-btn-primary.is-disabled {
+	.create-btn-ok.is-disabled {
 		opacity: 0.45;
 		pointer-events: none;
 	}

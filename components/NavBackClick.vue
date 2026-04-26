@@ -1,6 +1,6 @@
 <template>
 	<view class="nav-back-root" hover-class="nav-back-hover" @click.stop="handleBack">
-		<text class="nav-back-arrow">←</text>
+		<text class="nav-back-arrow"><</text>
 		<text v-if="showLabel" class="nav-back-label">{{ backLabel }}</text>
 	</view>
 </template>
@@ -15,8 +15,8 @@
 		name: "NavBackClick",
 		props: {
 			delta: { type: Number, default: 1 },
-			/** 是否显示「返回」文字（与箭头一起更易辨认） */
-			showLabel: { type: Boolean, default: true },
+			/** 是否显示「返回」文字（默认仅显示箭头） */
+			showLabel: { type: Boolean, default: false },
 			/** 无栈可退时跳转的 tabBar 路径，如 /pages/message/message */
 			fallbackTab: { type: String, default: "/pages/message/message" },
 		},

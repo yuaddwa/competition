@@ -1,6 +1,5 @@
 /**
- * 底部五个主 Tab 统一用 switchTab，避免 redirectTo 整页替换带来的卡顿与闪烁。
- * 路径须与 pages.json 中 tabBar.list 一致。
+ * 底部主 Tab 用 switchTab；switchTab 路径须与 pages.json 中 tabBar.list 一致。
  */
 import { t, getLanguage } from "@/utils/lang";
 
