@@ -54,9 +54,19 @@
 				>
 					<image v-if="memberAvatar(m)" class="member-avatar-img" :src="memberAvatar(m)" mode="aspectFill" />
 					<view v-else class="member-avatar">{{ memberInitial(m) }}</view>
-					<text class="member-name">{{ m.name }}</text>
+					<view class="member-name-block">
+						<text class="member-name">{{ m.name }}</text>
+						<text v-if="m.badgeText" class="member-role-badge">{{ m.badgeText }}</text>
+					</view>
 					<text v-if="m.modelShort" class="member-model-pill">{{ m.modelShort }}</text>
 				</view>
+			</view>
+		</view>
+
+		<view v-if="mode === 'virtual' && kind === 'group'" class="group">
+			<view class="cell" hover-class="cell-hover" @click="goInviteMembers">
+				<text class="cell-main">{{ t('cs_group_invite_members') }}</text>
+				<text class="cell-arrow">›</text>
 			</view>
 		</view>
 
@@ -101,6 +111,7 @@
 	import {
 		clearVirtualChatMessages,
 		getProjectGroupById,
+		resolveGroupOwnerAgentId,
 		getDigitalAgentById,
 		touchGroupLastMsg,
 		touchAgentLastMsg,
@@ -158,6 +169,7 @@
 			},
 			groupMembers() {
 				const arr = Array.isArray(this.groupDetail?.members) ? this.groupDetail.members : [];
+				const ownerId = this.groupDetail ? resolveGroupOwnerAgentId(this.groupDetail) : "";
 				return arr.map((m, idx) => {
 					const id = String(m?.id || m?.agentId || "").trim();
 					const rowKey = id || `m_${idx}`;
@@ -168,6 +180,11 @@
 							? `${full.slice(0, 14)}…`
 							: full
 						: "";
+					const isOwner = id && ownerId && id === ownerId;
+					const isAdmin = !!m?.isAdmin;
+					let badgeText = "";
+					if (isOwner) badgeText = t("group_badge_owner", getLanguage());
+					else if (isAdmin) badgeText = t("group_badge_admin", getLanguage());
 					return {
 						rowKey,
 						id,
@@ -175,20 +192,23 @@
 						role: String(m?.role || m?.jobTitle || "").trim(),
 						avatar: String(m?.avatar || m?.avatarUrl || m?.headImg || m?.headimg || "").trim(),
 						modelShort,
+						badgeText,
 					};
 				});
 			},
 		},
 		onShow() {
 			this.loadDarkMode();
-			// 避免 HMR/页面恢复阶段触发内部空对象写入异常
+			if (this.mode === "virtual" && this.kind === "group" && this.id) {
+				this.groupDetail = getProjectGroupById(this.id);
+			}
 		},
 		onLoad(options) {
 			this.loadDarkMode();
 			this.mode = (options && options.mode) || "local";
 			if (this.mode === "virtual") {
-				this.kind = options.kind ? decodeURIComponent(options.kind) : "";
-				this.id = options.id ? decodeURIComponent(options.id) : "";
+				this.kind = options.kind ? String(decodeURIComponent(options.kind)).trim().toLowerCase() : "";
+				this.id = options.id ? String(decodeURIComponent(options.id)).trim() : "";
 				this.pageTitle = options.title ? decodeURIComponent(options.title) : t("chat_settings_title", getLanguage());
 				if (this.kind === "group" && this.id) {
 					this.groupDetail = getProjectGroupById(this.id);
@@ -282,6 +302,14 @@
 				}
 				return p.join("&");
 			},
+			goInviteMembers() {
+				const gid = String(this.id || "").trim();
+				if (!gid) return;
+				const gname = this.groupDetail ? encodeURIComponent(displayGroupName(this.groupDetail)) : "";
+				uni.navigateTo({
+					url: `/pages/team/group-add-members?groupId=${encodeURIComponent(gid)}&gname=${gname}`,
+				});
+			},
 			goSearch() {
 				uni.navigateTo({ url: `/pages/chat/chat-search?${this.buildSearchQuery()}` });
 			},
@@ -302,6 +330,24 @@
 				});
 			},
 			openGroupManage() {
+				const kindNorm = String(this.kind || "").trim().toLowerCase();
+				const resolvedGroupId = String(this.id || this.groupDetail?.id || "").trim();
+
+				if (kindNorm === "group") {
+					if (resolvedGroupId) {
+						const gname = this.groupDetail ? encodeURIComponent(displayGroupName(this.groupDetail)) : "";
+						uni.navigateTo({
+							url: `/pages/team/group-manage-members?groupId=${encodeURIComponent(resolvedGroupId)}&gname=${gname}`,
+							fail: () => {
+								uni.showToast({ title: this.t("load_failed_short"), icon: "none" });
+							},
+						});
+					} else {
+						uni.showToast({ title: this.t("load_failed_short"), icon: "none" });
+					}
+					return;
+				}
+
 				const groupMembers = Array.isArray(this.groupDetail?.members) ? this.groupDetail.members : [];
 				const source = groupMembers.length
 					? groupMembers.map((m) => ({ name: m.name, role: m.role }))
@@ -309,7 +355,7 @@
 				const lines = source
 					.map((a) => `· ${formatAgentNavTitle({ name: a.name, role: a.role })}`)
 					.join("\n");
-				if (this.kind === "hq") {
+				if (kindNorm === "hq") {
 					uni.showModal({
 						title: this.t("cs_group_manage"),
 						content: `${this.t("cs_hq_members_modal", { count: source.length })}\n${lines || this.t("cs_no_members")}`,
@@ -317,13 +363,9 @@
 					});
 					return;
 				}
-				const g = this.groupDetail;
-				const head = g
-					? `${this.t("cs_collab_members_named", { name: displayGroupName(g) })}\n`
-					: `${this.t("cs_collab_members_plain")}\n`;
 				uni.showModal({
 					title: this.t("cs_group_manage"),
-					content: `${head}${lines || this.t("cs_no_members")}`,
+					content: lines || this.t("cs_no_members"),
 					showCancel: false,
 				});
 			},
@@ -468,14 +510,29 @@
 		align-items: center;
 		justify-content: center;
 	}
-	.member-name {
+	.member-name-block {
 		margin-top: 8rpx;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		max-width: 100%;
+		gap: 4rpx;
+	}
+	.member-name {
 		max-width: 100%;
 		font-size: 22rpx;
 		color: #333;
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
+	}
+	.member-role-badge {
+		font-size: 18rpx;
+		color: #2563eb;
+		background: #eff6ff;
+		padding: 2rpx 8rpx;
+		border-radius: 6rpx;
+		line-height: 1.2;
 	}
 
 	.member-model-pill {
@@ -619,6 +676,12 @@
 	.chat-settings-page.theme-dark .member-name,
 	[data-theme="dark"] .chat-settings-page .member-name {
 		color: var(--text-primary) !important;
+	}
+
+	.chat-settings-page.theme-dark .member-role-badge,
+	[data-theme="dark"] .chat-settings-page .member-role-badge {
+		color: #93c5fd !important;
+		background: rgba(37, 99, 235, 0.2) !important;
 	}
 
 	.chat-settings-page.theme-dark .member-model-pill,

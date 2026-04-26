@@ -195,8 +195,6 @@
 	.dept-wrap,
 	.profile-header,
 	.ceo-header,
-	.team-overview,
-	.team-stat-card,
 	.menu-card,
 	.quick-action-item,
 	.hint-card,
@@ -823,7 +821,6 @@
 
 	[data-theme="dark"] .profile-header,
 	[data-theme="dark"] .team-overview,
-	[data-theme="dark"] .stat-card,
 	[data-theme="dark"] .menu-card,
 	[data-theme="dark"] .hint-card,
 	[data-theme="dark"] .ceo-header {

@@ -23,23 +23,14 @@
 				</view>
 
 				<view class="team-overview">
-					<view class="stat-card" hover-class="stat-card-hover" @tap="showAgentList">
-						<view class="stat-card-top">
-							<view class="stat-ico bg-agents">
-								<text class="stat-ico-emoji">🤖</text>
-							</view>
-							<text class="team-stat-num">{{ agentCount }}</text>
-						</view>
+					<view class="team-strip-half" hover-class="team-strip-half-hover" @tap="showAgentList">
 						<text class="team-stat-label">{{ t('digital_employee_fallback') }}</text>
+						<text class="team-stat-num">{{ agentCount }}</text>
 					</view>
-					<view class="stat-card" hover-class="stat-card-hover" @click="goCreateGroup">
-						<view class="stat-card-top">
-							<view class="stat-ico bg-groups">
-								<text class="stat-ico-emoji">👥</text>
-							</view>
-							<text class="team-stat-num">{{ groupCount }}</text>
-						</view>
+					<view class="team-strip-divider" />
+					<view class="team-strip-half" hover-class="team-strip-half-hover" @click="goCreateGroup">
 						<text class="team-stat-label">{{ t('project_group_fallback') }}</text>
+						<text class="team-stat-num">{{ groupCount }}</text>
 					</view>
 				</view>
 			</view>
@@ -66,7 +57,7 @@
 				</view>
 
 				<view class="menu-card">
-					<view class="menu-row" hover-class="menu-row-hover" @click="showDailyReport">
+					<view class="menu-row" hover-class="menu-row-hover" @click="goPage('/pages/worklog/worklog')">
 						<view class="menu-row-icon"><text class="menu-row-emoji">📊</text></view>
 						<view class="menu-row-body">
 							<text class="menu-row-title">{{ t('profile_daily_report') }}</text>
@@ -167,51 +158,6 @@
 				</view>
 			</view>
 		</view>
-
-		<view v-if="showDailyReportPopup" class="mask" @click="closeDailyReportPopup">
-			<view class="report-popup" @click.stop>
-				<view class="popup-header">
-					<text class="popup-title">{{ t('profile_daily_report') }}</text>
-					<view class="popup-header-right">
-						<text class="popup-count">{{ dailyReport ? dailyReport.date : '' }}</text>
-						<text class="popup-close" @click="closeDailyReportPopup">×</text>
-					</view>
-				</view>
-				<scroll-view scroll-y class="report-list">
-					<view v-if="dailyReport" class="report-content">
-						<view class="report-summary">
-							<view class="summary-item">
-								<text class="summary-num">{{ dailyReport.agentCount }}</text>
-								<text class="summary-label">{{ t('digital_employee_fallback') }}</text>
-							</view>
-							<view class="summary-item">
-								<text class="summary-num">{{ dailyReport.groupCount }}</text>
-								<text class="summary-label">{{ t('project_group_fallback') }}</text>
-							</view>
-						</view>
-						<view class="report-divider" />
-						<view class="report-section">
-							<text class="section-title">{{ t('profile_report_team_status') }}</text>
-							<view v-if="dailyReport.agentList.length === 0" class="report-empty">
-								<text class="report-empty-text">{{ t('profile_report_no_agents') }}</text>
-							</view>
-							<view v-for="agent in dailyReport.agentList" :key="agent.name" class="report-agent">
-								<view class="report-agent-avatar" :style="{ background: avatarColor(agent.name) }">
-									<text class="report-agent-text">{{ avatarLetter(agent.name) }}</text>
-								</view>
-								<view class="report-agent-info">
-									<text class="report-agent-name">{{ agent.name }}</text>
-									<text class="report-agent-role">{{ agent.role }}</text>
-								</view>
-								<view class="report-agent-status" :class="{ busy: agent.status === 'busy' }">
-									<text>{{ agent.status === 'busy' ? t('agent_status_busy') : t('agent_status_ready') }}</text>
-								</view>
-							</view>
-						</view>
-					</view>
-				</scroll-view>
-			</view>
-		</view>
 	</view>
 </template>
 
@@ -232,8 +178,6 @@
 				user: null,
 				statusBarPx: 20,
 				showAgentPopup: false,
-				showDailyReportPopup: false,
-				dailyReport: null,
 				remoteAgents: [],
 			};
 		},
@@ -344,44 +288,12 @@
 				this.showAgentPopup = false;
 			},
 			showDailyReport() {
-				this.generateDailyReport();
-				this.showDailyReportPopup = true;
-			},
-			closeDailyReportPopup() {
-				this.showDailyReportPopup = false;
-			},
-			generateDailyReport() {
-				const today = new Date();
-				const lang = getLanguage();
-				const y = today.getFullYear();
-				const m = today.getMonth() + 1;
-				const d = today.getDate();
-				const dateStr = translate("profile_report_date", lang, { y, m, d });
-				const agents = this.remoteAgents;
-				const groups = loadProjectGroups();
-				try {
-					this.dailyReport = {
-						date: dateStr,
-						agentCount: agents.length,
-						groupCount: groups.length,
-						agentList: agents.map(a => ({
-							name: a.name,
-							role: a.role,
-							status: a.unread > 0 ? "busy" : "ready",
-						})),
-					};
-				} catch {
-					this.dailyReport = {
-						date: dateStr,
-						agentCount: agents.length,
-						groupCount: groups.length,
-						agentList: agents.map(a => ({
-							name: a.name,
-							role: a.role,
-							status: "ready",
-						})),
-					};
-				}
+				uni.navigateTo({
+					url: "/pages/worklog/worklog",
+					fail: () => {
+						uni.showToast({ title: translate("load_failed_short", getLanguage()), icon: "none" });
+					},
+				});
 			},
 			onAgentTap(agent) {
 				if (!agent || !agent.id) return;
@@ -421,7 +333,12 @@
 					switchMainTab(tabKey);
 					return;
 				}
-				uni.navigateTo({ url });
+				uni.navigateTo({
+					url,
+					fail: () => {
+						uni.showToast({ title: translate("load_failed_short", getLanguage()), icon: "none" });
+					},
+				});
 			},
 			goLogin() {
 				uni.navigateTo({ url: "/pages/login/login" });
@@ -584,80 +501,56 @@
 		display: flex;
 		flex-direction: row;
 		align-items: stretch;
-		gap: 12rpx;
 		margin-top: 24rpx;
 		padding: 0;
+		border-radius: 12rpx;
+		background: #f7f7f8;
+		border: 1rpx solid #ececf0;
+		overflow: hidden;
 	}
 
-	.stat-card {
+	.team-strip-half {
 		flex: 1;
 		min-width: 0;
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		padding: 20rpx 10rpx 18rpx;
-		box-sizing: border-box;
-		border-radius: 12rpx;
-		background: #fafafa;
-		border: 1rpx solid #ececf0;
-	}
-
-	.stat-card-hover {
-		background: #f4f4f6;
-	}
-
-	.stat-card-top {
 		display: flex;
 		flex-direction: row;
 		align-items: center;
 		justify-content: center;
-		gap: 12rpx;
-		margin-bottom: 10rpx;
+		gap: 14rpx;
+		padding: 22rpx 16rpx;
+		box-sizing: border-box;
 	}
 
-	.stat-ico {
-		width: 56rpx;
-		height: 56rpx;
-		border-radius: 16rpx;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		margin-bottom: 0;
+	.team-strip-half-hover {
+		background: rgba(0, 0, 0, 0.04);
+	}
+
+	.team-strip-divider {
+		width: 1rpx;
+		align-self: stretch;
+		background: #e0e0e6;
 		flex-shrink: 0;
-	}
-
-	.stat-ico-emoji {
-		font-size: 30rpx;
-		line-height: 1;
-	}
-
-	.bg-agents,
-	.bg-groups {
-		background: #eef0f3;
+		margin: 16rpx 0;
 	}
 
 	.team-stat-num {
-		font-size: 30rpx;
-		font-weight: 600;
+		font-size: 32rpx;
+		font-weight: 700;
 		color: #111;
 		line-height: 1;
 		letter-spacing: -0.5rpx;
+		flex-shrink: 0;
 	}
 
 	.team-stat-label {
-		font-size: 22rpx;
-		color: #8e8e93;
+		font-size: 24rpx;
+		color: #64748b;
 		font-weight: 500;
-		text-align: center;
-		line-height: 1.35;
-		max-width: 100%;
-		padding: 0 4rpx;
+		line-height: 1.3;
+		max-width: 56%;
 		overflow: hidden;
-		display: -webkit-box;
-		-webkit-box-orient: vertical;
-		-webkit-line-clamp: 2;
-		word-break: break-word;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 
 	.menu-section {
@@ -977,141 +870,6 @@
 		border-top: 1rpx solid #e2e8f0;
 	}
 
-	.report-popup {
-		width: 100%;
-		max-height: 75vh;
-		background: #fff;
-		border-radius: 24rpx 24rpx 0 0;
-		display: flex;
-		flex-direction: column;
-		overflow: hidden;
-	}
-
-	.report-list {
-		flex: 1;
-		height: 0;
-		min-height: 500rpx;
-	}
-
-	.report-content {
-		padding: 24rpx 28rpx;
-	}
-
-	.report-summary {
-		display: flex;
-		flex-direction: row;
-		gap: 16rpx;
-	}
-
-	.summary-item {
-		flex: 1;
-		background: linear-gradient(135deg, #eff6ff, #dbeafe);
-		border-radius: 16rpx;
-		padding: 20rpx 12rpx;
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		gap: 8rpx;
-	}
-
-	.summary-num {
-		font-size: 40rpx;
-		font-weight: 800;
-		color: #1e40af;
-	}
-
-	.summary-label {
-		font-size: 22rpx;
-		color: #64748b;
-	}
-
-	.report-divider {
-		height: 1rpx;
-		background: #e2e8f0;
-		margin: 24rpx 0;
-	}
-
-	.report-section {
-		display: flex;
-		flex-direction: column;
-		gap: 16rpx;
-	}
-
-	.section-title {
-		font-size: 28rpx;
-		font-weight: 700;
-		color: #1e293b;
-	}
-
-	.report-empty {
-		padding: 40rpx 0;
-		text-align: center;
-	}
-
-	.report-empty-text {
-		font-size: 26rpx;
-		color: #94a3b8;
-	}
-
-	.report-agent {
-		display: flex;
-		flex-direction: row;
-		align-items: center;
-		padding: 16rpx 0;
-		border-bottom: 1rpx solid #f1f5f9;
-	}
-
-	.report-agent:last-child {
-		border-bottom: none;
-	}
-
-	.report-agent-avatar {
-		width: 64rpx;
-		height: 64rpx;
-		border-radius: 12rpx;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		margin-right: 16rpx;
-	}
-
-	.report-agent-text {
-		font-size: 28rpx;
-		font-weight: 700;
-		color: #fff;
-	}
-
-	.report-agent-info {
-		flex: 1;
-		display: flex;
-		flex-direction: column;
-		gap: 4rpx;
-	}
-
-	.report-agent-name {
-		font-size: 28rpx;
-		font-weight: 600;
-		color: #0f172a;
-	}
-
-	.report-agent-role {
-		font-size: 22rpx;
-		color: #64748b;
-	}
-
-	.report-agent-status {
-		font-size: 22rpx;
-		color: #07c160;
-		background: #dcfce7;
-		padding: 6rpx 16rpx;
-		border-radius: 8rpx;
-	}
-
-	.report-agent-status.busy {
-		color: #f59e0b;
-		background: #fef3c7;
-	}
-
 	.popup-btn {
 		width: 100%;
 		height: 88rpx;
@@ -1156,19 +914,17 @@
 		background: var(--bg-tertiary) !important;
 	}
 
-	[data-theme="dark"] .stat-card {
-		background: var(--bg-secondary) !important;
+	[data-theme="dark"] .team-overview {
+		background: var(--bg-tertiary) !important;
 		border: 1rpx solid var(--border-color) !important;
-		box-shadow: none !important;
 	}
 
-	[data-theme="dark"] .stat-card-hover {
+	[data-theme="dark"] .team-strip-half-hover {
 		background: var(--cell-hover) !important;
 	}
 
-	[data-theme="dark"] .bg-agents,
-	[data-theme="dark"] .bg-groups {
-		background: var(--bg-tertiary) !important;
+	[data-theme="dark"] .team-strip-divider {
+		background: var(--border-color) !important;
 	}
 
 	[data-theme="dark"] .team-stat-num {
@@ -1230,8 +986,7 @@
 		background-color: var(--bg-primary) !important;
 	}
 
-	[data-theme="dark"] .agent-popup,
-	[data-theme="dark"] .report-popup {
+	[data-theme="dark"] .agent-popup {
 		background: var(--bg-secondary) !important;
 	}
 
@@ -1283,42 +1038,6 @@
 
 	[data-theme="dark"] .popup-footer {
 		border-top-color: var(--border-color) !important;
-	}
-
-	[data-theme="dark"] .summary-item {
-		background: rgba(37, 99, 235, 0.14) !important;
-	}
-
-	[data-theme="dark"] .summary-num {
-		color: #93c5fd !important;
-	}
-
-	[data-theme="dark"] .summary-label {
-		color: var(--text-secondary) !important;
-	}
-
-	[data-theme="dark"] .report-divider {
-		background: var(--border-color) !important;
-	}
-
-	[data-theme="dark"] .section-title {
-		color: var(--text-primary) !important;
-	}
-
-	[data-theme="dark"] .report-empty-text {
-		color: var(--text-secondary) !important;
-	}
-
-	[data-theme="dark"] .report-agent {
-		border-bottom-color: var(--border-color) !important;
-	}
-
-	[data-theme="dark"] .report-agent-name {
-		color: var(--text-primary) !important;
-	}
-
-	[data-theme="dark"] .report-agent-role {
-		color: var(--text-secondary) !important;
 	}
 </style>
 

@@ -94,7 +94,15 @@ class="message-bubble"
 </view>
 
 <view v-else-if="!loading" class="chat-input safe-bottom">
-<input type="text" v-model="inputText" :placeholder="t('chat_input_placeholder')" class="input-field" confirm-type="send" :disabled="sending" @confirm="sendMessage" />
+<input
+type="text"
+v-model="inputText"
+:placeholder="t('chat_input_placeholder')"
+class="input-field"
+confirm-type="send"
+:disabled="sending"
+@confirm="sendMessage"
+/>
 <view class="send-button" :class="{ 'send-disabled': sending }" @click="sendMessage"><text>{{ sending ? t('chat_requesting') : t('send') }}</text></view>
 </view>
 
@@ -182,6 +190,91 @@ function escapeRegExp(s) {
 return String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+function normalizeWs(s) {
+return String(s || "")
+.replace(/\s+/g, " ")
+.replace(/[（]/g, "(")
+.replace(/[）]/g, ")")
+.trim();
+}
+
+/** 收集当前发言者之外、最近几条同伴气泡正文，用于去掉模型整段复述 */
+function recentPeerMessageBodies(chatMessages, excludeMember, maxCount = 8) {
+const sid = String(excludeMember?.id || excludeMember?.agentId || "").trim();
+const out = [];
+const arr = Array.isArray(chatMessages) ? chatMessages : [];
+for (let i = arr.length - 1; i >= 0 && out.length < maxCount; i--) {
+const m = arr[i];
+if (!m || m.isMine) continue;
+const mid = String(m.senderId || m.agentId || "").trim();
+if (sid && mid && mid === sid) continue;
+const body = String(m.content || m.body || m.text || "").trim();
+if (body.length >= 12) out.push(body);
+}
+return out;
+}
+
+/** 去掉正文开头对同伴上一条（或几条）气泡的整段复制，常见于模型把历史 assistant 又写了一遍 */
+function stripVerbatimEchoFromPriorPeers(text, peerBodies, minLen = 20) {
+let t = String(text || "").trim();
+if (!t || !Array.isArray(peerBodies) || peerBodies.length === 0) return t;
+const bodies = [...new Set(peerBodies.map((b) => String(b || "").trim()).filter((b) => b.length >= minLen))].sort((a, b) => b.length - a.length);
+for (let guard = 0; guard < 6; guard++) {
+let changed = false;
+const chunks = t.split(/\n\n+/);
+if (chunks.length >= 2) {
+const head = chunks[0].trim();
+for (const b of bodies) {
+if (head === b || normalizeWs(head) === normalizeWs(b)) {
+t = chunks.slice(1).join("\n\n").trim();
+changed = true;
+break;
+}
+}
+if (changed) continue;
+}
+if (!changed) {
+const lines = t.split(/\n/);
+if (lines.length >= 2) {
+const head = lines[0].trim();
+for (const b of bodies) {
+if (head.length >= minLen && (head === b || normalizeWs(head) === normalizeWs(b))) {
+t = lines.slice(1).join("\n").trim();
+changed = true;
+break;
+}
+}
+}
+if (changed) continue;
+}
+for (const b of bodies) {
+if (b && t.startsWith(b)) {
+t = t.slice(b.length).replace(/^[\s:：;；,，。.!?！？]+/, "").trim();
+changed = true;
+break;
+}
+const nb = normalizeWs(b);
+const nt = normalizeWs(t);
+if (nb.length >= minLen && nt.startsWith(nb)) {
+let cut = 0;
+for (let i = 1; i <= t.length; i++) {
+if (normalizeWs(t.slice(0, i)) === nb) {
+cut = i;
+break;
+}
+}
+if (cut > 0) {
+t = t.slice(cut).replace(/^[\s:：;；,，。.!?！？]+/, "").trim();
+changed = true;
+break;
+}
+}
+}
+if (!changed) break;
+}
+return t;
+}
+
 /** 去掉正文开头「某成员名：」式重复抬头（气泡上方已有发送者，勿再写一遍） */
 function stripLeadingRosterSpeakerPrefix(raw, roster) {
 const orig = String(raw || "").trim();
@@ -195,6 +288,10 @@ const nn = String(m?.name || m?.displayName || "").trim();
 const role = String(m?.role || m?.jobTitle || "").trim();
 const nav = formatAgentNavTitle({ name: nn, role });
 if (nav && String(nav).trim().length >= 2) labels.add(String(nav).trim());
+if (nn && role) {
+labels.add(`${nn} (${role})`);
+labels.add(`${nn}（${role}）`);
+}
 }
 const sorted = [...labels].sort((a, b) => b.length - a.length);
 for (let loop = 0; loop < 6; loop++) {
@@ -271,6 +368,22 @@ if (idx >= 48) return `${cut.slice(0, idx + 1)}…`;
 return `${cut.replace(/\s+\S*$/, "").trim()}…`;
 }
 
+/** 群聊接续轮：模型表示无需再说话时，不落气泡 */
+function isContinuationSkipToken(text) {
+const s = String(text || "").trim();
+if (!s) return true;
+const one = s
+.replace(/^[（(]\s*/, "")
+.replace(/\s*[）)]$/, "")
+.replace(/[。….!！?？.]+$/g, "")
+.trim()
+.toLowerCase();
+if (!one) return true;
+if (/^(无|没有|不用|不需要|跳过|略|沒|無)$/.test(one)) return true;
+if (/^(none|no|n\/a|skip|pass|nothing)$/i.test(one)) return true;
+return false;
+}
+
 const UI_DESIGNER_EMPLOYEE_ID = "des-ui";
 
 export default {
@@ -337,8 +450,8 @@ this.statusBarPx = 20;
 const vm = options && options.mode === "virtual";
 if (vm) {
 this.mode = "virtual";
-this.virtualKind = options.kind ? decodeURIComponent(options.kind) : "";
-this.virtualId = options.id ? decodeURIComponent(options.id) : "";
+this.virtualKind = options.kind ? String(decodeURIComponent(options.kind)).trim().toLowerCase() : "";
+this.virtualId = options.id ? String(decodeURIComponent(options.id)).trim() : "";
 this.virtualTitle = options.title ? decodeURIComponent(options.title) : "";
 if (this.virtualKind === "persona") {
 this.fetchPersonaMaterial().finally(() => {
@@ -450,7 +563,8 @@ const templates = [
 ];
 return templates[idx % templates.length];
 },
-buildGroupAgentSystemPrompt(member, groupTitle = "", roster = []) {
+buildGroupAgentSystemPrompt(member, groupTitle = "", roster = [], opts = {}) {
+const continuation = !!(opts && opts.continuation);
 const name = String(member?.name || member?.displayName || "").trim() || this.t("digital_employee_fallback");
 const role = String(member?.role || member?.jobTitle || "").trim() || this.t("agent_seed_role_fallback");
 const dept = String(member?.department || "").trim();
@@ -471,16 +585,21 @@ const rosterBlock =
         rosterLines.join("\n"),
       ].join("\n")
     : "";
-return [
+const parts = [
 `你是项目群成员「${name}」本人，职责：${role}。`,
 dept ? `所属部门：${dept}。` : "",
 group ? `当前群聊：${group}。` : "",
 rosterBlock,
 "【身份】你只能代表自己发言，一条消息里禁止替其他同事代写、禁止分段扮演多人；不要出现「某某：」另起一段假装别人说话；其他人的话会由他们自己发一条气泡。",
-"【长度】口语自然即可；整段控制在约 2～4 句、中文总字数尽量不超过 160 字，手机上一眼能扫完。",
+"【禁止复述】不要整段复制或复述上一位同事刚发过的气泡内容；若认同对方，用一两句自己的话接一下即可。",
+continuation
+  ? "【长度·接续】若需要接话，控制在约 1～3 句、中文总字数尽量不超过 120 字。"
+  : "【长度】口语自然即可；整段控制在约 2～4 句、中文总字数尽量不超过 160 字，手机上一眼能扫完。",
 "【协作】需要谁配合只用句内 @显示名 点一下即可，不要写长串角色扮演。",
-"【收尾】用一句说清楚你这边下一步或待确认点即可，别堆大段背景。"
-].filter(Boolean).join("\n");
+continuation ? "" : "【收尾】用一句说清楚你这边下一步或待确认点即可，别堆大段背景。",
+continuation ? this.t("group_prompt_continuation_suffix") : "",
+];
+return parts.filter(Boolean).join("\n");
 },
 buildGroupApiMessages(extraUserPrompt = "") {
 const recent = (Array.isArray(this.chatMessages) ? this.chatMessages : []).slice(-26);
@@ -500,8 +619,8 @@ const g = getProjectGroupById(this.virtualId);
 const pickedMembers = Array.isArray(g?.members) ? g.members : [];
 const candidates = pickedMembers.length ? pickedMembers : loadDigitalAgents();
 const roster = pickedMembers.length ? pickedMembers : candidates;
-const maxAgents = 3;
-const picked = candidates.slice(0, Math.min(maxAgents, candidates.length));
+const maxAgents = Math.min(Math.max(1, candidates.length), 8);
+const picked = candidates.slice(0, maxAgents);
 if (!Array.isArray(picked) || picked.length === 0) return;
 const { apiKey, baseUrl, model } = getLlmSettings();
 if (!apiKey) {
@@ -539,8 +658,12 @@ try {
       const res = await chatCompletion({ apiKey, baseUrl, model: agentModel, system, messages: msgs });
       const raw = extractAssistantText(res) || this.buildGroupAutoReplyContent(name, role, userText, idx);
       let text = stripLeadingRosterSpeakerPrefix(raw, roster) || raw;
+      text = stripVerbatimEchoFromPriorPeers(text, recentPeerMessageBodies(this.chatMessages, a, 8));
       text = stripOtherSpeakerLines(text, a, roster);
       text = clampGroupReplyLength(text, 200);
+      if (!String(text || "").trim()) {
+        text = this.buildGroupAutoReplyContent(name, role, userText, idx);
+      }
       appendVirtualChat("group", this.virtualId, {
         content: text,
         isMine: false,
@@ -563,27 +686,27 @@ try {
     this.$nextTick(() => this.scrollToBottom());
     await new Promise((r) => setTimeout(r, 900));
   }
-  await new Promise((r) => setTimeout(r, 600));
-  // 收口：仅一人发一条极短小结（仍只代表自己，不代写他人长段）
-  const closer = picked[picked.length > 1 ? picked.length - 1 : 0] || picked[0];
-  {
-    const a = closer || {};
-    const name = String(a?.name || a?.displayName || "").trim() || displayAgentName(a) || this.t("digital_employee_fallback");
-    const role = String(a?.role || a?.jobTitle || "").trim() || displayAgentRole(a);
-    const senderName = formatAgentNavTitle({ name, role }) || name;
-    const aid = String(a?.id || a?.agentId || "").trim();
-    const agentModel = (aid && getAgentModelOrDefault(aid)) || model;
-    const system = this.buildGroupAgentSystemPrompt(a, g?.name || this.virtualTitle || "", roster);
-    const msgs = this.buildGroupApiMessages(
-      "你只以本人身份做**一句到三句**的收尾：帮大家用口语点一下共识和下一步（谁干啥用 @ 带一下即可）；总字数不超过 120 字；禁止替别人写长台词或分段扮演他人。"
-    );
-    try {
-      const res = await chatCompletion({ apiKey, baseUrl, model: agentModel, system, messages: msgs });
-      const raw = extractAssistantText(res);
-      let text = raw ? stripLeadingRosterSpeakerPrefix(raw, roster) || raw : "";
-      text = stripOtherSpeakerLines(text, a, roster);
-      text = text ? clampGroupReplyLength(text, 140) : "";
-      if (text) {
+  // 第二轮：同伴互问 / @ 之后可再简短接一句，避免话头悬在半空
+  if (picked.length >= 2) {
+    await new Promise((r) => setTimeout(r, 550));
+    for (let idx = 0; idx < picked.length; idx++) {
+      const a = picked[idx] || {};
+      const name = String(a?.name || a?.displayName || "").trim() || displayAgentName(a) || this.t("digital_employee_fallback");
+      const role = String(a?.role || a?.jobTitle || "").trim() || displayAgentRole(a);
+      const senderName = formatAgentNavTitle({ name, role }) || name;
+      const aid = String(a?.id || a?.agentId || "").trim();
+      const agentModel = (aid && getAgentModelOrDefault(aid)) || model;
+      const system = this.buildGroupAgentSystemPrompt(a, g?.name || this.virtualTitle || "", roster, { continuation: true });
+      const msgs = this.buildGroupApiMessages();
+      try {
+        const res = await chatCompletion({ apiKey, baseUrl, model: agentModel, system, messages: msgs });
+        const raw = extractAssistantText(res);
+        let text = raw ? stripLeadingRosterSpeakerPrefix(raw, roster) || raw : "";
+        text = stripVerbatimEchoFromPriorPeers(text, recentPeerMessageBodies(this.chatMessages, a, 8));
+        text = stripOtherSpeakerLines(text, a, roster);
+        text = text ? clampGroupReplyLength(text, 140) : "";
+        if (isContinuationSkipToken(text)) continue;
+        if (!String(text || "").trim()) continue;
         appendVirtualChat("group", this.virtualId, {
           content: text,
           isMine: false,
@@ -594,9 +717,10 @@ try {
         });
         this.loadVirtualMessages(false);
         this.$nextTick(() => this.scrollToBottom());
+      } catch {
+        //
       }
-    } catch {
-      //
+      await new Promise((r) => setTimeout(r, 750));
     }
   }
 } finally {
@@ -680,8 +804,10 @@ openSettings() {
 const q = [];
 if (this.mode === "virtual") {
 q.push("mode=virtual");
-q.push(`kind=${encodeURIComponent(this.virtualKind)}`);
-q.push(`id=${encodeURIComponent(this.virtualId)}`);
+const vk = String(this.virtualKind || "").trim().toLowerCase();
+const vid = String(this.virtualId || "").trim();
+q.push(`kind=${encodeURIComponent(vk)}`);
+q.push(`id=${encodeURIComponent(vid)}`);
 q.push(`title=${encodeURIComponent(this.virtualTitle || this.headerTitle)}`);
 } else if (this.mode === "remote") {
 q.push("mode=remote");
