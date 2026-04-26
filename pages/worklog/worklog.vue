@@ -4,8 +4,7 @@
 			<view class="wl-nav-row">
 				<NavBackClick :fallback-tab="'/pages/profile/profile'" />
 				<view class="wl-nav-actions">
-					<text class="wl-ico" @click="onSearchTap">⌕</text>
-					<text class="wl-ico" @click="onMoreTap">⋯</text>
+					<text class="wl-ico" @click="onRegenTap">↻</text>
 				</view>
 			</view>
 			<view class="wl-nav-title-block">
@@ -14,40 +13,34 @@
 			</view>
 		</view>
 
-		<view v-if="viewMode === 'list'" class="wl-body">
-			<scroll-view scroll-x class="wl-tabs-scroll" :show-scrollbar="false">
-				<view class="wl-tabs">
-					<text
-						v-for="tab in mainTabs"
-						:key="tab.key"
-						class="wl-tab"
-						:class="{ active: mainTab === tab.key }"
-						@click="mainTab = tab.key"
-					>
-						{{ tab.label }}
-					</text>
-				</view>
-			</scroll-view>
-
+		<view class="wl-body">
 			<view class="wl-filter-row">
-				<view class="wl-pills">
-					<text class="wl-pill" :class="{ on: pillDaily === false }" @click="pillDaily = false">{{ t("worklog_pill_all") }}</text>
-					<text class="wl-pill" :class="{ on: pillDaily === true }" @click="pillDaily = true">{{ t("worklog_pill_daily") }}</text>
-				</view>
+				<text class="wl-hint">{{ t("worklog_view_hint") }}</text>
 				<view class="wl-unread" @click="onlyUnread = !onlyUnread">
 					<view class="wl-radio" :class="{ on: onlyUnread }" />
 					<text class="wl-unread-t">{{ t("worklog_only_unread") }}</text>
 				</view>
 			</view>
 
-			<scroll-view scroll-y class="wl-feed" :show-scrollbar="false">
-				<view v-if="filteredSections.length === 0" class="wl-empty">
-					<text>{{ emptyHint }}</text>
+			<view v-if="generating" class="wl-loading">
+				<text>{{ t("worklog_generating") }}</text>
+			</view>
+
+			<scroll-view
+				scroll-y
+				class="wl-feed"
+				:show-scrollbar="false"
+				refresher-enabled
+				:refresher-triggered="refreshing"
+				@refresherrefresh="onPullRefresh"
+			>
+				<view v-if="!generating && filteredSections.length === 0" class="wl-empty">
+					<text>{{ t("worklog_empty_feed") }}</text>
 				</view>
 				<template v-else>
-					<template v-for="(sec, si) in filteredSections" :key="sec.key">
+					<template v-for="sec in filteredSections" :key="sec.key">
 						<text class="wl-sec-label">{{ sec.label }}</text>
-						<view v-for="item in sec.items" :key="item.id" class="wl-card">
+						<view v-for="item in sec.items" :key="item.entryId" class="wl-card">
 							<view class="wl-card-head">
 								<image v-if="item.avatarUrl" class="wl-av-img" :src="item.avatarUrl" mode="aspectFill" />
 								<view v-else class="wl-av" :style="{ background: avatarColor(item.name) }">
@@ -61,10 +54,17 @@
 							</view>
 							<text class="wl-body-label">{{ t("worklog_today_done_title") }}</text>
 							<text class="wl-body-text">{{ item.body }}</text>
+							<view v-if="item.comments && item.comments.length" class="wl-comment-list">
+								<view v-for="c in item.comments" :key="c.id" class="wl-comment-row">
+									<text class="wl-comment-text">{{ c.text }}</text>
+								</view>
+							</view>
 							<view class="wl-card-actions">
-								<text class="wl-act" @click="markRead(item)">{{ readLabel(item) }}</text>
-								<text class="wl-act" @click="bumpComment(item)">{{ t("worklog_action_comment") }} {{ item.comments ? `(${item.comments})` : "" }}</text>
-								<text class="wl-act" :class="{ liked: item.liked }" @click="toggleLike(item)">
+								<text class="wl-act" @click="onMarkRead(item)">{{ readLabel(item) }}</text>
+								<text class="wl-act" @click="openCommentSheet(item)">
+									{{ t("worklog_action_comment") }}{{ item.commentCount ? ` (${item.commentCount})` : "" }}
+								</text>
+								<text class="wl-act" :class="{ liked: item.liked }" @click="onToggleLike(item)">
 									{{ t("worklog_action_like") }}{{ item.likes ? ` ${item.likes}` : "" }}
 								</text>
 							</view>
@@ -75,27 +75,14 @@
 			</scroll-view>
 		</view>
 
-		<view v-else-if="viewMode === 'write'" class="wl-write">
-			<text class="wl-write-hint">{{ t("worklog_write_hint") }}</text>
-			<textarea v-model="draftBody" class="wl-ta" :placeholder="t('worklog_write_placeholder')" />
-			<button class="wl-submit" type="primary" @click="submitDraft">{{ t("worklog_write_submit") }}</button>
-		</view>
-
-		<view v-else class="wl-placeholder">
-			<text class="wl-ph-t">{{ placeholderTitle }}</text>
-			<text class="wl-ph-sub">{{ placeholderSub }}</text>
-		</view>
-
-		<view class="wl-bottom safe-bottom">
-			<view
-				v-for="b in bottomTabs"
-				:key="b.key"
-				class="wl-b-item"
-				:class="{ on: viewMode === b.key }"
-				@click="onBottomTab(b.key)"
-			>
-				<text class="wl-b-ico">{{ b.icon }}</text>
-				<text class="wl-b-t">{{ b.label }}</text>
+		<view v-if="commentEntry" class="wl-mask" @tap.self="closeCommentSheet">
+			<view class="wl-sheet" @tap.stop>
+				<text class="wl-sheet-title">{{ t("worklog_comment_title") }}</text>
+				<textarea v-model="commentDraft" class="wl-sheet-ta" :placeholder="t('worklog_comment_placeholder')" />
+				<view class="wl-sheet-btns">
+					<button class="wl-sheet-btn ghost" @click="closeCommentSheet">{{ t("worklog_comment_cancel") }}</button>
+					<button class="wl-sheet-btn primary" type="primary" @click="submitComment">{{ t("worklog_comment_send") }}</button>
+				</view>
 			</view>
 		</view>
 	</view>
@@ -107,9 +94,20 @@
 	import { getUserInfo } from "@/utils/index";
 	import { resolveAvatarDisplayUrl } from "@/clientApi/authApi";
 	import { listMyUserAgents } from "@/clientApi/agentsApi";
-	import { loadDigitalAgents, getDailyBriefing } from "@/utils/virtualTeamStore";
-
-	const K_SENT = "worklog_sent_entries_v1";
+	import { loadDigitalAgents } from "@/utils/virtualTeamStore";
+	import { getLlmSettings } from "@/utils/llmSettings";
+	import {
+		localYmd,
+		addDaysYmd,
+		generateAndSaveDayLogs,
+		getDayEntries,
+		loadReactionsStore,
+		mergeEntryWithReactions,
+		markRead as persistMarkRead,
+		toggleLike as persistToggleLike,
+		addComment as persistAddComment,
+		clearDayEntriesAndReactions,
+	} from "@/utils/worklogDaily";
 
 	export default {
 		components: { NavBackClick },
@@ -117,13 +115,12 @@
 			return {
 				statusBarPx: 20,
 				isDarkMode: false,
-				mainTab: "received",
-				pillDaily: true,
 				onlyUnread: false,
-				viewMode: "list",
-				draftBody: "",
-				receivedEntries: [],
-				sentEntries: [],
+				generating: false,
+				refreshing: false,
+				sections: [],
+				commentEntry: null,
+				commentDraft: "",
 			};
 		},
 		computed: {
@@ -133,50 +130,16 @@
 				if (c) return c;
 				return this.t("worklog_company_placeholder");
 			},
-			mainTabs() {
-				return [
-					{ key: "received", label: this.t("worklog_tab_received") },
-					{ key: "sent", label: this.t("worklog_tab_sent") },
-					{ key: "team", label: this.t("worklog_tab_team") },
-					{ key: "comments", label: this.t("worklog_tab_comments") },
-				];
-			},
-			bottomTabs() {
-				return [
-					{ key: "list", icon: "📋", label: this.t("worklog_bottom_view") },
-					{ key: "write", icon: "✎", label: this.t("worklog_bottom_write") },
-					{ key: "stats", icon: "📈", label: this.t("worklog_bottom_stats") },
-					{ key: "templates", icon: "⚙", label: this.t("worklog_bottom_templates") },
-				];
-			},
-			rawSections() {
-				return this.buildSectionsForTab(this.mainTab);
-			},
 			filteredSections() {
-				const secs = this.rawSections.map((s) => ({
-					...s,
-					items: s.items.filter((it) => {
-						if (this.onlyUnread && it.read) return false;
-						if (this.pillDaily && it.kind !== "daily") return false;
-						return true;
-					}),
-				}));
-				return secs.filter((s) => s.items.length > 0);
-			},
-			emptyHint() {
-				if (this.mainTab === "sent") return this.t("worklog_empty_sent");
-				if (this.mainTab === "comments") return this.t("worklog_empty_comments");
-				return this.t("worklog_empty_feed");
-			},
-			placeholderTitle() {
-				if (this.viewMode === "stats") return this.t("worklog_bottom_stats");
-				if (this.viewMode === "templates") return this.t("worklog_bottom_templates");
-				return "";
-			},
-			placeholderSub() {
-				if (this.viewMode === "stats") return this.t("worklog_toast_stats");
-				if (this.viewMode === "templates") return this.t("worklog_toast_templates");
-				return "";
+				return this.sections
+					.map((s) => ({
+						...s,
+						items: s.items.filter((it) => {
+							if (this.onlyUnread && it.read) return false;
+							return true;
+						}),
+					}))
+					.filter((s) => s.items.length > 0);
 			},
 		},
 		onLoad() {
@@ -187,11 +150,10 @@
 				this.statusBarPx = 20;
 			}
 			this.loadDarkMode();
-			this.loadSentFromStorage();
 		},
 		onShow() {
 			this.loadDarkMode();
-			this.refreshFeed();
+			this.loadFeed(false);
 		},
 		methods: {
 			t(key, params = {}) {
@@ -209,24 +171,7 @@
 			updateTheme(isDark) {
 				this.isDarkMode = !!isDark;
 			},
-			loadSentFromStorage() {
-				try {
-					const raw = uni.getStorageSync(K_SENT);
-					const arr = typeof raw === "string" ? JSON.parse(raw || "[]") : raw;
-					this.sentEntries = Array.isArray(arr) ? arr : [];
-				} catch {
-					this.sentEntries = [];
-				}
-			},
-			saveSentToStorage() {
-				try {
-					uni.setStorageSync(K_SENT, JSON.stringify(this.sentEntries));
-				} catch {
-					//
-				}
-			},
-			async refreshFeed() {
-				const lang = getLanguage();
+			async loadAgentRows() {
 				let rows = [];
 				try {
 					const list = await listMyUserAgents();
@@ -251,75 +196,83 @@
 						avatar: String(a.avatar || "").trim(),
 					}));
 				}
-				const briefing = getDailyBriefing();
-				const yTimes = ["19:42", "17:46", "11:20", "16:05"];
-				const bTimes = ["18:05", "09:30", "15:18"];
-				this.receivedEntries = rows.map((a, i) => {
-					const section = i % 2 === 0 ? "yesterday" : "before";
-					const times = section === "yesterday" ? yTimes : bTimes;
-					const timeClock = times[i % times.length];
-					const line = briefing.employeeLines.find((l) => l.id === a.id) || briefing.employeeLines[i % Math.max(briefing.employeeLines.length, 1)];
-					const body =
-						(a.mainWork && a.mainWork.slice(0, 400)) ||
-						(line && line.summary) ||
-						t("briefing_employee_summary", lang, { role: a.role || t("vt_member_default", lang) });
-					const avatarUrl = resolveAvatarDisplayUrl(a.avatar);
-					return {
-						id: `r_${a.id}_${i}`,
-						kind: "daily",
-						section,
-						timeClock,
-						name: a.name,
-						role: a.role,
-						avatarUrl: avatarUrl || "",
-						body: String(body).trim(),
-						read: i % 3 !== 0,
-						likes: (i % 5) + (i % 2),
-						liked: false,
-						comments: i % 3,
-					};
-				});
+				return rows.filter((r) => r.id);
 			},
-			buildSectionsForTab(tab) {
+			hydrateSections() {
 				const lang = getLanguage();
-				const yLabel = t("worklog_section_yesterday", lang);
-				const bLabel = t("worklog_section_before_yesterday", lang);
-				const pick = (list) => {
-					const y = [];
-					const b = [];
-					for (const it of list) {
-						if (it.section === "yesterday") y.push(it);
-						else b.push(it);
-					}
-					const out = [];
-					if (y.length) out.push({ key: "yesterday", label: yLabel, items: y });
-					if (b.length) out.push({ key: "before", label: bLabel, items: b });
-					return out;
+				const today = localYmd();
+				const yday = addDaysYmd(today, -1);
+				const reactions = loadReactionsStore();
+				const mapEntry = (e) => {
+					const avatarUrl = resolveAvatarDisplayUrl(e.avatar || "");
+					const merged = mergeEntryWithReactions(
+						{
+							...e,
+							avatarUrl: avatarUrl || "",
+						},
+						reactions
+					);
+					return merged;
 				};
-				if (tab === "received" || tab === "team") {
-					return pick(this.receivedEntries);
+				const todayItems = getDayEntries(today).map(mapEntry);
+				const yItems = getDayEntries(yday).map(mapEntry);
+				const out = [];
+				if (todayItems.length) {
+					out.push({ key: "today", label: this.t("worklog_section_today"), items: todayItems });
 				}
-				if (tab === "sent") {
-					const items = this.sentEntries.map((e, i) => ({
-						id: e.id || `s_${i}`,
-						kind: "daily",
-						section: "yesterday",
-						timeClock: e.timeClock || "10:00",
-						name: e.name || this.t("digital_employee_fallback"),
-						role: "",
-						avatarUrl: "",
-						body: e.body || "",
-						read: true,
-						likes: 0,
-						liked: false,
-						comments: 0,
-					}));
-					return items.length ? [{ key: "yesterday", label: yLabel, items }] : [];
+				if (yItems.length) {
+					out.push({ key: "yesterday", label: this.t("worklog_section_yesterday"), items: yItems });
 				}
-				if (tab === "comments") {
-					return [];
+				this.sections = out;
+			},
+			async loadFeed(forceRegenToday) {
+				const lang = getLanguage();
+				const today = localYmd();
+				const rows = await this.loadAgentRows();
+				if (!rows.length) {
+					this.sections = [];
+					return;
 				}
-				return [];
+				let needGen = forceRegenToday;
+				if (!needGen) {
+					const existing = getDayEntries(today);
+					needGen = !existing || !existing.length;
+				}
+				if (needGen) {
+					this.sections = [];
+					const { apiKey } = getLlmSettings();
+					if (!apiKey) {
+						uni.showToast({ title: this.t("toast_set_api_key_in_profile"), icon: "none", duration: 2600 });
+					}
+					this.generating = true;
+					try {
+						if (forceRegenToday) clearDayEntriesAndReactions(today);
+						await generateAndSaveDayLogs(rows, today, lang);
+					} catch (e) {
+						console.warn(e);
+						uni.showToast({ title: this.t("load_failed_short"), icon: "none" });
+					} finally {
+						this.generating = false;
+					}
+				}
+				this.hydrateSections();
+			},
+			async onPullRefresh() {
+				this.refreshing = true;
+				try {
+					await this.loadFeed(false);
+				} finally {
+					this.refreshing = false;
+				}
+			},
+			onRegenTap() {
+				uni.showModal({
+					title: this.t("worklog_regen_title"),
+					content: this.t("worklog_regen_confirm"),
+					success: (res) => {
+						if (res.confirm) this.loadFeed(true);
+					},
+				});
 			},
 			avatarColor(name) {
 				const colors = ["#07c160", "#10aeff", "#576b95", "#fa9d3b", "#1485ee", "#9a6bff"];
@@ -334,77 +287,35 @@
 			},
 			readLabel(item) {
 				if (item.read) return this.t("worklog_action_read_all");
-				const n = Math.min(9, Math.max(1, (item.comments || 0) + 1));
+				const n = Math.min(99, Math.max(1, 1 + (item.commentCount || 0) + (item.likes || 0)));
 				return this.t("worklog_action_read_partial", { n });
 			},
-			markRead(item) {
-				item.read = true;
-				this.$forceUpdate();
+			onMarkRead(item) {
+				persistMarkRead(item.entryId);
+				this.hydrateSections();
 			},
-			bumpComment(item) {
-				item.comments = (item.comments || 0) + 1;
-				this.$forceUpdate();
+			onToggleLike(item) {
+				persistToggleLike(item.entryId);
+				this.hydrateSections();
 			},
-			toggleLike(item) {
-				if (item.liked) {
-					item.liked = false;
-					item.likes = Math.max(0, (item.likes || 1) - 1);
-				} else {
-					item.liked = true;
-					item.likes = (item.likes || 0) + 1;
-				}
-				this.$forceUpdate();
+			openCommentSheet(item) {
+				this.commentEntry = item;
+				this.commentDraft = "";
 			},
-			onBottomTab(key) {
-				if (key === "list") {
-					this.viewMode = "list";
+			closeCommentSheet() {
+				this.commentEntry = null;
+				this.commentDraft = "";
+			},
+			submitComment() {
+				const text = (this.commentDraft || "").trim();
+				if (!text) {
+					uni.showToast({ title: this.t("worklog_comment_empty"), icon: "none" });
 					return;
 				}
-				if (key === "write") {
-					this.viewMode = "write";
-					this.draftBody = "";
-					return;
-				}
-				if (key === "stats") {
-					this.viewMode = "stats";
-					uni.showToast({ title: this.t("worklog_toast_stats"), icon: "none" });
-					return;
-				}
-				if (key === "templates") {
-					this.viewMode = "templates";
-					uni.showToast({ title: this.t("worklog_toast_templates"), icon: "none" });
-				}
-			},
-			submitDraft() {
-				const body = (this.draftBody || "").trim();
-				if (!body) {
-					uni.showToast({ title: this.t("worklog_write_empty"), icon: "none" });
-					return;
-				}
-				const u = getUserInfo() || {};
-				const name = String(u.nickname || u.name || u.username || this.t("home_sender_me")).trim() || "Me";
-				this.sentEntries.unshift({
-					id: `s_${Date.now()}`,
-					body,
-					name,
-					timeClock: this.formatNowClock(),
-				});
-				this.saveSentToStorage();
-				this.draftBody = "";
-				uni.showToast({ title: this.t("worklog_write_ok"), icon: "success" });
-				this.viewMode = "list";
-				this.mainTab = "sent";
-			},
-			formatNowClock() {
-				const d = new Date();
-				const pad = (n) => (n < 10 ? "0" : "") + n;
-				return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
-			},
-			onSearchTap() {
-				uni.showToast({ title: this.t("worklog_toast_search"), icon: "none" });
-			},
-			onMoreTap() {
-				uni.showToast({ title: this.t("worklog_toast_more"), icon: "none" });
+				if (!this.commentEntry) return;
+				persistAddComment(this.commentEntry.entryId, text);
+				this.closeCommentSheet();
+				this.hydrateSections();
 			},
 		},
 	};
@@ -436,13 +347,13 @@
 		display: flex;
 		flex-direction: row;
 		align-items: center;
-		gap: 28rpx;
 		padding-right: 20rpx;
 	}
 	.wl-ico {
-		font-size: 36rpx;
+		font-size: 40rpx;
 		color: #64748b;
 		line-height: 1;
+		padding: 8rpx;
 	}
 	.wl-nav-title-block {
 		padding: 0 28rpx 8rpx;
@@ -467,30 +378,6 @@
 		flex-direction: column;
 		min-height: 0;
 	}
-	.wl-tabs-scroll {
-		flex-shrink: 0;
-		background: #fff;
-		border-bottom: 1rpx solid #eef0f3;
-	}
-	.wl-tabs {
-		display: flex;
-		flex-direction: row;
-		padding: 0 12rpx;
-		white-space: nowrap;
-	}
-	.wl-tab {
-		flex: 1;
-		text-align: center;
-		font-size: 26rpx;
-		color: #64748b;
-		padding: 20rpx 8rpx 16rpx;
-		border-bottom: 4rpx solid transparent;
-	}
-	.wl-tab.active {
-		color: #111827;
-		font-weight: 700;
-		border-bottom-color: #2563eb;
-	}
 	.wl-filter-row {
 		flex-shrink: 0;
 		display: flex;
@@ -499,30 +386,21 @@
 		justify-content: space-between;
 		padding: 16rpx 24rpx;
 		background: #fff;
-	}
-	.wl-pills {
-		display: flex;
-		flex-direction: row;
+		border-bottom: 1rpx solid #eef0f3;
 		gap: 16rpx;
 	}
-	.wl-pill {
-		font-size: 24rpx;
-		color: #64748b;
-		padding: 10rpx 24rpx;
-		border-radius: 999rpx;
-		background: #f1f5f9;
-		border: 1rpx solid #e2e8f0;
-	}
-	.wl-pill.on {
-		color: #fff;
-		background: #2563eb;
-		border-color: #2563eb;
+	.wl-hint {
+		flex: 1;
+		font-size: 22rpx;
+		color: #94a3b8;
+		line-height: 1.4;
 	}
 	.wl-unread {
 		display: flex;
 		flex-direction: row;
 		align-items: center;
 		gap: 10rpx;
+		flex-shrink: 0;
 	}
 	.wl-radio {
 		width: 28rpx;
@@ -538,6 +416,13 @@
 	.wl-unread-t {
 		font-size: 24rpx;
 		color: #475569;
+	}
+	.wl-loading {
+		padding: 24rpx;
+		text-align: center;
+		font-size: 26rpx;
+		color: #64748b;
+		background: #fff;
 	}
 	.wl-feed {
 		flex: 1;
@@ -628,6 +513,25 @@
 		word-break: break-word;
 		font-family: "PingFang SC", "KaiTi", "STKaiti", serif;
 	}
+	.wl-comment-list {
+		margin-top: 16rpx;
+		padding: 12rpx 16rpx;
+		background: #f8fafc;
+		border-radius: 12rpx;
+		border: 1rpx solid #eef2f7;
+	}
+	.wl-comment-row {
+		padding: 8rpx 0;
+		border-bottom: 1rpx solid #e2e8f0;
+	}
+	.wl-comment-row:last-child {
+		border-bottom: none;
+	}
+	.wl-comment-text {
+		font-size: 24rpx;
+		color: #475569;
+		line-height: 1.45;
+	}
 	.wl-card-actions {
 		display: flex;
 		flex-direction: row;
@@ -647,79 +551,57 @@
 		font-weight: 600;
 	}
 	.wl-feed-pad {
-		height: 140rpx;
+		height: 48rpx;
 	}
-	.wl-write {
-		flex: 1;
-		padding: 24rpx;
-		min-height: 0;
+	.wl-mask {
+		position: fixed;
+		left: 0;
+		right: 0;
+		top: 0;
+		bottom: 0;
+		background: rgba(15, 23, 42, 0.45);
+		z-index: 1000;
+		display: flex;
+		align-items: flex-end;
+		justify-content: center;
 	}
-	.wl-write-hint {
-		font-size: 24rpx;
-		color: #64748b;
+	.wl-sheet {
+		width: 100%;
+		background: #fff;
+		border-radius: 24rpx 24rpx 0 0;
+		padding: 28rpx 28rpx calc(28rpx + env(safe-area-inset-bottom));
+		box-sizing: border-box;
+	}
+	.wl-sheet-title {
+		display: block;
+		font-size: 30rpx;
+		font-weight: 700;
+		color: #0f172a;
 		margin-bottom: 16rpx;
 	}
-	.wl-ta {
+	.wl-sheet-ta {
 		width: 100%;
-		min-height: 280rpx;
-		padding: 20rpx;
+		min-height: 200rpx;
+		padding: 16rpx;
 		font-size: 28rpx;
 		border: 1rpx solid #e2e8f0;
 		border-radius: 12rpx;
-		background: #fff;
 		box-sizing: border-box;
 	}
-	.wl-submit {
-		margin-top: 24rpx;
-	}
-	.wl-placeholder {
-		flex: 1;
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		padding: 48rpx;
-	}
-	.wl-ph-t {
-		font-size: 32rpx;
-		font-weight: 700;
-		color: #334155;
-	}
-	.wl-ph-sub {
-		margin-top: 16rpx;
-		font-size: 26rpx;
-		color: #64748b;
-		text-align: center;
-		line-height: 1.5;
-	}
-	.wl-bottom {
-		flex-shrink: 0;
+	.wl-sheet-btns {
 		display: flex;
 		flex-direction: row;
-		border-top: 1rpx solid #e5e7eb;
-		background: #fff;
-		padding-top: 8rpx;
-		padding-bottom: 8rpx;
+		justify-content: flex-end;
+		gap: 20rpx;
+		margin-top: 20rpx;
 	}
-	.wl-b-item {
-		flex: 1;
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		padding: 8rpx 0;
+	.wl-sheet-btn {
+		min-width: 160rpx;
+		font-size: 28rpx;
 	}
-	.wl-b-item.on .wl-b-t {
-		color: #2563eb;
-		font-weight: 700;
-	}
-	.wl-b-ico {
-		font-size: 36rpx;
-		line-height: 1;
-	}
-	.wl-b-t {
-		margin-top: 6rpx;
-		font-size: 20rpx;
-		color: #64748b;
+	.wl-sheet-btn.ghost {
+		background: #f1f5f9;
+		color: #475569;
 	}
 	.safe-bottom {
 		padding-bottom: env(safe-area-inset-bottom);
@@ -728,40 +610,34 @@
 		background: #0f172a;
 	}
 	.wl-page.theme-dark .wl-nav,
-	.wl-page.theme-dark .wl-tabs-scroll,
 	.wl-page.theme-dark .wl-filter-row,
+	.wl-page.theme-dark .wl-loading,
 	.wl-page.theme-dark .wl-card,
-	.wl-page.theme-dark .wl-bottom {
+	.wl-page.theme-dark .wl-sheet {
 		background: #1e293b;
 		border-color: #334155;
 	}
 	.wl-page.theme-dark .wl-title,
 	.wl-page.theme-dark .wl-card-name,
-	.wl-page.theme-dark .wl-body-text {
+	.wl-page.theme-dark .wl-body-text,
+	.wl-page.theme-dark .wl-sheet-title {
 		color: #f8fafc;
 	}
 	.wl-page.theme-dark .wl-sub,
-	.wl-page.theme-dark .wl-tab,
+	.wl-page.theme-dark .wl-hint,
 	.wl-page.theme-dark .wl-act {
 		color: #94a3b8;
 	}
-	.wl-page.theme-dark .wl-tab.active {
-		color: #f8fafc;
-		border-bottom-color: #60a5fa;
-	}
-	.wl-page.theme-dark .wl-pill {
-		background: #334155;
-		border-color: #475569;
-		color: #cbd5e1;
-	}
-	.wl-page.theme-dark .wl-pill.on {
-		background: #2563eb;
-		border-color: #2563eb;
-		color: #fff;
-	}
-	.wl-page.theme-dark .wl-ta {
+	.wl-page.theme-dark .wl-sheet-ta {
 		background: #0f172a;
 		border-color: #475569;
 		color: #f8fafc;
+	}
+	.wl-page.theme-dark .wl-comment-list {
+		background: #0f172a;
+		border-color: #334155;
+	}
+	.wl-page.theme-dark .wl-comment-text {
+		color: #cbd5e1;
 	}
 </style>

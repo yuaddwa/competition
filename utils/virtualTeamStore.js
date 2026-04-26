@@ -209,6 +209,9 @@ function saveAgents(list) {
   uni.setStorageSync(K_AGENTS, JSON.stringify(list));
 }
 
+/** 写在 ownerAgentId 上，表示群主为当前登录用户（非数字员工） */
+export const VT_GROUP_OWNER_USER = "__vt_user__";
+
 export function addProjectGroup(payload = {}) {
   const {
     name,
@@ -244,7 +247,7 @@ export function addProjectGroup(payload = {}) {
     lastMsg: t("vt_group_created_toast", getLanguage()),
     lastTime: nowIso(),
     unread: 0,
-    ownerAgentId: safeMembers[0] ? String(safeMembers[0].id).trim() : "",
+    ownerAgentId: VT_GROUP_OWNER_USER,
     members: safeMembers,
   };
   list.unshift(row);
@@ -572,13 +575,13 @@ export function clearVirtualChatMessages(kind, id) {
   }
 }
 
-/** 群主 id：显式 ownerAgentId，否则默认首位成员（兼容旧数据） */
+/** 群主占位 id：与成员 agent id 比较时用；真实群主为产品内的「你」 */
 export function resolveGroupOwnerAgentId(g) {
   if (!g || typeof g !== "object") return "";
   const o = String(g.ownerAgentId || "").trim();
+  if (o === VT_GROUP_OWNER_USER) return VT_GROUP_OWNER_USER;
   if (o) return o;
-  const m0 = Array.isArray(g.members) && g.members[0] ? String(g.members[0].id || g.members[0].agentId || "").trim() : "";
-  return m0 || "";
+  return VT_GROUP_OWNER_USER;
 }
 
 export function getProjectGroupById(id) {
@@ -590,10 +593,18 @@ export function getProjectGroupById(id) {
   if (i < 0) return null;
   const g = list[i];
   let dirty = false;
-  if (!String(g.ownerAgentId || "").trim()) {
-    const m0 = Array.isArray(g.members) && g.members[0] ? String(g.members[0].id || g.members[0].agentId || "").trim() : "";
-    if (m0) {
-      g.ownerAgentId = m0;
+  const curOwner = String(g.ownerAgentId || "").trim();
+  if (!curOwner) {
+    g.ownerAgentId = VT_GROUP_OWNER_USER;
+    dirty = true;
+  } else if (curOwner !== VT_GROUP_OWNER_USER) {
+    const memberIds = new Set(
+      (Array.isArray(g.members) ? g.members : [])
+        .map((m) => String(m?.id || m?.agentId || "").trim())
+        .filter(Boolean)
+    );
+    if (memberIds.has(curOwner)) {
+      g.ownerAgentId = VT_GROUP_OWNER_USER;
       dirty = true;
     }
   }

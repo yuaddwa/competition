@@ -22,11 +22,13 @@
 </template>
 
 <script>
+	import { getUserInfo } from "@/utils/index";
 	import {
 		getProjectGroupById,
 		removeGroupMember,
 		setGroupMemberAdminFlag,
 		resolveGroupOwnerAgentId,
+		VT_GROUP_OWNER_USER,
 		formatAgentNavTitle,
 		displayAgentName,
 	} from "@/utils/virtualTeamStore";
@@ -45,17 +47,32 @@
 				const g = this.group;
 				if (!g || !Array.isArray(g.members)) return [];
 				const ownerId = resolveGroupOwnerAgentId(g);
-				return g.members.map((m) => {
+				const u = getUserInfo() || {};
+				const meName =
+					String(u.nickname || u.name || u.username || this.t("home_sender_me")).trim() ||
+					this.t("home_sender_me");
+				const ownerRow = {
+					id: VT_GROUP_OWNER_USER,
+					navTitle: meName,
+					modelShort: "—",
+					badge: this.t("group_badge_owner"),
+					isOwner: true,
+					isUserOwner: true,
+					isAdmin: false,
+					raw: null,
+				};
+				const rest = g.members.map((m) => {
 					const id = String(m?.id || m?.agentId || "").trim();
 					const navTitle =
 						formatAgentNavTitle({ name: m.name, role: m.role }) || displayAgentName(m) || m.name || id;
 					const full = String(m?.model || "").trim() || (id ? getAgentModelOrDefault(id) : "");
 					const modelShort = full ? (full.length > 18 ? `${full.slice(0, 16)}…` : full) : "—";
 					let badge = "";
-					if (id && id === ownerId) badge = this.t("group_badge_owner");
+					if (id && id === ownerId && ownerId !== VT_GROUP_OWNER_USER) badge = this.t("group_badge_owner");
 					else if (m.isAdmin) badge = this.t("group_badge_admin");
-					return { id, navTitle, modelShort, badge, isOwner: id === ownerId, isAdmin: !!m.isAdmin, raw: m };
+					return { id, navTitle, modelShort, badge, isOwner: id === ownerId && ownerId !== VT_GROUP_OWNER_USER, isUserOwner: false, isAdmin: !!m.isAdmin, raw: m };
 				});
+				return [ownerRow, ...rest];
 			},
 		},
 		onLoad(options) {
@@ -86,7 +103,12 @@
 				}
 			},
 			onTapMember(row) {
-				if (!row || row.isOwner) {
+				if (!row) return;
+				if (row.isUserOwner) {
+					uni.showToast({ title: this.t("group_owner_is_me"), icon: "none" });
+					return;
+				}
+				if (row.isOwner) {
 					uni.showToast({ title: this.t("group_manage_owner_hint"), icon: "none" });
 					return;
 				}

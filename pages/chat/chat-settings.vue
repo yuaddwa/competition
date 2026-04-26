@@ -108,10 +108,10 @@
 
 <script>
 	import { resolveAvatarDisplayUrl } from "@/clientApi/authApi";
+	import { getUserInfo } from "@/utils/index";
 	import {
 		clearVirtualChatMessages,
 		getProjectGroupById,
-		resolveGroupOwnerAgentId,
 		getDigitalAgentById,
 		touchGroupLastMsg,
 		touchAgentLastMsg,
@@ -169,8 +169,22 @@
 			},
 			groupMembers() {
 				const arr = Array.isArray(this.groupDetail?.members) ? this.groupDetail.members : [];
-				const ownerId = this.groupDetail ? resolveGroupOwnerAgentId(this.groupDetail) : "";
-				return arr.map((m, idx) => {
+				const u = getUserInfo() || {};
+				const meName =
+					String(u.nickname || u.name || u.username || t("home_sender_me", getLanguage())).trim() ||
+					t("home_sender_me", getLanguage());
+				const meAvatar = String(u.avatarUrl || u.avatar || u.avatarURL || u.headImg || u.headimg || "").trim();
+				const ownerRow = {
+					rowKey: "vt_user_owner",
+					id: "",
+					name: meName,
+					role: "",
+					avatar: meAvatar,
+					modelShort: "",
+					badgeText: t("group_badge_owner", getLanguage()),
+					isUserOwner: true,
+				};
+				const mapped = arr.map((m, idx) => {
 					const id = String(m?.id || m?.agentId || "").trim();
 					const rowKey = id || `m_${idx}`;
 					const stored = String(m?.model || "").trim();
@@ -180,11 +194,9 @@
 							? `${full.slice(0, 14)}…`
 							: full
 						: "";
-					const isOwner = id && ownerId && id === ownerId;
 					const isAdmin = !!m?.isAdmin;
 					let badgeText = "";
-					if (isOwner) badgeText = t("group_badge_owner", getLanguage());
-					else if (isAdmin) badgeText = t("group_badge_admin", getLanguage());
+					if (isAdmin) badgeText = t("group_badge_admin", getLanguage());
 					return {
 						rowKey,
 						id,
@@ -193,8 +205,10 @@
 						avatar: String(m?.avatar || m?.avatarUrl || m?.headImg || m?.headimg || "").trim(),
 						modelShort,
 						badgeText,
+						isUserOwner: false,
 					};
 				});
+				return [ownerRow, ...mapped];
 			},
 		},
 		onShow() {
@@ -314,6 +328,10 @@
 				uni.navigateTo({ url: `/pages/chat/chat-search?${this.buildSearchQuery()}` });
 			},
 			openMemberPrivateChat(m) {
+				if (m && m.isUserOwner) {
+					uni.showToast({ title: this.t("group_owner_is_me"), icon: "none" });
+					return;
+				}
 				const id = String(m?.id || "").trim();
 				if (!id) {
 					uni.showToast({ title: this.t("toast_group_member_no_agent_id"), icon: "none" });
