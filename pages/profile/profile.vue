@@ -287,14 +287,6 @@
 			closeAgentPopup() {
 				this.showAgentPopup = false;
 			},
-			showDailyReport() {
-				uni.navigateTo({
-					url: "/pages/worklog/worklog",
-					fail: () => {
-						uni.showToast({ title: translate("load_failed_short", getLanguage()), icon: "none" });
-					},
-				});
-			},
 			onAgentTap(agent) {
 				if (!agent || !agent.id) return;
 				this.showAgentPopup = false;

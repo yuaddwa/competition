@@ -1293,7 +1293,7 @@ export function t(key, lang = getLanguage(), params = {}) {
       'profile_quick_group_sub': 'New space for collaboration',
       'profile_daily_report': 'Daily report',
       'profile_daily_report_sub': "See your team's work today",
-      'worklog_nav_title': 'Logs',
+      'worklog_nav_title': 'Daily report',
       'worklog_pill_all': 'All logs',
       'worklog_pill_daily': 'Daily',
       'worklog_only_unread': 'Unread only',
