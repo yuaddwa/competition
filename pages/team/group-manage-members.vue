@@ -1,7 +1,7 @@
 <template>
 	<scroll-view scroll-y class="page">
 		<text class="hint">{{ t("group_manage_sub") }}</text>
-		<view v-if="!group" class="empty">{{ t("load_failed_short") }}</view>
+		<view v-if="kind !== 'hq' && !group" class="empty">{{ t("load_failed_short") }}</view>
 		<view v-else class="list">
 			<view
 				v-for="row in memberRows"

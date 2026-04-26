@@ -5,6 +5,7 @@ import { t, getLanguage } from "./lang.js";
 import { getLlmSettings } from "./llmSettings.js";
 import { chatCompletion } from "./openaiCompatible.js";
 import { extractAssistantText } from "./openaiResponse.js";
+import { getUserInfo } from "./index.js";
 
 const K_GROUPS = "virtualProjectGroups";
 const K_AGENTS = "virtualDigitalAgents";
@@ -108,6 +109,74 @@ export function formatAgentNavTitle(a) {
   return `${name}（${role}）`;
 }
 
+/** 常见句首词：勿当作「姓名：」剥掉 */
+const STRIP_PREFIX_BLOCKLIST = new Set([
+  "注意",
+  "另外",
+  "补充",
+  "收到",
+  "好的",
+  "大家好",
+  "各位",
+  "首先",
+  "综上",
+  "总之",
+  "关于",
+  "目前",
+  "今天",
+  "今日",
+  "明天",
+]);
+
+/**
+ * 去掉气泡正文里重复的「发送者：」前缀（模型常把名字写在内容里，而昵称旁已展示发送者）
+ */
+export function stripAgentMessageBodyPrefix(rawContent, agent) {
+  if (!agent) return String(rawContent || "").trim();
+  let text = String(rawContent || "").trim();
+  if (!text) return text;
+  const candidates = [];
+  const add = (s) => {
+    const v = String(s || "").trim();
+    if (v.length < 2) return;
+    if (!candidates.includes(v)) candidates.push(v);
+  };
+  add(agent.name);
+  add(displayAgentName(agent));
+  add(formatAgentNavTitle(agent));
+  const lang = getLanguage();
+  const baseName = displayAgentName(agent);
+  const role = displayAgentRole(agent);
+  if (role && lang === "en") add(`${baseName} (${role})`);
+  const expanded = [];
+  for (const c of candidates) {
+    expanded.push(c);
+    const b = c.split(/[（(]/)[0].trim();
+    if (b && b.length >= 2) expanded.push(b);
+  }
+  const uniq = [...new Set(expanded)];
+  for (const c of uniq) {
+    const escaped = c.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    text = text.replace(new RegExp(`^${escaped}\\s*[:：]\\s*`, "i"), "").trim();
+  }
+  const m = text.match(/^([^:：\n]{2,48})[:：]\s+/);
+  if (m) {
+    const p = m[1].trim();
+    if (!STRIP_PREFIX_BLOCKLIST.has(p)) {
+      const hit = uniq.some(
+        (c) =>
+          c === p ||
+          c.startsWith(`${p}（`) ||
+          c.startsWith(`${p}(`) ||
+          c.startsWith(`${p} (`) ||
+          c.split(/[（(]/)[0].trim() === p
+      );
+      if (hit) text = text.slice(m[0].length).trim();
+    }
+  }
+  return text;
+}
+
 /** 会话列表副标题：系统占位与「我：」前缀随语言切换 */
 export function translateVirtualLastMsgPreview(text) {
   const s = String(text || "").trim();
@@ -162,6 +231,19 @@ export function resolveHallSenderDisplay(raw) {
 
 function nowIso() {
   return new Date().toISOString();
+}
+
+function appendHQMessageIfNotDuplicate(payload = {}, dedupeWindowMs = 90 * 1000) {
+  const content = String(payload?.content || "").trim();
+  if (!content) return null;
+  const now = Date.now();
+  const list = loadHQChatMessages();
+  const last = list[list.length - 1];
+  if (last && String(last.content || "").trim() === content) {
+    const t = new Date(last.time || 0).getTime();
+    if (Number.isFinite(t) && now - t <= dedupeWindowMs) return null;
+  }
+  return appendHQMessage(payload);
 }
 
 function safeParse(json, fallback) {
@@ -563,7 +645,69 @@ function pickProjectLeads(groups, agents) {
   return out;
 }
 
-function fallbackHallLiveContent(groups, agents) {
+function resolveUserAddressText() {
+  const u = getUserInfo() || {};
+  const city = String(
+    u.city || u.currentCity || u.locationCity || u.userCity || ""
+  ).trim();
+  const province = String(
+    u.province || u.currentProvince || u.locationProvince || ""
+  ).trim();
+  const district = String(
+    u.district || u.county || u.area || u.region || ""
+  ).trim();
+  const addr = String(
+    u.address || u.currentAddress || u.fullAddress || ""
+  ).trim();
+  const line = [province, city, district].filter(Boolean).join("");
+  if (addr) return `${line}${line ? " " : ""}${addr}`.trim();
+  if (line) return line;
+  return "";
+}
+
+function sleepMs(ms) {
+  return new Promise((r) => setTimeout(r, Math.max(0, Number(ms) || 0)));
+}
+
+function httpGetJson(url, timeout = 3500) {
+  return new Promise((resolve) => {
+    uni.request({
+      url,
+      method: "GET",
+      timeout,
+      success: (res) => resolve(res?.data || null),
+      fail: () => resolve(null),
+    });
+  });
+}
+
+async function fetchLatestNewsDigest() {
+  const techFeed = encodeURIComponent("https://feeds.arstechnica.com/arstechnica/index");
+  const worldFeed = encodeURIComponent("https://feeds.bbci.co.uk/news/world/rss.xml");
+  const techUrl = `https://api.rss2json.com/v1/api.json?count=3&rss_url=${techFeed}`;
+  const worldUrl = `https://api.rss2json.com/v1/api.json?count=3&rss_url=${worldFeed}`;
+  const [tech, world] = await Promise.all([httpGetJson(techUrl), httpGetJson(worldUrl)]);
+  const norm = (x) =>
+    (Array.isArray(x?.items) ? x.items : [])
+      .map((i) => String(i?.title || "").trim())
+      .filter(Boolean)
+      .slice(0, 3);
+  return {
+    tech: norm(tech),
+    world: norm(world),
+  };
+}
+
+/** 新闻拉取整体上限，避免 RSS 代理慢时拖住整段播报 */
+async function fetchLatestNewsDigestCapped(capMs = 2600) {
+  const empty = { tech: [], world: [] };
+  return Promise.race([
+    fetchLatestNewsDigest().catch(() => empty),
+    sleepMs(Math.max(800, capMs)).then(() => empty),
+  ]);
+}
+
+function fallbackHallLiveContent(groups, agents, userAddress = "") {
   const lang = getLanguage();
   const leads = pickProjectLeads(groups, agents).slice(0, 6);
   const projectReports = leads.map((x, i) => ({
@@ -582,19 +726,26 @@ function fallbackHallLiveContent(groups, agents) {
         ? `Tech update #${i + 1}: focus on model cost control and prompt evaluation stability.`
         : `技术速递 #${i + 1}：建议关注模型成本治理与提示词评测稳定性。`,
   }));
+  const globalNews = newsAgents.map((a, i) => ({
+    agentId: a.id,
+    content:
+      lang === "en"
+        ? `Global brief #${i + 1}: watch cross-region AI regulation and cloud supply-chain trends.`
+        : `全球简报 #${i + 1}：关注跨区域 AI 监管进展与云供应链动向。`,
+  }));
   const weather = weatherAgent
     ? {
         agentId: weatherAgent.id,
         content:
           lang === "en"
-            ? "Weather brief: mild today, suitable for focused delivery and afternoon review sync."
-            : "今日日常天气简报：体感平稳，适合专注开发与下午评审同步。",
+            ? `${userAddress ? `${userAddress} ` : ""}Weather update: mild conditions today, good for focused delivery. Keep water nearby and arrange key syncs before late afternoon.`
+            : `${userAddress ? `${userAddress} ` : ""}天气小提醒：今天体感比较平稳，适合专注推进。建议把关键评审放在下午前半段，效率会更好。`,
       }
     : null;
-  return { projectReports, techNews, weather };
+  return { projectReports, techNews, globalNews, weather };
 }
 
-async function llmHallLiveContent(groups, agents) {
+async function llmHallLiveContent(groups, agents, userAddress = "", latestNews = { tech: [], world: [] }) {
   const { apiKey, baseUrl, model } = getLlmSettings();
   if (!apiKey) return null;
   const leads = pickProjectLeads(groups, agents).slice(0, 6);
@@ -610,21 +761,50 @@ async function llmHallLiveContent(groups, agents) {
       name: displayAgentName(a),
       role: displayAgentRole(a),
     })),
+    userAddress: String(userAddress || "").trim(),
+    latestTechHeadlines: Array.isArray(latestNews?.tech) ? latestNews.tech.slice(0, 3) : [],
+    latestWorldHeadlines: Array.isArray(latestNews?.world) ? latestNews.world.slice(0, 3) : [],
   };
-  const system = [
-    "你在生成首页全员群播报，只输出 JSON。",
-    "JSON 结构：",
-    "{",
-    '  "projectReports":[{"agentId":"", "content":""}],',
-    '  "techNews":[{"agentId":"", "content":""}],',
-    '  "weather":{"agentId":"", "content":""}',
-    "}",
-    "要求：",
-    "1) projectReports 覆盖每个 leads.agentId 各一条；",
-    "2) techNews 2~3 条且使用 agents 里的 agentId；",
-    "3) weather 1 条且使用 agents 里的 agentId；",
-    "4) 内容要真实、具体、简洁，每条 30~90 字。",
-  ].join("\n");
+  const lang = getLanguage();
+  const system =
+    lang === "en"
+      ? [
+          "You generate JSON for the company owner's all-hands feed. Output JSON only.",
+          "Structure:",
+          "{",
+          '  "projectReports":[{"agentId":"", "content":""}],',
+          '  "techNews":[{"agentId":"", "content":""}],',
+          '  "globalNews":[{"agentId":"", "content":""}],',
+          '  "weather":{"agentId":"", "content":""}',
+          "}",
+          "Rules:",
+          "1) projectReports: one row per leads.agentId;",
+          "2) techNews: 2–3 rows using agentIds from agents; prefer latestTechHeadlines;",
+          "3) globalNews: 1–2 rows using agentIds; prefer latestWorldHeadlines;",
+          "4) weather: one row using an agentId; use userAddress when relevant;",
+          "5) Tone: brief internal updates to the owner—respectful, concrete; not stiff anchorman style;",
+          "6) Each content 35–110 characters (Chinese) or a concise English equivalent;",
+          "7) Never address the reader as a new teammate/new hire.",
+        ].join("\n")
+      : [
+          "你在生成首页全员群播报（给企业负责人/老板看），只输出 JSON。",
+          "JSON 结构：",
+          "{",
+          '  "projectReports":[{"agentId":"", "content":""}],',
+          '  "techNews":[{"agentId":"", "content":""}],',
+          '  "globalNews":[{"agentId":"", "content":""}],',
+          '  "weather":{"agentId":"", "content":""}',
+          "}",
+          "要求：",
+          "1) projectReports 覆盖每个 leads.agentId 各一条；",
+          "2) techNews 2~3 条且使用 agents 里的 agentId（偏前沿技术），优先引用 latestTechHeadlines；",
+          "3) globalNews 1~2 条且使用 agents 里的 agentId（偏全球新闻），优先引用 latestWorldHeadlines；",
+          "4) weather 1 条且使用 agents 里的 agentId，并尽量结合 userAddress；",
+          "5) 语气像向负责人做简短工作同步，有温度但不油；不要生硬播报腔；",
+          "6) 内容真实、具体、简洁，每条 35~110 字；",
+          "7) 不要使用「新同事」「新人」「欢迎入职」等把听众当成新员工的措辞。",
+          "8) 每条 content 正文不要以本人姓名、昵称或「某某：/某某：」开头（发送者已在侧栏展示）。",
+        ].join("\n");
   try {
     const res = await chatCompletion({
       apiKey,
@@ -632,7 +812,7 @@ async function llmHallLiveContent(groups, agents) {
       model,
       system,
       messages: [{ role: "user", content: JSON.stringify(payload) }],
-      timeoutMs: 90000,
+      timeoutMs: 8000,
     });
     return parseHallJsonSafe(extractAssistantText(res));
   } catch (e) {
@@ -648,27 +828,40 @@ export async function ensureHallLiveBroadcast() {
   if (!agents.length) return;
   const groups = loadProjectGroups();
   const lang = getLanguage();
+  const userAddress = resolveUserAddressText();
   const byId = new Map(agents.map((a) => [String(a.id), a]));
-  const pushHall = (agent, content, isManager = false) => {
-    const text = String(content || "").trim();
+  let pushIdx = 0;
+  const pushHall = async (agent, content, isManager = false) => {
+    const text = stripAgentMessageBodyPrefix(String(content || "").trim(), agent);
     if (!agent || !text) return;
-    appendHQMessage({
+    appendHQMessageIfNotDuplicate({
       content: text,
       isMine: false,
       senderName: formatAgentNavTitle(agent),
       isManager,
     });
+    const delayMs = pushIdx++ === 0 ? 45 : 185;
+    await sleepMs(delayMs);
   };
 
   const allNames = agents.map((a) => displayAgentName(a)).filter(Boolean).join("、");
-  appendHQMessage({
-    content: lang === "en" ? `On-duty agents: ${allNames}` : `今日在岗 Agent：${allNames}`,
+  appendHQMessageIfNotDuplicate({
+    content: lang === "en" ? `On-duty agents: ${allNames}` : `今天在岗的 Agent 有：${allNames}，大家开始同步进度啦。`,
     isMine: false,
     senderName: t("sender_system_name", lang),
   });
 
-  const fromModel = await llmHallLiveContent(groups, agents);
-  const fallback = fallbackHallLiveContent(groups, agents);
+  const latestNews = await fetchLatestNewsDigestCapped(2600);
+  const fromModel = await llmHallLiveContent(groups, agents, userAddress, latestNews);
+  const fallback = fallbackHallLiveContent(groups, agents, userAddress);
+  const latestTechRows = (latestNews.tech || []).map((title, i) => ({
+    agentId: (agents[i % Math.max(1, agents.length)] || {}).id || "",
+    content: `前沿快讯：${title}。我建议我们评估它对当前项目的可用性，避免错过窗口期。`,
+  }));
+  const latestWorldRows = (latestNews.world || []).map((title, i) => ({
+    agentId: (agents[(i + 1) % Math.max(1, agents.length)] || {}).id || "",
+    content: `全球快报：${title}。这条可能影响到需求节奏，我会继续盯后续变化。`,
+  }));
   const projectReports =
     Array.isArray(fromModel?.projectReports) && fromModel.projectReports.length
       ? fromModel.projectReports
@@ -676,24 +869,56 @@ export async function ensureHallLiveBroadcast() {
   const techNews =
     Array.isArray(fromModel?.techNews) && fromModel.techNews.length
       ? fromModel.techNews
-      : fallback.techNews;
+      : (latestTechRows.length ? latestTechRows : fallback.techNews);
+  const globalNews =
+    Array.isArray(fromModel?.globalNews) && fromModel.globalNews.length
+      ? fromModel.globalNews
+      : (latestWorldRows.length ? latestWorldRows : fallback.globalNews);
   const weather =
     fromModel?.weather && typeof fromModel.weather === "object" ? fromModel.weather : fallback.weather;
 
-  for (const row of projectReports.slice(0, 8)) {
-    const id = String(row?.agentId || "").trim();
-    const a = byId.get(id);
-    pushHall(a, row?.content, true);
+  // 兜底保证：即使模型/新闻接口不稳定，也至少给出一组可读播报
+  const safeProjectRows = projectReports.slice(0, 2);
+  const safeTechRows = techNews.slice(0, 1);
+  const safeWorldRows = globalNews.slice(0, 1);
+  if (!safeProjectRows.length && agents[0]) {
+    safeProjectRows.push({
+      agentId: agents[0].id,
+      content: "我先同步项目进展：当前里程碑已启动，今天重点推进核心链路联调，晚些会补充风险清单。",
+    });
   }
-  for (const row of techNews.slice(0, 3)) {
+  if (!safeTechRows.length && agents[1]) {
+    safeTechRows.push({
+      agentId: agents[1].id,
+      content: "前沿技术速递：多模态模型推理成本持续下降，建议我们评估一版低成本自动化方案。",
+    });
+  }
+  if (!safeWorldRows.length && agents[2]) {
+    safeWorldRows.push({
+      agentId: agents[2].id,
+      content: "全球新闻简报：国际供应链仍有波动，我会继续关注对交付节奏的潜在影响。",
+    });
+  }
+
+  for (const row of safeProjectRows) {
     const id = String(row?.agentId || "").trim();
     const a = byId.get(id);
-    pushHall(a, row?.content);
+    await pushHall(a, row?.content, true);
+  }
+  for (const row of safeTechRows) {
+    const id = String(row?.agentId || "").trim();
+    const a = byId.get(id);
+    await pushHall(a, row?.content, false);
+  }
+  for (const row of safeWorldRows) {
+    const id = String(row?.agentId || "").trim();
+    const a = byId.get(id);
+    await pushHall(a, row?.content, false);
   }
   if (weather) {
     const id = String(weather?.agentId || "").trim();
     const a = byId.get(id);
-    pushHall(a, weather?.content);
+    await pushHall(a, weather?.content, false);
   }
 }
 

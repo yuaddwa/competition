@@ -594,7 +594,7 @@ export function t(key, lang = getLanguage(), params = {}) {
       'vt_demo_agent2_last_preview': '首页骨架屏已提交',
       'vt_demo_agent3_last_preview': '订单接口 Swagger 已更新',
       'hall_welcome_body':
-        '欢迎加入【公司全员群】。每日 21:00 各数字员工在此提交日报，21:30 经理推送总览。您可随时 @ 员工安排工作。',
+        '【公司全员群】已为您就绪。您是企业负责人，可随时 @ 数字员工安排工作。每日 21:00 员工在此提交日报，21:30 经理推送总览。',
       'hall_digest_start': '—— 今日 21:00 日报开始 ——',
       'hall_daily_prefix': '【日报】',
       'agent_chat_seed_body': '你好，我是{{name}}（{{role}}）。下面是我的今日日报摘要。\n{{summary}}',
@@ -1546,7 +1546,7 @@ export function t(key, lang = getLanguage(), params = {}) {
       'vt_demo_agent2_last_preview': 'Home skeleton screen submitted.',
       'vt_demo_agent3_last_preview': 'Order API Swagger updated.',
       'hall_welcome_body':
-        'Welcome to the company all-hands group. Digital employees submit daily reports at 21:00; the manager digest arrives at 21:30. You can @ anyone to assign work.',
+        'Your company all-hands channel is ready. You are the business owner or leader—@ digital staff anytime. Daily reports at 21:00; manager overview at 21:30.',
       'hall_digest_start': '— Daily reports at 21:00 —',
       'hall_daily_prefix': 'Daily: ',
       'agent_chat_seed_body': "Hi, I'm {{name}} ({{role}}). Here's my daily summary.\n{{summary}}",
@@ -2191,9 +2191,9 @@ export function t(key, lang = getLanguage(), params = {}) {
   const pack = translations[resolved] || translations.zh;
   let result = (pack && pack[key]) || translations.zh[key] || key;
   
-  // 处理参数替换
-  for (const [key, value] of Object.entries(params)) {
-    result = result.replace(new RegExp(`\\{\\{\s*${key}\s*\\}\\}`), value);
+  // 处理参数替换（循环变量不得与翻译键参数同名，否则会覆盖 `key` 导致插值失败）
+  for (const [paramKey, paramVal] of Object.entries(params)) {
+    result = result.replace(new RegExp(`\\{\\{\s*${paramKey}\s*\\}\\}`), String(paramVal));
   }
   
   return result;

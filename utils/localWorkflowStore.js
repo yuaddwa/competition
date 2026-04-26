@@ -730,6 +730,17 @@ export async function runAutonomousTaskLifecycle(workflowId, taskId) {
 		.slice(0, 4000);
 
 	const trace = { workflowId, taskId: tid };
+	const actorName =
+		String(t.assignedAgentName || "").trim() ||
+		String(t.executorName || "").trim() ||
+		String(t.department || "Agent").trim();
+	const postStage = async (stage, detail) => {
+		try {
+			await postLifecycleGroupMessage(workflowId, `【${actorName}】${stage}：${String(detail || "").trim()}`);
+		} catch {
+			//
+		}
+	};
 
 	const appendLog = (line) => {
 		const cur = readT();
@@ -758,11 +769,13 @@ export async function runAutonomousTaskLifecycle(workflowId, taskId) {
 		automationPhaseLabel: AUTO_LABEL.analyzing,
 		automationLog: ["已启动全自动：分析 → 规划 → 执行 → 测试与优化 → 完成"],
 	});
+	await postStage("已接单", `${baseTitle} 已进入自动执行流程，我先做需求分析。`);
 	await sleepMs(300);
 
 	setRunning("analyzing", 8);
 	const an = await lifecycleStepLlm("analyze", { title: baseTitle, description: baseDesc }, trace);
 	appendLog(`分析：${(an.text || "").slice(0, 200)}${(an.text || "").length > 200 ? "…" : ""}`);
+	await postStage("分析完成", String(an.text || "").replace(/\s+/g, " ").slice(0, 90));
 	await sleepMs(300);
 
 	setRunning("planning", 22);
@@ -776,6 +789,7 @@ export async function runAutonomousTaskLifecycle(workflowId, taskId) {
 		trace
 	);
 	appendLog(`规划：${(pl.text || "").slice(0, 200)}${(pl.text || "").length > 200 ? "…" : ""}`);
+	await postStage("执行规划", String(pl.text || "").replace(/\s+/g, " ").slice(0, 90));
 	await sleepMs(300);
 
 	setRunning("executing", 35);
@@ -790,6 +804,7 @@ export async function runAutonomousTaskLifecycle(workflowId, taskId) {
 		trace
 	);
 	appendLog(`执行：${(ex.text || "").slice(0, 200)}${(ex.text || "").length > 200 ? "…" : ""}`);
+	await postStage("执行中", String(ex.text || "").replace(/\s+/g, " ").slice(0, 110));
 	await sleepMs(350);
 
 	let ctx = {
@@ -812,6 +827,7 @@ export async function runAutonomousTaskLifecycle(workflowId, taskId) {
 		lastReport = te.text || "";
 		passed = te.passed === true;
 		appendLog(`第${testIter}轮测试：${passed ? "通过" : "未通过"}`);
+		await postStage(`测试第${testIter}轮`, passed ? "已通过，准备收尾交付。" : "发现问题，马上进入修正。");
 		if (passed) break;
 		if (testIter >= maxRounds) {
 			passed = true;
@@ -822,6 +838,7 @@ export async function runAutonomousTaskLifecycle(workflowId, taskId) {
 		const re = await lifecycleStepLlm("refine", { ...ctx, testFeedback: lastReport, refineRound: testIter }, trace);
 		ctx = { ...ctx, lastRefinement: re.text, testFeedback: lastReport };
 		appendLog(`第${testIter}轮优化后重测`);
+		await postStage(`第${testIter}轮优化`, String(re.text || "").replace(/\s+/g, " ").slice(0, 90));
 		await sleepMs(350);
 	}
 
@@ -849,12 +866,21 @@ export async function runAutonomousTaskLifecycle(workflowId, taskId) {
 		automationFullReport: full.slice(0, 20000),
 	});
 	appendLog("已自动完成：分析 / 规划 / 执行 / 测试与优化 / 验收");
+	await postStage("交付完成", `已完成 ${baseTitle}，关键成果：${String(ex.text || "").replace(/\s+/g, " ").slice(0, 120)}`);
 	pushEvents(workflowId, {
 		type: "AUTOMATION_DONE",
 		eventType: "AUTOMATION_DONE",
 		title: baseTitle,
 		brief: "任务已自动跑完全流程",
 	});
+}
+
+async function postLifecycleGroupMessage(workflowId, body) {
+	if (!workflowId || !body) return;
+	const g = await ensureProjectGroupForWorkflow(workflowId);
+	const gid = String(g?.groupId || g?.id || "").trim();
+	if (!gid) return;
+	await sendProjectGroupMessage(workflowId, gid, { body: String(body || "").trim() });
 }
 
 /**

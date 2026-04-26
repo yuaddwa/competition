@@ -58,6 +58,10 @@
 <script>
 	import AppTabBar from "@/components/AppTabBar.vue";
 	import { t, getLanguage } from "@/utils/lang";
+	import { getLlmSettings } from "@/utils/llmSettings";
+	import { chatCompletion } from "@/utils/openaiCompatible";
+	import { extractAssistantText } from "@/utils/openaiResponse";
+	import { getAgentModelOrDefault } from "@/utils/agentModelMap";
 	import {
 		loadHQChatMessages,
 		appendHQMessage,
@@ -67,6 +71,7 @@
 		loadDigitalAgents,
 		replaceDigitalAgentsFromUserAgents,
 		resolveHallSenderDisplay,
+		stripAgentMessageBodyPrefix,
 		HQ_ID,
 	} from "@/utils/virtualTeamStore";
 	import { listMyUserAgents, listUserAgents } from "@/clientApi/agentsApi";
@@ -80,6 +85,8 @@
 				loading: true,
 				inputText: "",
 				scrollToId: "",
+				broadcasting: false,
+				broadcastPollTimer: null,
 			};
 		},
 		computed: {
@@ -96,6 +103,12 @@
 			uni.hideTabBar({ animation: false });
 			this.bootstrapHall();
 		},
+		onHide() {
+			this.stopBroadcastPolling();
+		},
+		onUnload() {
+			this.stopBroadcastPolling();
+		},
 		methods: {
 			t(key, params = {}) {
 				return t(key, getLanguage(), params);
@@ -108,6 +121,14 @@
 			async bootstrapHall() {
 				this.loading = true;
 				try {
+					// 每次进入首页都重置会话，不加载历史，保持轻量流畅
+					clearHQChatMessages();
+					ensureHallWelcome();
+					this.hallMessages = loadHQChatMessages();
+					this.$nextTick(() => this.scrollToBottom());
+					this.loading = false;
+
+					// 后台分步刷新：先同步 Agent，再追加播报，不阻塞 UI
 					try {
 						let mine = await listMyUserAgents();
 						if (!Array.isArray(mine) || mine.length === 0) mine = await listUserAgents();
@@ -115,22 +136,46 @@
 					} catch {
 						//
 					}
-					const current = loadHQChatMessages();
-					if (current.some((m) => !!m?.isManager)) {
-						clearHQChatMessages();
-					}
-					ensureHallWelcome();
-					await ensureHallLiveBroadcast();
-					this.hallMessages = loadHQChatMessages();
-					this.$nextTick(() => {
-						this.scrollToBottom();
-					});
+					this.startBroadcastPolling();
+					this.broadcasting = true;
+					ensureHallLiveBroadcast()
+						.catch(() => {
+							//
+						})
+						.finally(() => {
+							this.broadcasting = false;
+							this.stopBroadcastPolling();
+							this.hallMessages = loadHQChatMessages();
+							this.$nextTick(() => this.scrollToBottom());
+						});
 				} finally {
 					this.loading = false;
 				}
 			},
+			startBroadcastPolling() {
+				this.stopBroadcastPolling();
+				this.broadcastPollTimer = setInterval(() => {
+					const next = loadHQChatMessages();
+					if (next.length !== this.hallMessages.length) {
+						this.hallMessages = next;
+						this.$nextTick(() => this.scrollToBottom());
+					}
+					if (!this.broadcasting) this.stopBroadcastPolling();
+				}, 260);
+			},
+			stopBroadcastPolling() {
+				if (this.broadcastPollTimer) clearInterval(this.broadcastPollTimer);
+				this.broadcastPollTimer = null;
+			},
 			scrollToBottom() {
-				this.scrollToId = "bottom-anchor";
+				// 先清空再设置，确保同一个锚点连续触发也能滚动
+				this.scrollToId = "";
+				this.$nextTick(() => {
+					this.scrollToId = "bottom-anchor";
+					setTimeout(() => {
+						this.scrollToId = "";
+					}, 220);
+				});
 			},
 			sendHall() {
 				const t = (this.inputText || "").trim();
@@ -139,6 +184,101 @@
 				this.inputText = "";
 				this.hallMessages = loadHQChatMessages();
 				this.$nextTick(() => this.scrollToBottom());
+				this.triggerHallAutoReplies(t);
+			},
+			buildHallFallbackReply(agent, userText, idx) {
+				const lang = getLanguage();
+				if (lang === "en") {
+					const templates = [
+						`Noted—I'll break down your note on "${userText.slice(0, 18)}" and share an action list within ~10 minutes.`,
+						`I'll own this: I'll add risks and priorities, then reply here with conclusions.`,
+						`One suggestion: ship a minimal version first, then iterate once we see impact.`,
+						`Seen—I'll align details and come back with a steadier recommendation.`,
+					];
+					return templates[idx % templates.length];
+				}
+				const templates = [
+					`收到，我先按您这条「${userText.slice(0, 18)}」拆解执行项，约 10 分钟内给您一版可落地清单。`,
+					`这条我来跟进：我先补充关键风险和优先级，稍后在群里向您汇报结论。`,
+					`我补一句：建议先做最小可用版本，把效果跑起来再迭代。`,
+					`已看到，我这边先拉齐相关信息，再向您汇报一版更稳的推进建议。`,
+				];
+				return templates[idx % templates.length];
+			},
+			async triggerHallAutoReplies(userText) {
+				// 控制节奏：避免一口气刷太多消息导致页面连续跳动
+				const agents = loadDigitalAgents().slice(0, 3);
+				if (!agents.length) return;
+				const { apiKey, baseUrl, model } = getLlmSettings();
+				if (!apiKey) {
+					for (let idx = 0; idx < agents.length; idx++) {
+						const a = agents[idx];
+						appendHQMessage({
+							content: this.buildHallFallbackReply(a, userText, idx),
+							isMine: false,
+							senderName: a.name,
+						});
+						this.hallMessages = loadHQChatMessages();
+						this.$nextTick(() => this.scrollToBottom());
+						await new Promise((r) => setTimeout(r, 380));
+					}
+					return;
+				}
+				const recent = loadHQChatMessages().slice(-18);
+				const msgs = recent.map((m) => ({
+					role: m.isMine ? "user" : "assistant",
+					content: `${m.senderName || "成员"}：${m.content || ""}`,
+				}));
+				const lang = getLanguage();
+				const bossCtx =
+					lang === "en"
+						? "The human who posts in this thread is the company owner or leader (your boss). Be respectful and execution-focused; never call them a new colleague, new hire, or welcome them as if they just joined."
+						: "在群里发消息的真人用户是本公司的老板/负责人。你是下属数字员工：称呼用「您」或「老板」，语气尊重、简洁执行；绝对不要用「新同事」「新人」「欢迎加入团队」等把对方当成刚入职员工的说法。";
+				for (let i = 0; i < agents.length; i++) {
+					const a = agents[i];
+					const aid = String(a?.id || "").trim();
+					const senderName = String(a?.name || "").trim() || this.t("digital_employee_fallback");
+					const system = [
+						`你是全员群数字员工：${senderName}。`,
+						bossCtx,
+						lang === "en"
+							? "Speak only as yourself in 1–3 short sentences; keep it concise and professional."
+							: "只代表你自己发言，口吻自然、像向负责人汇报，1～3 句，80 字以内。",
+						lang === "en"
+							? "Do not repeat others verbatim; add your own takeaway or next step."
+							: "不要复述他人整段内容，给出推进建议或结论。",
+						lang === "en"
+							? "Do not start the message body with your own name or nickname followed by a colon; the UI already shows who is speaking."
+							: "【格式】正文开头不要写本人姓名或昵称加冒号（如不要「某某：…」），发送者已在气泡旁展示。",
+					].join("\n");
+					try {
+						const res = await chatCompletion({
+							apiKey,
+							baseUrl,
+							model: getAgentModelOrDefault(aid) || model,
+							system,
+							messages: msgs,
+							timeoutMs: 14000,
+						});
+						const text = String(extractAssistantText(res) || "").trim();
+						appendHQMessage({
+							content:
+								stripAgentMessageBodyPrefix(text, a) ||
+								this.buildHallFallbackReply(a, userText, i),
+							isMine: false,
+							senderName,
+						});
+					} catch {
+						appendHQMessage({
+							content: this.buildHallFallbackReply(a, userText, i),
+							isMine: false,
+							senderName,
+						});
+					}
+					this.hallMessages = loadHQChatMessages();
+					this.$nextTick(() => this.scrollToBottom());
+					await new Promise((r) => setTimeout(r, 420));
+				}
 			},
 			avatarColor(name) {
 				const colors = ["#07c160", "#10aeff", "#576b95", "#fa9d3b", "#1485ee", "#9a6bff"];

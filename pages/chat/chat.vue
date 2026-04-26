@@ -62,7 +62,17 @@ class="message-bubble"
 :class="{ 'my-message': msg.isMine }"
 @longpress.stop="onBubbleLongPress(msg)"
 >
-<text class="bubble-text">{{ msg.content }}</text>
+<text class="bubble-text">{{ renderTextContent(msg.content) }}</text>
+<view v-if="extractImageUrls(msg.content).length" class="bubble-images">
+<image
+v-for="(img, idx) in extractImageUrls(msg.content)"
+:key="msg.id + '_img_' + idx"
+class="bubble-image"
+:src="img"
+mode="aspectFill"
+@tap.stop="previewImages(extractImageUrls(msg.content), idx)"
+/>
+</view>
 </view>
 <text class="bubble-meta-time">{{ formatTime(msg.time) }}</text>
 </view>
@@ -653,8 +663,12 @@ if (!apiKey) {
     const role = String(a?.role || a?.jobTitle || "").trim() || displayAgentRole(a);
     const aid = String(a?.id || a?.agentId || "").trim();
     const agentModel = (aid && getAgentModelOrDefault(aid)) || model;
-    appendVirtualChat("group", this.virtualId, {
-      content: this.buildGroupAutoReplyContent(name, role, userText, idx),
+    appendVirtualChat(this.virtualKind, this.virtualId, {
+      content:
+        this.buildGroupAutoReplyContent(name, role, userText, idx) +
+        ((this.virtualKind === "hq" || /新闻|news|天气|weather|全球|前沿|趋势/i.test(userText))
+          ? this.buildImageBundleForReply(userText)
+          : ""),
       isMine: false,
       senderName: formatAgentNavTitle({ name, role }) || name,
       senderAvatar: String(a?.avatar || a?.avatarUrl || a?.headImg || a?.headimg || "").trim(),
@@ -688,7 +702,10 @@ try {
       if (!String(text || "").trim()) {
         text = this.buildGroupAutoReplyContent(name, role, userText, idx);
       }
-      appendVirtualChat("group", this.virtualId, {
+      if (this.virtualKind === "hq" || /新闻|news|天气|weather|全球|前沿|趋势/i.test(userText)) {
+        text += this.buildImageBundleForReply(`${userText}\n${text}`);
+      }
+      appendVirtualChat(this.virtualKind, this.virtualId, {
         content: text,
         isMine: false,
         senderName,
@@ -697,8 +714,12 @@ try {
         senderModel: agentModel,
       });
     } catch {
-      appendVirtualChat("group", this.virtualId, {
-        content: this.buildGroupAutoReplyContent(name, role, userText, idx),
+      appendVirtualChat(this.virtualKind, this.virtualId, {
+        content:
+          this.buildGroupAutoReplyContent(name, role, userText, idx) +
+          ((this.virtualKind === "hq" || /新闻|news|天气|weather|全球|前沿|趋势/i.test(userText))
+            ? this.buildImageBundleForReply(userText)
+            : ""),
         isMine: false,
         senderName,
         senderAvatar: String(a?.avatar || a?.avatarUrl || a?.headImg || a?.headimg || "").trim(),
@@ -732,7 +753,10 @@ try {
         text = text ? clampGroupReplyLength(text, 140) : "";
         if (isContinuationSkipToken(text)) continue;
         if (!String(text || "").trim()) continue;
-        appendVirtualChat("group", this.virtualId, {
+        if (this.virtualKind === "hq" || /新闻|news|天气|weather|全球|前沿|趋势/i.test(userText)) {
+          text += this.buildImageBundleForReply(`${userText}\n${text}`);
+        }
+        appendVirtualChat(this.virtualKind, this.virtualId, {
           content: text,
           isMine: false,
           senderName,
@@ -769,6 +793,49 @@ this.isDarkMode = !!isDark;
 },
 t(key, params = {}) {
 return t(key, getLanguage(), params);
+},
+extractImageUrls(content) {
+const s = String(content || "");
+const re = /(https?:\/\/[^\s]+?\.(?:png|jpg|jpeg|gif|webp))(?:\?[^\s]*)?/gi;
+const out = [];
+let m;
+while ((m = re.exec(s)) !== null) {
+const u = String(m[0] || "").trim();
+if (u) out.push(u);
+}
+return [...new Set(out)].slice(0, 4);
+},
+renderTextContent(content) {
+const s = String(content || "").trim();
+if (!s) return "";
+return s.replace(/(https?:\/\/[^\s]+?\.(?:png|jpg|jpeg|gif|webp))(?:\?[^\s]*)?/gi, "").trim();
+},
+previewImages(urls, current = 0) {
+const arr = Array.isArray(urls) ? urls.filter(Boolean) : [];
+if (!arr.length) return;
+uni.previewImage({ urls: arr, current: arr[Math.max(0, Math.min(current, arr.length - 1))] });
+},
+buildImageBundleForReply(seed = "") {
+const text = String(seed || "");
+const tech = [
+"https://images.unsplash.com/photo-1518773553398-650c184e0bb3?auto=format&fit=crop&w=1200&q=60",
+"https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1200&q=60",
+"https://images.unsplash.com/photo-1485827404703-89b55fcc595e?auto=format&fit=crop&w=1200&q=60",
+];
+const world = [
+"https://images.unsplash.com/photo-1526778548025-fa2f459cd5ce?auto=format&fit=crop&w=1200&q=60",
+"https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=1200&q=60",
+];
+const weather = [
+"https://images.unsplash.com/photo-1500740516770-92bd004b996e?auto=format&fit=crop&w=1200&q=60",
+"https://images.unsplash.com/photo-1499346030926-9a72daac6c63?auto=format&fit=crop&w=1200&q=60",
+];
+let pool = tech;
+if (/天气|weather|气温|降雨|晴|阴|云|风/i.test(text)) pool = weather;
+else if (/全球|国际|world|economy|policy|地缘|宏观/i.test(text)) pool = world;
+const one = pool[Math.floor(Math.random() * pool.length)];
+const two = pool[(Math.floor(Math.random() * pool.length) + 1) % pool.length];
+return `\n图片参考：\n${one}\n${two}`;
 },
 safeScrollId(id) {
 return "sm-" + String(id == null ? "x" : id).replace(/[^a-zA-Z0-9_-]/g, "_");
@@ -1735,6 +1802,21 @@ color: #1e293b;
 white-space: pre-wrap;
 word-break: break-word;
 writing-mode: horizontal-tb;
+}
+
+.bubble-images {
+display: flex;
+flex-direction: row;
+flex-wrap: wrap;
+gap: 10rpx;
+margin-top: 10rpx;
+}
+
+.bubble-image {
+width: 180rpx;
+height: 132rpx;
+border-radius: 10rpx;
+background: #e2e8f0;
 }
 
 .message-bubble.my-message .bubble-text {

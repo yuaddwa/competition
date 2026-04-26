@@ -132,6 +132,7 @@
 					const done = mine.filter((t) => String(t.status || "").toUpperCase() === "DONE").length;
 					const percent = total ? Math.round(mine.reduce((s, t) => s + Number(t.progressPercent || 0), 0) / total) : 0;
 					const last = mine[0];
+					const sorted = [...mine].sort((x, y) => Number(y.updatedAt || 0) - Number(x.updatedAt || 0));
 					out.push({
 						id: a.id,
 						name: a.name,
@@ -139,18 +140,14 @@
 						done,
 						percent,
 						lastSummary: last ? String(last.aiExecutionReport || last.description || "").slice(0, 28) : "暂无",
-						achievements: mine
-							.slice(0, 3)
+						achievements: sorted
+							.filter((t) => String(t.status || "").toUpperCase() === "DONE")
+							.slice(0, 4)
 							.map((t) => ({
 								id: t.id || t.taskId,
 								title: t.title || t.name || "未命名任务",
 								status: this.statusLabel(t),
-								body: String(
-									t.automationFullReport ||
-									t.aiExecutionReport ||
-									t.description ||
-									"暂无成果说明"
-								).slice(0, 120),
+								body: this.extractAchievement(t),
 							})),
 					});
 				}
@@ -211,6 +208,17 @@
 			stopRefresh() {
 				if (this.refreshTimer) clearInterval(this.refreshTimer);
 				this.refreshTimer = null;
+			},
+			extractAchievement(task) {
+				const text = String(
+					task?.automationFullReport ||
+					task?.aiExecutionReport ||
+					task?.description ||
+					"暂无成果说明"
+				);
+				const hit = text.match(/###\s*执行与交付[\s\S]*?(?=###|$)/);
+				const core = (hit ? hit[0] : text).replace(/[#*`>-]/g, " ").replace(/\s+/g, " ").trim();
+				return core.slice(0, 180);
 			},
 			async autoKickoffIfNeeded() {
 				if (this.autoBootstrapped) return;

@@ -50,6 +50,24 @@
 				return t(key);
 			},
 			go(page) {
+				if (page === "add") {
+					// 同页（project）点击 +：直接发事件，避免 switchTab 到同一路由不触发生命周期
+					if (this.current === "project") {
+						try {
+							uni.$emit("openProjectCreateFromPlus");
+						} catch {
+							//
+						}
+						return;
+					}
+					try {
+						uni.setStorageSync("open_project_create_from_plus", "1");
+					} catch {
+						//
+					}
+					switchMainTab("project");
+					return;
+				}
 				switchMainTab(page);
 			},
 		},

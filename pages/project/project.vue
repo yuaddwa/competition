@@ -54,69 +54,59 @@
 		</view>
 	</view>
 
-		<!-- 弹窗打开时隐藏底栏，避免与自定义 Tab 层叠导致按钮被挡（各端表现不一致） -->
 		<AppTabBar v-if="!showCreate" current="project" />
-
-		<view v-if="showCreate" class="mask" @click.self="showCreate = false">
-			<view class="dialog" @click.stop>
-				<text class="dialog-title">{{ t('add_new_project_title') }}</text>
-				<input
-					class="dialog-input"
-					v-model="newTitle"
-					:placeholder="t('add_new_project_name_ph')"
-					placeholder-class="ph"
-					confirm-type="next"
-				/>
-				<input
-					class="dialog-input"
-					v-model="newDesc"
-					:placeholder="t('add_new_project_desc_ph')"
-					placeholder-class="ph"
-					confirm-type="done"
-					@confirm="submitCreate"
-				/>
-				<textarea
-					class="dialog-input dialog-textarea"
-					v-model="newGoal"
-					:placeholder="t('add_new_project_goal_ph')"
-					placeholder-class="ph"
-				/>
-				<view class="agent-pick">
-					<text class="agent-pick-t">{{ t('project_choose_agents') }}</text>
-					<view v-if="loadingAgents" class="agent-empty">{{ t('loading') }}…</view>
-					<view v-else-if="!agentOptions.length" class="agent-empty">{{ t('group_invite_none_available') }}</view>
-					<scroll-view v-else scroll-y class="agent-list">
-						<view
-							v-for="a in agentOptions"
-							:key="a.id"
-							class="agent-row"
-							:class="{ on: selectedAgentIds.includes(a.id) }"
-							@click="toggleAgent(a.id)"
-						>
-							<view class="agent-check">{{ selectedAgentIds.includes(a.id) ? '✓' : '' }}</view>
-							<view class="agent-main">
-								<text class="agent-name">{{ a.name }}</text>
-								<text class="agent-meta">{{ a.department || t('vt_member_default') }} · {{ a.role || t('vt_member_default') }}</text>
-							</view>
-							<text class="agent-model">{{ modelShort(a.id) }}</text>
-						</view>
-					</scroll-view>
-				</view>
-				<view class="dialog-actions">
-					<view class="dialog-btn dialog-btn-ghost" @tap.stop="showCreate = false">
-						<text class="dialog-btn-t">{{ t('cancel') }}</text>
-					</view>
+		<view v-else class="create-page">
+			<text class="create-title">{{ t('add_new_project_title') }}</text>
+			<input
+				class="create-input"
+				v-model="newTitle"
+				:placeholder="t('add_new_project_name_ph')"
+				placeholder-class="ph"
+				confirm-type="next"
+			/>
+			<input
+				class="create-input"
+				v-model="newDesc"
+				:placeholder="t('add_new_project_desc_ph')"
+				placeholder-class="ph"
+				confirm-type="next"
+			/>
+			<textarea
+				class="create-input create-ta"
+				v-model="newGoal"
+				:placeholder="t('add_new_project_goal_ph')"
+				placeholder-class="ph"
+			/>
+			<view class="create-agent-wrap">
+				<text class="create-agent-title">{{ t('project_choose_agents') }}</text>
+				<view v-if="loadingAgents" class="agent-empty">{{ t('loading') }}…</view>
+				<view v-else-if="!agentOptions.length" class="agent-empty">{{ t('group_invite_none_available') }}</view>
+				<scroll-view v-else scroll-y class="create-agent-list">
 					<view
-						class="dialog-btn dialog-btn-primary"
-						:class="{
-							'is-loading': creating,
-							'is-disabled': !canSubmitCreate && !creating,
-						}"
-						@tap.stop="submitCreate"
+						v-for="a in agentOptions"
+						:key="a.id"
+						class="create-agent-row"
+						@click="toggleAgent(a.id)"
 					>
-						<text v-if="creating" class="dialog-btn-t">{{ t('loading') }}…</text>
-						<text v-else class="dialog-btn-t">{{ t('create') }}</text>
+						<view class="create-radio" :class="{ on: selectedAgentIds.includes(a.id) }" />
+						<view class="create-agent-main">
+							<text class="create-agent-name">{{ a.name }}</text>
+							<text class="create-agent-meta">{{ a.department || t('vt_member_default') }} · {{ a.role || t('vt_member_default') }}</text>
+						</view>
+						<text class="create-agent-model">{{ modelShort(a.id) }}</text>
 					</view>
+				</scroll-view>
+			</view>
+			<view class="create-actions">
+				<view class="create-btn create-btn-cancel" @tap.stop="showCreate = false">
+					<text class="create-btn-t">{{ t('cancel') }}</text>
+				</view>
+				<view
+					class="create-btn create-btn-ok"
+					:class="{ 'is-disabled': !canSubmitCreate && !creating }"
+					@tap.stop="submitCreate"
+				>
+					<text class="create-btn-t">{{ creating ? `${t('loading')}…` : t('create') }}</text>
 				</view>
 			</view>
 		</view>
@@ -166,6 +156,18 @@
 		},
 		onLoad() {
 			uni.hideTabBar({ animation: false });
+			try {
+				uni.$on("openProjectCreateFromPlus", this.handleOpenCreateFromPlus);
+			} catch {
+				//
+			}
+		},
+		onUnload() {
+			try {
+				uni.$off("openProjectCreateFromPlus", this.handleOpenCreateFromPlus);
+			} catch {
+				//
+			}
 		},
 		onShow() {
 			uni.hideTabBar({ animation: false });
@@ -185,8 +187,19 @@
 			}
 			this.loadList();
 			this.loadAgentOptions();
+			try {
+				if (uni.getStorageSync("open_project_create_from_plus") === "1") {
+					uni.removeStorageSync("open_project_create_from_plus");
+					this.openCreate();
+				}
+			} catch {
+				//
+			}
 		},
 		methods: {
+			handleOpenCreateFromPlus() {
+				this.openCreate();
+			},
 			t(key, params = {}) {
 				return t(key, this.currentLanguage, params);
 			},
@@ -672,83 +685,55 @@
 		height: 40rpx;
 	}
 
-	.mask {
+	.create-page {
 		position: fixed;
 		left: 0;
 		right: 0;
 		top: 0;
 		bottom: 0;
-		background: rgba(15, 23, 42, 0.38);
 		z-index: 100000;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		padding: 28rpx;
-		padding-bottom: calc(28rpx + env(safe-area-inset-bottom));
+		background: #f2f4f8;
+		padding: 24rpx;
+		padding-top: calc(24rpx + env(safe-area-inset-top));
+		padding-bottom: calc(120rpx + env(safe-area-inset-bottom));
 		box-sizing: border-box;
-		isolation: isolate;
-	}
-
-	.dialog {
-		position: relative;
-		z-index: 1;
-		width: 100%;
-		max-width: 680rpx;
-		max-height: calc(85vh - env(safe-area-inset-bottom));
 		overflow-y: auto;
-		background: #fff !important;
-		background-color: #fff !important;
-		opacity: 1;
-		border-radius: 24rpx;
-		padding: 32rpx;
-		box-sizing: border-box;
-		box-shadow: 0 24rpx 80rpx rgba(15, 23, 42, 0.18);
-		transform: translateZ(0);
-		-webkit-transform: translateZ(0);
 	}
 
-	.dialog-title {
-		font-size: 34rpx;
+	.create-title {
+		font-size: 40rpx;
 		font-weight: 800;
 		color: #0f172a;
-		margin-bottom: 24rpx;
+		margin-bottom: 20rpx;
 	}
 
-	.dialog-input {
+	.create-input {
 		width: 100%;
-		height: 84rpx;
-		border: 1rpx solid #e2e8f0;
-		border-radius: 16rpx;
-		padding: 0 22rpx;
+		height: 96rpx;
+		border: 1rpx solid #dde3ec;
+		border-radius: 20rpx;
+		padding: 0 24rpx;
 		margin-bottom: 16rpx;
-		font-size: 28rpx;
+		font-size: 30rpx;
 		box-sizing: border-box;
-		background: #f8fafc;
+		background: #f9fbff;
 	}
 
-	.dialog-textarea {
-		height: 168rpx;
-		padding-top: 18rpx;
-		padding-bottom: 18rpx;
+	.create-ta {
+		height: 180rpx;
+		padding-top: 20rpx;
+		padding-bottom: 20rpx;
 	}
 
 	.ph {
-		color: #aaa;
+		color: #a4aec0;
 	}
 
-	.dialog-actions {
-		display: flex;
-		justify-content: space-between;
-		gap: 16rpx;
-		margin-top: 12rpx;
+	.create-agent-wrap {
+		margin-top: 6rpx;
 	}
 
-	.agent-pick {
-		margin-top: 8rpx;
-		margin-bottom: 8rpx;
-	}
-
-	.agent-pick-t {
+	.create-agent-title {
 		display: block;
 		font-size: 24rpx;
 		font-weight: 700;
@@ -762,107 +747,111 @@
 		padding: 12rpx 0;
 	}
 
-	.agent-list {
-		max-height: 300rpx;
-		border: 1rpx solid #e2e8f0;
-		border-radius: 14rpx;
-		background: #f8fafc;
+	.create-agent-list {
+		max-height: 430rpx;
+		border: 1rpx solid #dde3ec;
+		border-radius: 18rpx;
+		background: #fff;
 	}
 
-	.agent-row {
+	.create-agent-row {
 		display: flex;
 		align-items: center;
-		padding: 14rpx 12rpx;
-		border-bottom: 1rpx solid #e2e8f0;
+		padding: 16rpx 14rpx;
+		border-bottom: 1rpx solid #edf1f6;
 	}
 
-	.agent-row:last-child {
+	.create-agent-row:last-child {
 		border-bottom: none;
 	}
 
-	.agent-row.on {
-		background: #eff6ff;
-	}
-
-	.agent-check {
+	.create-radio {
 		width: 32rpx;
 		height: 32rpx;
-		line-height: 32rpx;
-		text-align: center;
 		border-radius: 50%;
-		border: 1rpx solid #2563eb;
-		color: #2563eb;
-		font-size: 20rpx;
+		border: 2rpx solid #95a3ba;
 		margin-right: 10rpx;
+		box-sizing: border-box;
 	}
 
-	.agent-main {
+	.create-radio.on {
+		border-color: #4f66f6;
+		background: radial-gradient(circle, #4f66f6 48%, transparent 50%);
+	}
+
+	.create-agent-main {
 		flex: 1;
 		min-width: 0;
 	}
 
-	.agent-name {
+	.create-agent-name {
 		display: block;
-		font-size: 24rpx;
+		font-size: 34rpx;
 		color: #0f172a;
 		font-weight: 700;
 	}
 
-	.agent-meta {
+	.create-agent-meta {
 		display: block;
-		font-size: 20rpx;
+		font-size: 24rpx;
 		color: #64748b;
 		margin-top: 4rpx;
 	}
 
-	.agent-model {
-		font-size: 20rpx;
+	.create-agent-model {
+		font-size: 24rpx;
 		color: #475569;
 		background: #e2e8f0;
-		padding: 2rpx 10rpx;
+		padding: 4rpx 14rpx;
 		border-radius: 999rpx;
 		margin-left: 8rpx;
 	}
 
-	.dialog-btn {
+	.create-actions {
+		position: fixed;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		padding: 18rpx 24rpx calc(18rpx + env(safe-area-inset-bottom));
+		background: #f2f4f8;
+		display: flex;
+		gap: 16rpx;
+		box-sizing: border-box;
+	}
+
+	.create-btn {
 		flex: 1;
-		height: 76rpx;
-		border-radius: 38rpx;
+		height: 88rpx;
+		border-radius: 44rpx;
 		font-size: 28rpx;
 		font-weight: 700;
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		box-shadow: 0 8rpx 24rpx rgba(37, 99, 235, 0.15);
 	}
 
-	.dialog-btn-t {
+	.create-btn-t {
 		font-size: 28rpx;
 		font-weight: 700;
 	}
 
-	.dialog-btn-ghost {
-		background: #f1f5f9;
-		box-shadow: none;
+	.create-btn-cancel {
+		background: #e8ecf2;
 	}
 
-	.dialog-btn-ghost .dialog-btn-t {
+	.create-btn-cancel .create-btn-t {
 		color: #475569;
 	}
 
-	.dialog-btn-primary {
-		background: linear-gradient(135deg, #2563eb, #4f46e5);
+	.create-btn-ok {
+		background: linear-gradient(135deg, #5d8dfa, #9a95f5);
 	}
 
-	.dialog-btn-primary .dialog-btn-t {
+	.create-btn-ok .create-btn-t {
 		color: #fff;
 	}
 
-	.dialog-btn-primary.is-loading {
-		opacity: 0.8;
-	}
-
-	.dialog-btn-primary.is-disabled {
+	.create-btn-ok.is-disabled {
 		opacity: 0.45;
 		pointer-events: none;
 	}
