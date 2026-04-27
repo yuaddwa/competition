@@ -1,20 +1,22 @@
 <template>
 	<view class="page">
-		<view class="hint">{{ t('settings_section_account') }}</view>
-		<view class="cell-group">
-			<view v-if="isLoggedIn" class="cell" @click="switchAccount">
-				<view class="cell-icon bg-switch">
-					<text class="iconfont cell-glyph">&#xe654;</text>
+		<view v-if="loggedIn">
+			<view class="hint">{{ t('settings_section_account') }}</view>
+			<view class="cell-group">
+				<view class="cell" @click="switchAccount">
+					<view class="cell-icon bg-switch">
+						<text class="iconfont cell-glyph">&#xe654;</text>
+					</view>
+					<text class="cell-title">{{ t('switch_account') }}</text>
+					<text class="cell-arrow">›</text>
 				</view>
-				<text class="cell-title">{{ t('switch_account') }}</text>
-				<text class="cell-arrow">›</text>
-			</view>
-			<view class="cell" @click="logoutAccount">
-				<view class="cell-icon bg-out">
-					<text class="iconfont cell-glyph">&#xe727;</text>
+				<view class="cell" @click="logoutAccount">
+					<view class="cell-icon bg-out">
+						<text class="iconfont cell-glyph">&#xe727;</text>
+					</view>
+					<text class="cell-title cell-danger">{{ t('logout') }}</text>
+					<text class="cell-arrow">›</text>
 				</view>
-				<text class="cell-title cell-danger">{{ logoutCellLabel }}</text>
-				<text class="cell-arrow">›</text>
 			</view>
 		</view>
 
@@ -136,26 +138,6 @@
 		</view>
 
 		<text class="sub-hint">{{ t('settings_switch_logout_hint') }}</text>
-
-		<view v-if="showSheet" class="sheet-mask" @tap="closeSheet">
-			<view class="sheet-panel" @tap.stop>
-				<view class="sheet-handle" />
-				<view class="sheet-title">{{ sheetTitle }}</view>
-				<view
-					v-for="(item, index) in sheetItems"
-					:key="index"
-					class="sheet-row"
-					:class="{ 'sheet-row-active': index === sheetActiveIndex }"
-					@tap="onSheetSelect(index)"
-				>
-					<text class="sheet-row-t">{{ item }}</text>
-					<text v-if="index === sheetActiveIndex" class="sheet-row-check">✓</text>
-				</view>
-				<view class="sheet-cancel" @tap="closeSheet">
-					<text class="sheet-cancel-t">{{ t('cancel') }}</text>
-				</view>
-			</view>
-		</view>
 	</view>
 </template>
 
@@ -170,8 +152,7 @@
 	export default {
 		data() {
 			return {
-				isLoggedIn: false,
-				loginFlagFromRoute: "",
+				loggedIn: false,
 				currentLanguage: getLanguage(),
 				readReceipt: true,
 				onlineStatus: true,
@@ -180,11 +161,6 @@
 				cacheSize: "0 KB",
 				showSwitchAccountSheet: false,
 				switchAccountOptions: [],
-				showSheet: false,
-				sheetTitle: "",
-				sheetItems: [],
-				sheetActiveIndex: -1,
-				sheetCallback: null,
 			};
 		},
 		computed: {
@@ -204,11 +180,18 @@
 				return this.t("settings_clear_cache_sub", { size: this.cacheSize });
 			},
 		},
-		onLoad(options = {}) {
-			this.loginFlagFromRoute = String(options.loggedIn || "").trim();
-			this.syncAuthState();
+		onLoad() {
+			this.checkLogin();
 			this.loadSettings();
 			this.calculateCacheSize();
+		},
+		checkLogin() {
+			try {
+				const token = uni.getStorageSync("token");
+				this.loggedIn = !!token;
+			} catch {
+				this.loggedIn = false;
+			}
 		},
 		onShow() {
 			this.syncAuthState();
@@ -390,61 +373,48 @@
 			showLanguagePicker() {
 				// 固定双语标签，避免随当前语言变化造成认知混淆
 				const itemList = ["简体中文", "English"];
-				const activeIndex = this.currentLanguage === "en" ? 1 : 0;
-				this.openSheet(this.t("language"), itemList, activeIndex, (index) => {
-					if (index < 0) return;
-					const nextLang = index === 1 ? "en" : "zh";
-					setLanguage(nextLang);
-					this.currentLanguage = nextLang;
-					this.saveSettings();
-					try {
-						uni.setNavigationBarTitle({ title: translate("settings", getLanguage()) });
-					} catch (e) {
-						//
-					}
-					this.$forceUpdate();
-					uni.showToast({
-						title: index === 1 ? this.t("toast_language_en") : this.t("toast_language_zh"),
-						icon: "none",
-					});
+				uni.showActionSheet({
+					itemList,
+					success: (res) => {
+						if (res.tapIndex < 0) return;
+						const nextLang = res.tapIndex === 1 ? "en" : "zh";
+						setLanguage(nextLang);
+						this.currentLanguage = nextLang;
+						this.saveSettings();
+						try {
+							uni.setNavigationBarTitle({ title: translate("settings", getLanguage()) });
+						} catch (e) {
+							//
+						}
+						this.$forceUpdate();
+						uni.showToast({
+							title: res.tapIndex === 1 ? this.t("toast_language_en") : this.t("toast_language_zh"),
+							icon: "none",
+						});
+					},
 				});
 			},
 			showFontSizePicker() {
 				const itemList = FONT_SIZE_KEYS.map((s) => this.fontSizeToLabel(s));
-				const activeIndex = FONT_SIZE_KEYS.indexOf(this.currentFontSize);
-				this.openSheet(this.t("settings_font_size"), itemList, activeIndex, (index) => {
-					if (index < 0) return;
-					this.currentFontSize = FONT_SIZE_KEYS[index];
-					this.saveSettings();
-					try {
-						const app = getApp && getApp();
-						app && app.applyFontSize && app.applyFontSize(this.currentFontSize);
-					} catch (e) {
-						//
-					}
-					uni.showToast({
-						title: this.t("toast_font_changed", { size: this.fontSizeToLabel(this.currentFontSize) }),
-						icon: "none",
-					});
+				uni.showActionSheet({
+					itemList,
+					success: (res) => {
+						if (res.tapIndex >= 0) {
+							this.currentFontSize = FONT_SIZE_KEYS[res.tapIndex];
+							this.saveSettings();
+							try {
+								const app = getApp && getApp();
+								app && app.applyFontSize && app.applyFontSize(this.currentFontSize);
+							} catch (e) {
+								//
+							}
+							uni.showToast({
+								title: this.t("toast_font_changed", { size: this.fontSizeToLabel(this.currentFontSize) }),
+								icon: "none",
+							});
+						}
+					},
 				});
-			},
-			openSheet(title, items, activeIndex, callback) {
-				this.sheetTitle = title;
-				this.sheetItems = items;
-				this.sheetActiveIndex = activeIndex;
-				this.sheetCallback = callback;
-				this.showSheet = true;
-			},
-			closeSheet() {
-				this.showSheet = false;
-				this.sheetCallback = null;
-			},
-			onSheetSelect(index) {
-				this.showSheet = false;
-				if (this.sheetCallback) {
-					this.sheetCallback(index);
-					this.sheetCallback = null;
-				}
 			},
 			toggleDarkMode() {
 				this.isDarkMode = !this.isDarkMode;
@@ -770,21 +740,19 @@
 		transform: translateX(44rpx);
 	}
 
-	.switch-sheet-mask,
-	.sheet-mask {
+	.switch-sheet-mask {
 		position: fixed;
 		left: 0;
 		right: 0;
 		top: 0;
 		bottom: 0;
 		background: rgba(15, 23, 42, 0.14);
-		z-index: 100000;
+		z-index: 12000;
 		display: flex;
 		align-items: flex-end;
 	}
 
-	.switch-sheet-panel,
-	.sheet-panel {
+	.switch-sheet-panel {
 		width: 100%;
 		background: #eef2ff;
 		border-radius: 24rpx 24rpx 0 0;
@@ -792,8 +760,7 @@
 		overflow: hidden;
 	}
 
-	.switch-sheet-handle,
-	.sheet-handle {
+	.switch-sheet-handle {
 		width: 72rpx;
 		height: 8rpx;
 		border-radius: 999rpx;
@@ -801,16 +768,7 @@
 		margin: 14rpx auto 12rpx;
 	}
 
-	.sheet-title {
-		font-size: 26rpx;
-		color: #64748b;
-		text-align: center;
-		padding: 12rpx 0 8rpx;
-	}
-
-	.sheet-row {
-	.switch-sheet-row,
-	.sheet-row {
+	.switch-sheet-row {
 		background: #fff;
 		padding: 30rpx 32rpx;
 		border-top: 1rpx solid #eef2f7;
@@ -819,14 +777,7 @@
 		justify-content: space-between;
 	}
 
-	.sheet-row-active .sheet-row-t {
-		color: #2563eb;
-		font-weight: 700;
-	}
-
-	.sheet-row-t {
-	.switch-sheet-row-t,
-	.sheet-row-t {
+	.switch-sheet-row-t {
 		font-size: 30rpx;
 		color: #0f172a;
 		font-weight: 600;
@@ -841,14 +792,7 @@
 		border: 1rpx solid #bfdbfe;
 	}
 
-	.sheet-row-check {
-		font-size: 28rpx;
-		color: #2563eb;
-		font-weight: 700;
-	}
-
-	.switch-sheet-cancel,
-	.sheet-cancel {
+	.switch-sheet-cancel {
 		margin-top: 14rpx;
 		background: #fff;
 		padding: 28rpx 32rpx;
@@ -856,8 +800,7 @@
 		justify-content: center;
 	}
 
-	.switch-sheet-cancel-t,
-	.sheet-cancel-t {
+	.switch-sheet-cancel-t {
 		font-size: 30rpx;
 		color: #64748b;
 		font-weight: 600;
