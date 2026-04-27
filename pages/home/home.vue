@@ -313,14 +313,14 @@
 		height: 100vh;
 		display: flex;
 		flex-direction: column;
-		background: #ededed;
+		background: transparent;
 		box-sizing: border-box;
 	}
 
 	.navbar-wrap {
-		background: #ededed;
+		background: var(--navbar-bg);
 		flex-shrink: 0;
-		border-bottom: 1rpx solid #d9d9d9;
+		border-bottom: 1rpx solid var(--border-color);
 	}
 
 	.navbar {
@@ -345,7 +345,7 @@
 	.navbar-more {
 		font-size: 44rpx;
 		font-weight: 600;
-		color: #111;
+		color: var(--text-primary);
 		padding: 8rpx 8rpx 8rpx 16rpx;
 		line-height: 1;
 	}
@@ -360,12 +360,12 @@
 	.navbar-title {
 		font-size: 34rpx;
 		font-weight: 600;
-		color: #000;
+		color: var(--text-primary);
 	}
 
 	.navbar-sub {
 		font-size: 22rpx;
-		color: #888;
+		color: var(--text-secondary);
 		margin-top: 4rpx;
 		text-align: center;
 		line-height: 1.35;
@@ -433,10 +433,11 @@
 	}
 
 	.hall-bubble {
-		background: #fff;
+		background: var(--bg-secondary);
 		padding: 16rpx 20rpx;
-		border-radius: 12rpx;
-		box-shadow: 0 2rpx 6rpx rgba(0, 0, 0, 0.06);
+		border-radius: 16rpx;
+		border: 1rpx solid var(--border-color);
+		box-shadow: var(--card-shadow-soft);
 	}
 
 	.hall-bubble.manager {
@@ -481,8 +482,8 @@
 	.chat-input {
 		min-height: 100rpx;
 		padding-bottom: env(safe-area-inset-bottom);
-		background: #f7f7f7;
-		border-top: 1rpx solid #dcdcdc;
+		background: var(--bg-secondary);
+		border-top: 1rpx solid var(--border-color);
 		display: flex;
 		align-items: center;
 		padding: 16rpx 24rpx;
@@ -494,23 +495,26 @@
 	.input-field {
 		flex: 1;
 		height: 72rpx;
-		background: #fff;
-		border-radius: 12rpx;
+		background: var(--input-bg);
+		border: 1rpx solid var(--input-border);
+		border-radius: 16rpx;
 		padding: 0 24rpx;
 		font-size: 28rpx;
+		color: var(--text-primary);
 	}
 
 	.iph {
-		color: #bbb;
+		color: var(--input-placeholder);
 	}
 
 	.send-button {
 		padding: 16rpx 28rpx;
-		background: #07c160;
+		background: linear-gradient(135deg, var(--primary-color), var(--primary-color-2));
 		color: #fff;
-		border-radius: 12rpx;
+		border-radius: 999rpx;
 		font-size: 28rpx;
 		font-weight: 600;
+		box-shadow: 0 8rpx 20rpx rgba(49, 94, 251, 0.28);
 	}
 
 </style>

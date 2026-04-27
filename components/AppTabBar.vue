@@ -77,14 +77,16 @@
 <style scoped>
 	.app-tab-bar {
 		position: fixed;
-		left: 0;
-		right: 0;
+		left: 18rpx;
+		right: 18rpx;
 		bottom: 0;
-		width: 100%;
 		z-index: 100;
-		position: relative;
-		background-color: #fff;
-		border-top: 1rpx solid #e2e8f0;
+		background-color: var(--tab-bar-bg);
+		border: 1rpx solid var(--border-color);
+		border-bottom: none;
+		border-radius: 26rpx 26rpx 0 0;
+		box-shadow: 0 10rpx 36rpx rgba(15, 23, 42, 0.12);
+		backdrop-filter: blur(10px);
 		box-sizing: border-box;
 	}
 
@@ -111,21 +113,21 @@
 	.tab-icon {
 		font-size: 36rpx;
 		margin-bottom: 6rpx;
-		color: #64748b;
+		color: var(--text-secondary);
 	}
 
 	.tab-text {
 		font-size: 20rpx;
-		color: #64748b;
+		color: var(--text-secondary);
 	}
 
 	.tab-item.active .tab-text {
-		color: #2563eb;
+		color: var(--primary-color);
 		font-weight: bold;
 	}
 
 	.tab-item.active .tab-icon {
-		color: #2563eb;
+		color: var(--primary-color);
 	}
 
 	.tab-item-center-spacer {
@@ -148,12 +150,12 @@
 		width: 80rpx;
 		height: 80rpx;
 		border-radius: 50%;
-		background: linear-gradient(135deg, #2563eb, #4f46e5);
+		background: linear-gradient(135deg, var(--primary-color), var(--primary-color-2));
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		box-shadow: 0 8rpx 24rpx rgba(37, 99, 235, 0.35);
-		border: 4rpx solid #fff;
+		box-shadow: 0 10rpx 28rpx rgba(49, 94, 251, 0.38);
+		border: 4rpx solid var(--tab-bar-bg);
 		box-sizing: border-box;
 		/* 负值越小整体上移越多；略减小上浮，让加号更贴近底栏一行 */
 		margin-top: -18rpx;

@@ -682,12 +682,12 @@
 		height: 100vh;
 		display: flex;
 		flex-direction: column;
-		background: #f1f5f9;
+		background: transparent;
 		box-sizing: border-box;
 	}
 
 	.navbar-wrap {
-		background: #ffffff;
+		background: var(--navbar-bg);
 		flex-shrink: 0;
 	}
 
@@ -698,7 +698,7 @@
 		align-items: center;
 		justify-content: space-between;
 		padding: 0 8rpx 0 24rpx;
-		border-bottom: 1rpx solid #e2e8f0;
+		border-bottom: 1rpx solid var(--border-color);
 	}
 
 	.navbar-side {
@@ -718,13 +718,13 @@
 		text-align: center;
 		font-size: 34rpx;
 		font-weight: 700;
-		color: #0f172a;
+		color: var(--text-primary);
 	}
 
 	.navbar-plus {
 		font-size: 40rpx;
 		font-weight: 400;
-		color: #2563eb;
+		color: var(--primary-color);
 		line-height: 1;
 	}
 
@@ -744,8 +744,8 @@
 		flex-shrink: 0;
 		display: flex;
 		flex-direction: row;
-		background: #ffffff;
-		border-bottom: 1rpx solid #e2e8f0;
+		background: var(--bg-secondary);
+		border-bottom: 1rpx solid var(--border-color);
 		padding: 0 40rpx;
 	}
 
@@ -763,12 +763,12 @@
 
 	.msg-tab-text {
 		font-size: 30rpx;
-		color: #64748b;
+		color: var(--text-secondary);
 		line-height: 1.2;
 	}
 
 	.msg-tab-active .msg-tab-text {
-		color: #0f172a;
+		color: var(--text-primary);
 		font-weight: 700;
 	}
 
@@ -877,10 +877,10 @@
 		align-items: stretch;
 		padding: 24rpx 22rpx;
 		margin-bottom: 0;
-		background: #fff;
+		background: var(--bg-secondary);
 		border-radius: 20rpx;
-		border: none;
-		box-shadow: 0 8rpx 28rpx rgba(15, 23, 42, 0.06);
+		border: 1rpx solid var(--border-color);
+		box-shadow: var(--card-shadow-soft);
 		transition: transform 0.16s ease;
 	}
 	.msg-row-open {
@@ -888,7 +888,7 @@
 	}
 
 	.msg-row-card-hover {
-		background: #f8fafc !important;
+		background: var(--cell-hover) !important;
 	}
 
 	.msg-row-dept {
@@ -919,8 +919,8 @@
 		border-radius: 20rpx;
 		flex-shrink: 0;
 		margin-right: 22rpx;
-		background: #f1f5f9;
-		border: none;
+		background: var(--bg-tertiary);
+		border: 1rpx solid var(--border-color);
 	}
 
 	.msg-body {
@@ -953,7 +953,7 @@
 
 	.msg-title {
 		font-size: 32rpx;
-		color: #0f172a;
+		color: var(--text-primary);
 		font-weight: 600;
 		overflow: hidden;
 		text-overflow: ellipsis;
@@ -974,7 +974,7 @@
 
 	.msg-time {
 		font-size: 22rpx;
-		color: #94a3b8;
+		color: var(--text-tertiary);
 		flex-shrink: 0;
 		padding-top: 4rpx;
 	}
@@ -989,7 +989,7 @@
 
 	.msg-preview {
 		font-size: 26rpx;
-		color: #64748b;
+		color: var(--text-secondary);
 		flex: 1;
 		min-width: 0;
 		overflow: hidden;

@@ -368,7 +368,7 @@
 		display: flex;
 		flex-direction: column;
 		height: 100vh;
-		background-color: #f2f2f7;
+		background-color: transparent;
 		box-sizing: border-box;
 		font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Helvetica Neue', sans-serif;
 	}
@@ -383,9 +383,9 @@
 	}
 
 	.header-section {
-		background: #fff;
+		background: var(--bg-secondary);
 		padding: 24rpx 20rpx 28rpx;
-		border-bottom: 1rpx solid #e8e8ed;
+		border-bottom: 1rpx solid var(--border-color);
 	}
 
 	.profile-header {
@@ -456,7 +456,7 @@
 	.nick {
 		font-size: 34rpx;
 		font-weight: 600;
-		color: #111;
+		color: var(--text-primary);
 		line-height: 1.25;
 		flex: 1;
 		min-width: 0;
@@ -490,7 +490,7 @@
 		display: block;
 		margin-top: 8rpx;
 		font-size: 24rpx;
-		color: #475569;
+		color: var(--text-secondary);
 		line-height: 1.35;
 	}
 
@@ -500,9 +500,9 @@
 		align-items: stretch;
 		margin-top: 24rpx;
 		padding: 0;
-		border-radius: 12rpx;
-		background: #f7f7f8;
-		border: 1rpx solid #ececf0;
+		border-radius: 16rpx;
+		background: var(--bg-tertiary);
+		border: 1rpx solid var(--border-color);
 		overflow: hidden;
 	}
 
@@ -533,7 +533,7 @@
 	.team-stat-num {
 		font-size: 32rpx;
 		font-weight: 700;
-		color: #111;
+		color: var(--text-primary);
 		line-height: 1;
 		letter-spacing: -0.5rpx;
 		flex-shrink: 0;
@@ -541,7 +541,7 @@
 
 	.team-stat-label {
 		font-size: 24rpx;
-		color: #64748b;
+		color: var(--text-secondary);
 		font-weight: 500;
 		line-height: 1.3;
 		max-width: 56%;
@@ -555,9 +555,10 @@
 	}
 
 	.menu-card {
-		background: #fff;
-		border-radius: 12rpx;
-		border: 1rpx solid #e8e8ed;
+		background: var(--bg-secondary);
+		border-radius: 18rpx;
+		border: 1rpx solid var(--border-color);
+		box-shadow: var(--card-shadow-soft);
 		overflow: hidden;
 		margin-bottom: 12rpx;
 	}
@@ -577,7 +578,7 @@
 	}
 
 	.menu-row-hover {
-		background: #f7f7f8;
+		background: var(--cell-hover);
 	}
 
 	.menu-row-static {
@@ -623,7 +624,7 @@
 	.menu-row-title {
 		font-size: 30rpx;
 		font-weight: 500;
-		color: #111;
+		color: var(--text-primary);
 		line-height: 1.3;
 	}
 
@@ -633,7 +634,7 @@
 
 	.menu-row-sub {
 		font-size: 24rpx;
-		color: #8e8e93;
+		color: var(--text-secondary);
 		line-height: 1.35;
 	}
 
@@ -676,7 +677,7 @@
 	.scroll-pad {
 		height: 200rpx;
 		padding-bottom: env(safe-area-inset-bottom);
-		background-color: #f2f2f7;
+		background-color: transparent;
 	}
 
 	.mask {
