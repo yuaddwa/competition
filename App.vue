@@ -124,45 +124,53 @@
 <style>
 	:root {
 		--app-font-scale: 1;
-		--bg-primary: #f1f5f9;
+		--bg-primary: #eef3fb;
 		--bg-secondary: #ffffff;
-		--bg-tertiary: #eff6ff;
-		--text-primary: #0f172a;
-		--text-secondary: #64748b;
-		--text-tertiary: #94a3b8;
-		--border-color: #e2e8f0;
-		--card-shadow: 0 12rpx 36rpx rgba(15, 23, 42, 0.06);
+		--bg-tertiary: #f4f8ff;
+		--text-primary: #0b1220;
+		--text-secondary: #5b6b83;
+		--text-tertiary: #8a9bb3;
+		--border-color: #d9e3f1;
+		--card-shadow: 0 14rpx 40rpx rgba(15, 23, 42, 0.08);
+		--card-shadow-soft: 0 6rpx 20rpx rgba(15, 23, 42, 0.05);
+		--radius-md: 16rpx;
+		--radius-lg: 24rpx;
+		--radius-xl: 32rpx;
 		--tab-bar-bg: #ffffff;
-		--navbar-bg: #ededed;
-		--input-bg: #f8fafc;
-		--input-border: #e2e8f0;
+		--navbar-bg: rgba(255, 255, 255, 0.88);
+		--input-bg: #f7faff;
+		--input-border: #d7e3f2;
 		--input-placeholder: #94a3b8;
-		--cell-hover: #f8fafc;
+		--cell-hover: #f4f8ff;
 		--success-color: #07c160;
-		--primary-color: #2563eb;
+		--primary-color: #315efb;
+		--primary-color-2: #5b7cfa;
 		--danger-color: #dc2626;
 	}
 
 	[data-theme="dark"] {
-		--bg-primary: #0f172a;
-		--bg-secondary: #1e293b;
-		--bg-tertiary: #334155;
+		--bg-primary: #0a1224;
+		--bg-secondary: #162239;
+		--bg-tertiary: #22324f;
 		--text-primary: #f8fafc;
-		--text-secondary: #94a3b8;
-		--text-tertiary: #64748b;
-		--border-color: #334155;
-		--card-shadow: 0 12rpx 36rpx rgba(0, 0, 0, 0.3);
+		--text-secondary: #afbdd3;
+		--text-tertiary: #8193ae;
+		--border-color: #2d3f5f;
+		--card-shadow: 0 16rpx 42rpx rgba(0, 0, 0, 0.38);
+		--card-shadow-soft: 0 6rpx 18rpx rgba(0, 0, 0, 0.3);
 		--tab-bar-bg: #1e293b;
-		--navbar-bg: #1e293b;
+		--navbar-bg: rgba(16, 26, 44, 0.86);
 		/* 输入区：略浅于页面底、略深于卡片边线，配独立描边与占位符，长时间输入更不累眼 */
-		--input-bg: #1a2332;
-		--input-border: #3f4f63;
-		--input-placeholder: #94a3b8;
-		--cell-hover: #334155;
+		--input-bg: #18263d;
+		--input-border: #3a4f71;
+		--input-placeholder: #8ea1bf;
+		--cell-hover: #213455;
 	}
 
 	page {
-		background-color: var(--bg-primary);
+		background: radial-gradient(140% 90% at 0% 0%, rgba(59, 130, 246, 0.08), transparent 52%),
+			radial-gradient(130% 85% at 100% 0%, rgba(99, 102, 241, 0.08), transparent 50%),
+			var(--bg-primary);
 		color: var(--text-primary);
 		font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 	}
@@ -180,7 +188,7 @@
 	.profile-page,
 	.add-page,
 	.page {
-		background-color: var(--bg-primary) !important;
+		background-color: transparent !important;
 		color: var(--text-primary);
 	}
 
@@ -207,6 +215,9 @@
 	.hero-header {
 		background-color: var(--bg-secondary) !important;
 		color: var(--text-primary);
+		border: 1rpx solid var(--border-color);
+		border-radius: var(--radius-lg);
+		box-shadow: var(--card-shadow-soft);
 	}
 
 	.cell,
@@ -294,7 +305,9 @@
 	.btn.main,
 	.fab-btn,
 	.empty-primary {
-		background: linear-gradient(135deg, var(--primary-color), #4f46e5) !important;
+		background: linear-gradient(135deg, var(--primary-color), var(--primary-color-2)) !important;
+		border: none !important;
+		border-radius: 999rpx !important;
 	}
 
 	.bg-model {
@@ -305,6 +318,37 @@
 	.fab-btn,
 	.empty-primary {
 		box-shadow: var(--card-shadow) !important;
+	}
+
+	.navbar-wrap,
+	.navbar {
+		background: var(--navbar-bg) !important;
+		backdrop-filter: saturate(140%) blur(12px);
+		-webkit-backdrop-filter: saturate(140%) blur(12px);
+	}
+
+	.card,
+	.wf-card,
+	.msg-row-card,
+	.menu-card,
+	.profile-header,
+	.team-overview,
+	.agent-popup,
+	.sheet-panel,
+	.add-dept-popup {
+		border-radius: var(--radius-lg) !important;
+		border: 1rpx solid var(--border-color) !important;
+		box-shadow: var(--card-shadow-soft) !important;
+	}
+
+	.input-field,
+	.inp,
+	textarea,
+	.dialog-input,
+	.add-dept-input {
+		border-radius: var(--radius-md) !important;
+		border-width: 1rpx !important;
+		border-style: solid !important;
 	}
 
 	.input-field,

@@ -389,6 +389,10 @@
 				}
 			},
 			goPage(url) {
+				if (url === "/pages/profile/agent-model-assign" && !this.loggedIn) {
+					uni.showToast({ title: "未登录时不可用", icon: "none" });
+					return;
+				}
 				const tabKey = {
 					"/pages/home/home": "home",
 					"/pages/project/project": "project",
@@ -416,7 +420,8 @@
 				uni.navigateTo({ url: "/pages/profile/change-password" });
 			},
 			goSettings() {
-				uni.navigateTo({ url: "/pages/profile/settings" });
+				const loginFlag = this.loggedIn ? "1" : "0";
+				uni.navigateTo({ url: `/pages/profile/settings?loggedIn=${loginFlag}` });
 			},
 			goProfileInfo() {
 				uni.navigateTo({ url: "/pages/profile/profile-info" });
@@ -445,7 +450,11 @@
 		display: flex;
 		flex-direction: column;
 		height: 100vh;
+<<<<<<< HEAD
 		background: linear-gradient(180deg, #e8eeff 0%, #f5f7fa 28%, #f5f7fa 100%);
+=======
+		background-color: transparent;
+>>>>>>> ad1c6de4f0bea327ec94fdb24bcb98f03e317115
 		box-sizing: border-box;
 		font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", sans-serif;
 	}
@@ -456,8 +465,15 @@
 		box-sizing: border-box;
 	}
 
+<<<<<<< HEAD
 	.hero-block {
 		padding: 16rpx 24rpx 8rpx;
+=======
+	.header-section {
+		background: var(--bg-secondary);
+		padding: 24rpx 20rpx 28rpx;
+		border-bottom: 1rpx solid var(--border-color);
+>>>>>>> ad1c6de4f0bea327ec94fdb24bcb98f03e317115
 	}
 
 	.top-bar {
@@ -613,10 +629,19 @@
 	}
 
 	.nick {
+<<<<<<< HEAD
 		font-size: 36rpx;
 		font-weight: 800;
 		color: #0f172a;
 		max-width: 100%;
+=======
+		font-size: 34rpx;
+		font-weight: 600;
+		color: var(--text-primary);
+		line-height: 1.25;
+		flex: 1;
+		min-width: 0;
+>>>>>>> ad1c6de4f0bea327ec94fdb24bcb98f03e317115
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
@@ -755,6 +780,7 @@
 
 	.stat-trend-up {
 		font-size: 24rpx;
+<<<<<<< HEAD
 		font-weight: 800;
 		color: #16a34a;
 	}
@@ -851,15 +877,83 @@
 		color: rgba(255, 255, 255, 0.88);
 		line-height: 1.4;
 		white-space: normal;
+=======
+		color: var(--text-secondary);
+		line-height: 1.35;
+	}
+
+	.team-overview {
+		display: flex;
+		flex-direction: row;
+		align-items: stretch;
+		margin-top: 24rpx;
+		padding: 0;
+		border-radius: 16rpx;
+		background: var(--bg-tertiary);
+		border: 1rpx solid var(--border-color);
+		overflow: hidden;
+	}
+
+	.team-strip-half {
+		flex: 1;
+		min-width: 0;
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		justify-content: center;
+		gap: 14rpx;
+		padding: 22rpx 16rpx;
+		box-sizing: border-box;
+	}
+
+	.team-strip-half-hover {
+		background: rgba(0, 0, 0, 0.04);
+	}
+
+	.team-strip-divider {
+		width: 1rpx;
+		align-self: stretch;
+		background: #e0e0e6;
+		flex-shrink: 0;
+		margin: 16rpx 0;
+	}
+
+	.team-stat-num {
+		font-size: 32rpx;
+		font-weight: 700;
+		color: var(--text-primary);
+		line-height: 1;
+		letter-spacing: -0.5rpx;
+		flex-shrink: 0;
+	}
+
+	.team-stat-label {
+		font-size: 24rpx;
+		color: var(--text-secondary);
+		font-weight: 500;
+		line-height: 1.3;
+		max-width: 56%;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+>>>>>>> ad1c6de4f0bea327ec94fdb24bcb98f03e317115
 	}
 
 	.menu-section {
 		padding: 8rpx 24rpx 0;
 	}
 
+<<<<<<< HEAD
 	.settings-card {
 		background: #fff;
 		border-radius: 28rpx;
+=======
+	.menu-card {
+		background: var(--bg-secondary);
+		border-radius: 18rpx;
+		border: 1rpx solid var(--border-color);
+		box-shadow: var(--card-shadow-soft);
+>>>>>>> ad1c6de4f0bea327ec94fdb24bcb98f03e317115
 		overflow: hidden;
 		box-shadow: 0 8rpx 32rpx rgba(15, 23, 42, 0.06);
 		margin-bottom: 20rpx;
@@ -874,8 +968,13 @@
 		box-sizing: border-box;
 	}
 
+<<<<<<< HEAD
 	.set-row-hover {
 		background: #f8fafc;
+=======
+	.menu-row-hover {
+		background: var(--cell-hover);
+>>>>>>> ad1c6de4f0bea327ec94fdb24bcb98f03e317115
 	}
 
 	.set-row-last {
@@ -928,15 +1027,25 @@
 
 	.set-title {
 		font-size: 30rpx;
+<<<<<<< HEAD
 		font-weight: 700;
 		color: #0f172a;
+=======
+		font-weight: 500;
+		color: var(--text-primary);
+		line-height: 1.3;
+>>>>>>> ad1c6de4f0bea327ec94fdb24bcb98f03e317115
 	}
 
 	.set-sub {
 		display: block;
 		margin-top: 6rpx;
 		font-size: 24rpx;
+<<<<<<< HEAD
 		color: #94a3b8;
+=======
+		color: var(--text-secondary);
+>>>>>>> ad1c6de4f0bea327ec94fdb24bcb98f03e317115
 		line-height: 1.35;
 	}
 
@@ -1009,7 +1118,11 @@
 	.scroll-pad {
 		height: 200rpx;
 		padding-bottom: env(safe-area-inset-bottom);
+<<<<<<< HEAD
 		background: transparent;
+=======
+		background-color: transparent;
+>>>>>>> ad1c6de4f0bea327ec94fdb24bcb98f03e317115
 	}
 
 	.mask {

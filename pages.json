@@ -182,6 +182,7 @@
 			"style": {
 				"navigationBarTitleText": "我的团队"
 			}
+<<<<<<< HEAD
 		},
 		{
 			"path": "pages/login/login",
@@ -194,6 +195,8 @@
 			"style": {
 				"navigationBarTitleText": "注册"
 			}
+=======
+>>>>>>> ad1c6de4f0bea327ec94fdb24bcb98f03e317115
 		}
 	],
 	"globalStyle": {

@@ -1,5 +1,5 @@
 <template>
-	<scroll-view scroll-y class="page">
+	<view class="page">
 		<view class="section-t">创建数字员工</view>
 		<view class="tab-wrap">
 			<view class="tab" :class="{ active: activeTab === 'manual' }" @tap="activeTab = 'manual'">手动创建</view>
@@ -13,9 +13,9 @@
 			</view>
 			<view class="card">
 				<text class="label">部门</text>
-				<picker v-if="departments.length > 0" mode="selector" :range="departmentLabels" :value="safeDepartmentIdx" @change="onDepartment">
-					<view class="picker-line">{{ departmentLabels[safeDepartmentIdx] || "暂无部门，请先新增" }}</view>
-				</picker>
+				<view v-if="departments.length > 0" class="picker-line picker-clickable" @click="openDepartmentSheet('manual')">
+					{{ departmentLabels[safeDepartmentIdx] || "暂无部门，请先新增" }}
+				</view>
 				<view v-else class="picker-line">暂无部门，请先新增</view>
 			</view>
 			<view class="card">
@@ -40,9 +40,13 @@
 		<view v-else>
 			<view class="card">
 				<text class="label"><text class="req">*</text>选择部门</text>
-				<picker v-if="systemDeptOptions.length > 0" mode="selector" :range="systemDeptLabels" :value="safeSystemDeptIdx" @change="onSystemDepartmentChange">
-					<view class="picker-line">{{ systemDeptLabels[safeSystemDeptIdx] || "请选择部门" }}</view>
-				</picker>
+				<view
+					v-if="systemDeptOptions.length > 0"
+					class="picker-line picker-clickable"
+					@click="openDepartmentSheet('system')"
+				>
+					{{ systemDeptLabels[safeSystemDeptIdx] || "请选择部门" }}
+				</view>
 				<view v-else class="picker-line">暂无可选部门</view>
 			</view>
 			<view class="card">
@@ -64,7 +68,25 @@
 		</view>
 
 		<view class="foot-pad" />
-	</scroll-view>
+		<view v-if="showDeptSheet" class="sheet-mask" @click="closeDepartmentSheet">
+			<view class="sheet-panel" @click.stop>
+				<view class="sheet-title">{{ deptSheetTitle }}</view>
+				<scroll-view scroll-y class="sheet-list">
+					<view
+						v-for="(item, idx) in deptSheetOptions"
+						:key="item.key || idx"
+						class="sheet-item"
+						:class="{ active: idx === deptSheetActiveIdx }"
+						@click="selectDepartmentOption(idx)"
+					>
+						<text class="sheet-item-text">{{ item.label }}</text>
+						<text v-if="idx === deptSheetActiveIdx" class="sheet-item-check">✓</text>
+					</view>
+				</scroll-view>
+				<view class="sheet-cancel" @click="closeDepartmentSheet">取消</view>
+			</view>
+		</view>
+	</view>
 </template>
 
 <script>
@@ -433,6 +455,8 @@ export default {
 			systemDeptOptions: [],
 			systemDeptIdx: 0,
 			systemDisplayName: "",
+			showDeptSheet: false,
+			deptSheetType: "",
 		};
 	},
 	computed: {
@@ -487,6 +511,24 @@ export default {
 			const m = this.selectedMaterial;
 			if (!m) return "";
 			return m.extraText || "";
+		},
+		deptSheetTitle() {
+			return this.deptSheetType === "system" ? "选择部门" : "部门";
+		},
+		deptSheetOptions() {
+			if (this.deptSheetType === "system") {
+				return this.systemDeptOptions.map((d, idx) => ({
+					key: d.key || String(idx),
+					label: d.nameZh || "未分组",
+				}));
+			}
+			return this.departmentLabels.map((label, idx) => ({
+				key: String(idx),
+				label: label || "未分组",
+			}));
+		},
+		deptSheetActiveIdx() {
+			return this.deptSheetType === "system" ? this.safeSystemDeptIdx : this.safeDepartmentIdx;
 		},
 	},
 	onShow() {
@@ -626,7 +668,12 @@ export default {
 		},
 		onSystemDepartmentChange(e) {
 			if (!this.systemDeptOptions.length) return;
-			this.systemDeptIdx = Number(e.detail.value) || 0;
+			const nextIdx = Number(e.detail.value) || 0;
+			this.applySystemDepartment(nextIdx);
+		},
+		applySystemDepartment(nextIdx) {
+			if (!this.systemDeptOptions.length) return;
+			this.systemDeptIdx = nextIdx;
 			const key = this.selectedSystemDept?.key || "";
 			if (!key) {
 				this.materialOptions = [];
@@ -661,6 +708,24 @@ export default {
 				.finally(() => {
 					this.busy = false;
 				});
+		},
+		openDepartmentSheet(type) {
+			if (type === "system" && !this.systemDeptOptions.length) return;
+			if (type !== "system" && !this.departments.length) return;
+			this.deptSheetType = type === "system" ? "system" : "manual";
+			this.showDeptSheet = true;
+		},
+		closeDepartmentSheet() {
+			this.showDeptSheet = false;
+			this.deptSheetType = "";
+		},
+		selectDepartmentOption(idx) {
+			if (this.deptSheetType === "system") {
+				this.applySystemDepartment(Number(idx) || 0);
+			} else {
+				this.departmentIdx = Number(idx) || 0;
+			}
+			this.closeDepartmentSheet();
 		},
 		async submitManual() {
 			const n = String(this.form.displayName || "").trim();
@@ -729,7 +794,68 @@ export default {
 .ta { width: 100%; min-height: 120rpx; font-size: 26rpx; color: #111; }
 .ph { color: #bbb; }
 .picker-line { font-size: 28rpx; color: #111; padding: 10rpx 0; }
+.picker-clickable { cursor: pointer; }
 .tip { font-size: 24rpx; color: #475569; line-height: 1.5; }
 .btn { margin-top: 10rpx; }
 .foot-pad { height: 40rpx; padding-bottom: env(safe-area-inset-bottom); }
+.sheet-mask {
+	position: fixed;
+	left: 0;
+	right: 0;
+	top: 0;
+	bottom: 0;
+	background: rgba(0, 0, 0, 0.28);
+	display: flex;
+	align-items: flex-end;
+	z-index: 100000;
+}
+.sheet-panel {
+	width: 100%;
+	background: #fff;
+	border-radius: 20rpx 20rpx 0 0;
+	max-height: 70vh;
+	display: flex;
+	flex-direction: column;
+}
+.sheet-title {
+	font-size: 30rpx;
+	font-weight: 600;
+	color: #1e293b;
+	padding: 24rpx;
+	border-bottom: 1rpx solid #eef2f7;
+}
+.sheet-list {
+	flex: 1;
+	min-height: 240rpx;
+	max-height: 52vh;
+}
+.sheet-item {
+	min-height: 88rpx;
+	padding: 0 24rpx;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	border-bottom: 1rpx solid #f1f5f9;
+}
+.sheet-item.active {
+	background: #eff6ff;
+}
+.sheet-item-text {
+	font-size: 28rpx;
+	color: #0f172a;
+}
+.sheet-item-check {
+	font-size: 28rpx;
+	color: #2563eb;
+	font-weight: 700;
+}
+.sheet-cancel {
+	height: 96rpx;
+	line-height: 96rpx;
+	text-align: center;
+	font-size: 30rpx;
+	color: #64748b;
+	border-top: 1rpx solid #eef2f7;
+	padding-bottom: env(safe-area-inset-bottom);
+}
 </style>

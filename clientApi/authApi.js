@@ -1,5 +1,5 @@
 import request, { uploadFile, BASE_URL } from "@/utils/request";
-import { unwrapData } from "@/utils/apiHelpers";
+import { unwrapData, pickHttpBodyMessage, getApiErrorMessage } from "@/utils/apiHelpers";
 
 /** 相对路径头像补全为可请求的绝对地址（与接口同源） */
 export function resolveAvatarDisplayUrl(url) {
@@ -34,6 +34,15 @@ export function extractSession(payload) {
 }
 
 export async function login(payload) {
+  const shouldStopRetry = (errLike) => {
+    const status = Number(errLike && errLike.statusCode);
+    const msg = String(getApiErrorMessage(errLike) || "").toLowerCase();
+    if (status === 401 || status === 403) return true;
+    // 明确账号/密码类错误时不要继续轮询尝试，避免“看起来一直在登录”
+    return /用户不存在|账号不存在|用户名不存在|密码错误|invalid|not found|unauthorized|forbidden/.test(
+      msg
+    );
+  };
   const account = String(
     payload?.account ?? payload?.phone ?? payload?.username ?? payload?.mobile ?? payload?.loginName ?? ""
   ).trim();
@@ -52,20 +61,15 @@ export async function login(payload) {
       const r = await request.post("/api/auth/login", body, { needAuth: false, showError: false });
       const parsed = extractSession(r);
       if (parsed.token) return parsed;
+      const msg = pickHttpBodyMessage(r);
+      if (msg) {
+        const e = new Error(msg);
+        e.data = r;
+        throw e;
+      }
     } catch (err) {
       lastErr = err;
-    }
-
-    try {
-      const r = await request.post("/api/auth/login", body, {
-        needAuth: false,
-        showError: false,
-        header: { "Content-Type": "application/x-www-form-urlencoded" },
-      });
-      const parsed = extractSession(r);
-      if (parsed.token) return parsed;
-    } catch (err) {
-      lastErr = err;
+      if (shouldStopRetry(err)) throw err;
     }
   }
 

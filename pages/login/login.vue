@@ -33,8 +33,9 @@
 </template>
 
 <script>
-	import { setToken, setUserInfo } from "@/utils/index";
+	import { setToken, setUserInfo, rememberLoginAccount } from "@/utils/index";
 	import * as authApi from "@/clientApi/authApi";
+	import { getApiErrorMessage } from "@/utils/apiHelpers";
 	import { t, getLanguage } from "@/utils/lang";
 
 	export default {
@@ -46,6 +47,16 @@
 				loading: false,
 			};
 		},
+		onLoad(options = {}) {
+			try {
+				const account = options.account ? decodeURIComponent(String(options.account)) : "";
+				if (account) {
+					this.phone = account;
+				}
+			} catch {
+				//
+			}
+		},
 		onShow() {
 			try {
 				uni.setNavigationBarTitle({ title: t("login", getLanguage()) });
@@ -54,6 +65,27 @@
 			}
 		},
 		methods: {
+			localizeLoginError(rawMsg) {
+				const msg = String(rawMsg || "").trim();
+				if (!msg) return "";
+				const lower = msg.toLowerCase();
+				if (/(user|account).*(not\s*found|doesn.?t exist)|not\s*found/.test(lower)) {
+					return "账号不存在";
+				}
+				if (/password.*(wrong|invalid)|invalid.*password/.test(lower)) {
+					return "密码错误";
+				}
+				if (/unauthorized|forbidden|401|403/.test(lower)) {
+					return "账号或密码错误";
+				}
+				if (/unsupported media type|415/.test(lower)) {
+					return "请求格式不受支持，请联系管理员";
+				}
+				if (/network|failed to fetch|timeout/.test(lower)) {
+					return "网络异常，请稍后重试";
+				}
+				return msg;
+			},
 			t(key, params = {}) {
 				return t(key, getLanguage(), params);
 			},
@@ -80,7 +112,9 @@
 						return;
 					}
 					setToken(token);
-					setUserInfo(user || { phone: phone, username: phone });
+					const localUser = user || { phone: phone, username: phone };
+					setUserInfo(localUser);
+					rememberLoginAccount(phone, localUser);
 					uni.showToast({ title: this.t('login_success'), icon: "success" });
 					setTimeout(() => {
 						// 登录成功后跳转到首页
@@ -93,6 +127,12 @@
 					}, 400);
 				} catch (e) {
 					console.error("[login]", e);
+					const apiMsg = getApiErrorMessage(e);
+					uni.showToast({
+						title: this.localizeLoginError(apiMsg) || this.t('err_request_failed'),
+						icon: "none",
+						duration: 2600,
+					});
 				} finally {
 					uni.hideLoading();
 					this.loading = false;

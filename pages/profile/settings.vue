@@ -1,20 +1,22 @@
 <template>
 	<view class="page">
-		<view class="hint">{{ t('settings_section_account') }}</view>
-		<view class="cell-group">
-			<view class="cell" @click="switchAccount">
-				<view class="cell-icon bg-switch">
-					<text class="iconfont cell-glyph">&#xe654;</text>
+		<view v-if="loggedIn">
+			<view class="hint">{{ t('settings_section_account') }}</view>
+			<view class="cell-group">
+				<view class="cell" @click="switchAccount">
+					<view class="cell-icon bg-switch">
+						<text class="iconfont cell-glyph">&#xe654;</text>
+					</view>
+					<text class="cell-title">{{ t('switch_account') }}</text>
+					<text class="cell-arrow">›</text>
 				</view>
-				<text class="cell-title">{{ t('switch_account') }}</text>
-				<text class="cell-arrow">›</text>
-			</view>
-			<view class="cell" @click="logoutAccount">
-				<view class="cell-icon bg-out">
-					<text class="iconfont cell-glyph">&#xe727;</text>
+				<view class="cell" @click="logoutAccount">
+					<view class="cell-icon bg-out">
+						<text class="iconfont cell-glyph">&#xe727;</text>
+					</view>
+					<text class="cell-title cell-danger">{{ t('logout') }}</text>
+					<text class="cell-arrow">›</text>
 				</view>
-				<text class="cell-title cell-danger">{{ t('logout') }}</text>
-				<text class="cell-arrow">›</text>
 			</view>
 		</view>
 
@@ -113,32 +115,34 @@
 			</view>
 		</view>
 
-		<text class="sub-hint">{{ t('settings_switch_logout_hint') }}</text>
-
-		<view v-if="showSheet" class="sheet-mask" @tap="closeSheet">
-			<view class="sheet-panel" @tap.stop>
-				<view class="sheet-handle" />
-				<view class="sheet-title">{{ sheetTitle }}</view>
+		<view
+			v-if="showSwitchAccountSheet"
+			class="switch-sheet-mask"
+			@tap.self="closeSwitchAccountSheet"
+		>
+			<view class="switch-sheet-panel" @tap.stop>
+				<view class="switch-sheet-handle" />
 				<view
-					v-for="(item, index) in sheetItems"
-					:key="index"
-					class="sheet-row"
-					:class="{ 'sheet-row-active': index === sheetActiveIndex }"
-					@tap="onSheetSelect(index)"
+					v-for="item in switchAccountOptions"
+					:key="item.key"
+					class="switch-sheet-row"
+					@tap="selectSwitchAccount(item)"
 				>
-					<text class="sheet-row-t">{{ item }}</text>
-					<text v-if="index === sheetActiveIndex" class="sheet-row-check">✓</text>
+					<text class="switch-sheet-row-t">{{ item.label }}</text>
+					<text v-if="item.isCurrent" class="switch-sheet-current">当前账号</text>
 				</view>
-				<view class="sheet-cancel" @tap="closeSheet">
-					<text class="sheet-cancel-t">{{ t('cancel') }}</text>
+				<view class="switch-sheet-cancel" @tap="closeSwitchAccountSheet">
+					<text class="switch-sheet-cancel-t">{{ t('cancel') }}</text>
 				</view>
 			</view>
 		</view>
+
+		<text class="sub-hint">{{ t('settings_switch_logout_hint') }}</text>
 	</view>
 </template>
 
 <script>
-	import { clearSession, getToken, getUserInfo } from "@/utils/index";
+	import { clearSession, getToken, getUserInfo, getLoginAccountHistory } from "@/utils/index";
 	import { LANG_STORAGE_KEY, getLanguage, setLanguage, t as translate } from "@/utils/lang";
 
 	/* 语言包仅 zh / en；切换时必须写入 app_language。字号存 xs/sm/md/xl，兼容旧版中文存盘 */
@@ -155,14 +159,14 @@
 				isDarkMode: false,
 				currentFontSize: "sm",
 				cacheSize: "0 KB",
-				showSheet: false,
-				sheetTitle: "",
-				sheetItems: [],
-				sheetActiveIndex: -1,
-				sheetCallback: null,
+				showSwitchAccountSheet: false,
+				switchAccountOptions: [],
 			};
 		},
 		computed: {
+			logoutCellLabel() {
+				return this.isLoggedIn ? this.t("logout") : this.t("login");
+			},
 			languageRowLabel() {
 				return this.currentLanguage === "en" ? this.t("language_name_en") : this.t("language_name_zh");
 			},
@@ -183,15 +187,14 @@
 		},
 		checkLogin() {
 			try {
-				const token = String(getToken() || "").trim();
-				const user = getUserInfo();
-				this.loggedIn = !!token || !!(user && typeof user === "object");
+				const token = uni.getStorageSync("token");
+				this.loggedIn = !!token;
 			} catch {
 				this.loggedIn = false;
 			}
 		},
 		onShow() {
-			this.checkLogin();
+			this.syncAuthState();
 			this.currentLanguage = getLanguage();
 			try {
 				uni.setNavigationBarTitle({ title: translate("settings", getLanguage()) });
@@ -200,6 +203,23 @@
 			}
 		},
 		methods: {
+			syncAuthState() {
+				if (this.loginFlagFromRoute === "1") {
+					this.isLoggedIn = true;
+					return;
+				}
+				if (this.loginFlagFromRoute === "0") {
+					this.isLoggedIn = false;
+					return;
+				}
+				const token = getToken();
+				const user = getUserInfo();
+				const hasUser =
+					!!user &&
+					typeof user === "object" &&
+					(user.id != null || user.userId != null || user.phone || user.mobile || user.username);
+				this.isLoggedIn = !!token || hasUser;
+			},
 			fontSizeToLabel(size) {
 				const m = { xs: "font_size_xs", sm: "font_size_sm", md: "font_size_md", xl: "font_size_xl" };
 				return this.t(m[size] || "font_size_sm");
@@ -353,61 +373,48 @@
 			showLanguagePicker() {
 				// 固定双语标签，避免随当前语言变化造成认知混淆
 				const itemList = ["简体中文", "English"];
-				const activeIndex = this.currentLanguage === "en" ? 1 : 0;
-				this.openSheet(this.t("language"), itemList, activeIndex, (index) => {
-					if (index < 0) return;
-					const nextLang = index === 1 ? "en" : "zh";
-					setLanguage(nextLang);
-					this.currentLanguage = nextLang;
-					this.saveSettings();
-					try {
-						uni.setNavigationBarTitle({ title: translate("settings", getLanguage()) });
-					} catch (e) {
-						//
-					}
-					this.$forceUpdate();
-					uni.showToast({
-						title: index === 1 ? this.t("toast_language_en") : this.t("toast_language_zh"),
-						icon: "none",
-					});
+				uni.showActionSheet({
+					itemList,
+					success: (res) => {
+						if (res.tapIndex < 0) return;
+						const nextLang = res.tapIndex === 1 ? "en" : "zh";
+						setLanguage(nextLang);
+						this.currentLanguage = nextLang;
+						this.saveSettings();
+						try {
+							uni.setNavigationBarTitle({ title: translate("settings", getLanguage()) });
+						} catch (e) {
+							//
+						}
+						this.$forceUpdate();
+						uni.showToast({
+							title: res.tapIndex === 1 ? this.t("toast_language_en") : this.t("toast_language_zh"),
+							icon: "none",
+						});
+					},
 				});
 			},
 			showFontSizePicker() {
 				const itemList = FONT_SIZE_KEYS.map((s) => this.fontSizeToLabel(s));
-				const activeIndex = FONT_SIZE_KEYS.indexOf(this.currentFontSize);
-				this.openSheet(this.t("settings_font_size"), itemList, activeIndex, (index) => {
-					if (index < 0) return;
-					this.currentFontSize = FONT_SIZE_KEYS[index];
-					this.saveSettings();
-					try {
-						const app = getApp && getApp();
-						app && app.applyFontSize && app.applyFontSize(this.currentFontSize);
-					} catch (e) {
-						//
-					}
-					uni.showToast({
-						title: this.t("toast_font_changed", { size: this.fontSizeToLabel(this.currentFontSize) }),
-						icon: "none",
-					});
+				uni.showActionSheet({
+					itemList,
+					success: (res) => {
+						if (res.tapIndex >= 0) {
+							this.currentFontSize = FONT_SIZE_KEYS[res.tapIndex];
+							this.saveSettings();
+							try {
+								const app = getApp && getApp();
+								app && app.applyFontSize && app.applyFontSize(this.currentFontSize);
+							} catch (e) {
+								//
+							}
+							uni.showToast({
+								title: this.t("toast_font_changed", { size: this.fontSizeToLabel(this.currentFontSize) }),
+								icon: "none",
+							});
+						}
+					},
 				});
-			},
-			openSheet(title, items, activeIndex, callback) {
-				this.sheetTitle = title;
-				this.sheetItems = items;
-				this.sheetActiveIndex = activeIndex;
-				this.sheetCallback = callback;
-				this.showSheet = true;
-			},
-			closeSheet() {
-				this.showSheet = false;
-				this.sheetCallback = null;
-			},
-			onSheetSelect(index) {
-				this.showSheet = false;
-				if (this.sheetCallback) {
-					this.sheetCallback(index);
-					this.sheetCallback = null;
-				}
 			},
 			toggleDarkMode() {
 				this.isDarkMode = !this.isDarkMode;
@@ -453,19 +460,72 @@
 				});
 			},
 			switchAccount() {
-				uni.showModal({
-					title: translate("switch_account", getLanguage()),
-					content: translate("switch_account_modal_body", getLanguage()),
-					confirmText: translate("go_to_login", getLanguage()),
-					cancelText: translate("cancel", getLanguage()),
-					success: (res) => {
-						if (!res.confirm) return;
-						clearSession();
-						uni.reLaunch({ url: "/pages/login/login" });
-					},
+				const history = getLoginAccountHistory().slice(0, 5);
+				const currentUser = getUserInfo();
+				const currentAccount = String(
+					(currentUser &&
+						(currentUser.phone ||
+							currentUser.mobile ||
+							currentUser.username ||
+							currentUser.account)) ||
+						""
+				).trim();
+				const mergedHistory = [...history];
+				if (
+					currentAccount &&
+					!mergedHistory.some((it) => String(it && it.account).trim() === currentAccount)
+				) {
+					mergedHistory.unshift({
+						account: currentAccount,
+						nickname: String(
+							(currentUser &&
+								(currentUser.nickname || currentUser.name || currentUser.username)) ||
+								""
+						).trim(),
+						lastLoginAt: Date.now(),
+					});
+				}
+				this.switchAccountOptions = mergedHistory.map((it, idx) => {
+					const account = String(it && it.account ? it.account : "").trim();
+					return {
+						key: `acc-${idx}`,
+						account,
+						isCurrent: !!currentAccount && account === currentAccount,
+						label:
+							it.nickname && it.nickname !== it.account
+								? `${it.account} (${it.nickname})`
+								: it.account,
+					};
 				});
+				if (!this.switchAccountOptions.length) {
+					uni.showToast({ title: "暂无可切换账号", icon: "none" });
+					return;
+				}
+				this.showSwitchAccountSheet = true;
+			},
+			closeSwitchAccountSheet() {
+				this.showSwitchAccountSheet = false;
+				this.switchAccountOptions = [];
+			},
+			selectSwitchAccount(item) {
+				const account = item && item.account ? String(item.account).trim() : "";
+				if (item && item.isCurrent) {
+					this.closeSwitchAccountSheet();
+					uni.showToast({ title: "当前登录账号", icon: "none" });
+					return;
+				}
+				this.closeSwitchAccountSheet();
+				clearSession();
+				if (account) {
+					uni.reLaunch({ url: `/pages/login/login?account=${encodeURIComponent(account)}` });
+					return;
+				}
 			},
 			logoutAccount() {
+				if (!this.isLoggedIn) {
+					uni.navigateTo({ url: "/pages/login/login" });
+					return;
+				}
 				uni.showModal({
 					title: translate("logout", getLanguage()),
 					content: translate("logout_confirm_body", getLanguage()),
@@ -680,19 +740,19 @@
 		transform: translateX(44rpx);
 	}
 
-	.sheet-mask {
+	.switch-sheet-mask {
 		position: fixed;
 		left: 0;
 		right: 0;
 		top: 0;
 		bottom: 0;
 		background: rgba(15, 23, 42, 0.14);
-		z-index: 100000;
+		z-index: 12000;
 		display: flex;
 		align-items: flex-end;
 	}
 
-	.sheet-panel {
+	.switch-sheet-panel {
 		width: 100%;
 		background: #eef2ff;
 		border-radius: 24rpx 24rpx 0 0;
@@ -700,7 +760,7 @@
 		overflow: hidden;
 	}
 
-	.sheet-handle {
+	.switch-sheet-handle {
 		width: 72rpx;
 		height: 8rpx;
 		border-radius: 999rpx;
@@ -708,14 +768,7 @@
 		margin: 14rpx auto 12rpx;
 	}
 
-	.sheet-title {
-		font-size: 26rpx;
-		color: #64748b;
-		text-align: center;
-		padding: 12rpx 0 8rpx;
-	}
-
-	.sheet-row {
+	.switch-sheet-row {
 		background: #fff;
 		padding: 30rpx 32rpx;
 		border-top: 1rpx solid #eef2f7;
@@ -724,24 +777,22 @@
 		justify-content: space-between;
 	}
 
-	.sheet-row-active .sheet-row-t {
-		color: #2563eb;
-		font-weight: 700;
-	}
-
-	.sheet-row-t {
+	.switch-sheet-row-t {
 		font-size: 30rpx;
 		color: #0f172a;
 		font-weight: 600;
 	}
 
-	.sheet-row-check {
-		font-size: 28rpx;
+	.switch-sheet-current {
+		font-size: 22rpx;
 		color: #2563eb;
-		font-weight: 700;
+		background: #eff6ff;
+		padding: 6rpx 14rpx;
+		border-radius: 999rpx;
+		border: 1rpx solid #bfdbfe;
 	}
 
-	.sheet-cancel {
+	.switch-sheet-cancel {
 		margin-top: 14rpx;
 		background: #fff;
 		padding: 28rpx 32rpx;
@@ -749,7 +800,7 @@
 		justify-content: center;
 	}
 
-	.sheet-cancel-t {
+	.switch-sheet-cancel-t {
 		font-size: 30rpx;
 		color: #64748b;
 		font-weight: 600;

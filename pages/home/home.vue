@@ -636,20 +636,83 @@
 		height: 100%;
 		display: flex;
 		flex-direction: column;
+<<<<<<< HEAD
 		background: #f5f7fa;
+=======
+		background: transparent;
+>>>>>>> ad1c6de4f0bea327ec94fdb24bcb98f03e317115
 		box-sizing: border-box;
 		/* 仅预留自定义 Tab 高度（含安全区），与 AppTabBar tab-container 一致；勿在 composer 再叠一层 safe */
 		padding-bottom: calc(100rpx + env(safe-area-inset-bottom));
 	}
 
+<<<<<<< HEAD
 	/* #ifdef MP-WEIXIN */
 	.page-root {
 		/* 小程序 window 常已不含系统 Tab，略收紧与底栏的视觉缝 */
 		padding-bottom: calc(92rpx + env(safe-area-inset-bottom));
+=======
+	.navbar-wrap {
+		background: var(--navbar-bg);
+		flex-shrink: 0;
+		border-bottom: 1rpx solid var(--border-color);
+>>>>>>> ad1c6de4f0bea327ec94fdb24bcb98f03e317115
 	}
 	/* #endif */
 
+<<<<<<< HEAD
 	.workspace {
+=======
+	.navbar {
+		min-height: 88rpx;
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		padding: 8rpx 16rpx 12rpx;
+	}
+
+	.navbar-side {
+		width: 24rpx;
+		min-width: 56rpx;
+	}
+
+	.navbar-side-right {
+		display: flex;
+		align-items: center;
+		justify-content: flex-end;
+	}
+
+	.navbar-more {
+		font-size: 44rpx;
+		font-weight: 600;
+		color: var(--text-primary);
+		padding: 8rpx 8rpx 8rpx 16rpx;
+		line-height: 1;
+	}
+
+	.navbar-center {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+	}
+
+	.navbar-title {
+		font-size: 34rpx;
+		font-weight: 600;
+		color: var(--text-primary);
+	}
+
+	.navbar-sub {
+		font-size: 22rpx;
+		color: var(--text-secondary);
+		margin-top: 4rpx;
+		text-align: center;
+		line-height: 1.35;
+	}
+
+	.chat-scroll {
+>>>>>>> ad1c6de4f0bea327ec94fdb24bcb98f03e317115
 		flex: 1;
 		height: 0;
 		display: flex;
@@ -706,9 +769,18 @@
 		background: rgba(37, 99, 235, 0.1);
 	}
 
+<<<<<<< HEAD
 	.rail-on .rail-ico,
 	.rail-on .rail-label {
 		color: #2563eb;
+=======
+	.hall-bubble {
+		background: var(--bg-secondary);
+		padding: 16rpx 20rpx;
+		border-radius: 16rpx;
+		border: 1rpx solid var(--border-color);
+		box-shadow: var(--card-shadow-soft);
+>>>>>>> ad1c6de4f0bea327ec94fdb24bcb98f03e317115
 	}
 
 	.rail-ico-wrap {
@@ -1190,6 +1262,7 @@
 		height: 2rpx;
 	}
 
+<<<<<<< HEAD
 	/* 右侧.widget */
 	.widget-col {
 		width: 228rpx;
@@ -1408,6 +1481,13 @@
 		padding: 0 8rpx;
 		background: #ef4444;
 		border-radius: 16rpx;
+=======
+	.chat-input {
+		min-height: 100rpx;
+		padding-bottom: env(safe-area-inset-bottom);
+		background: var(--bg-secondary);
+		border-top: 1rpx solid var(--border-color);
+>>>>>>> ad1c6de4f0bea327ec94fdb24bcb98f03e317115
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -1465,6 +1545,7 @@
 
 	.input-field {
 		flex: 1;
+<<<<<<< HEAD
 		min-height: 72rpx;
 		background: #f1f5f9;
 		border-radius: 999rpx;
@@ -1474,15 +1555,37 @@
 
 	.iph {
 		color: #94a3b8;
+=======
+		height: 72rpx;
+		background: var(--input-bg);
+		border: 1rpx solid var(--input-border);
+		border-radius: 16rpx;
+		padding: 0 24rpx;
+		font-size: 28rpx;
+		color: var(--text-primary);
+	}
+
+	.iph {
+		color: var(--input-placeholder);
+>>>>>>> ad1c6de4f0bea327ec94fdb24bcb98f03e317115
 	}
 
 	.send-button {
 		padding: 16rpx 28rpx;
+<<<<<<< HEAD
 		background: linear-gradient(135deg, #2563eb, #3b82f6);
 		color: #fff;
 		border-radius: 999rpx;
 		font-size: 26rpx;
 		font-weight: 700;
 		box-shadow: 0 6rpx 16rpx rgba(37, 99, 235, 0.3);
+=======
+		background: linear-gradient(135deg, var(--primary-color), var(--primary-color-2));
+		color: #fff;
+		border-radius: 999rpx;
+		font-size: 28rpx;
+		font-weight: 600;
+		box-shadow: 0 8rpx 20rpx rgba(49, 94, 251, 0.28);
+>>>>>>> ad1c6de4f0bea327ec94fdb24bcb98f03e317115
 	}
 </style>
