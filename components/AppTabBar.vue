@@ -12,7 +12,12 @@
 			<!-- 与微信常见底栏一致：中间一列留给悬浮「+」，项目 / 消息 分列加号左右 -->
 			<view class="tab-item tab-item-center-spacer" />
 			<view class="tab-item" :class="{ active: current === 'message' }" @click="go('message')">
-				<text class="tab-icon iconfont">&#xe87c;</text>
+				<view class="tab-icon-wrap">
+					<text class="tab-icon iconfont">&#xe87c;</text>
+					<view v-if="messageBadgeCount > 0" class="tab-badge">
+						<text class="tab-badge-t">{{ messageBadgeCount > 99 ? "99+" : messageBadgeCount }}</text>
+					</view>
+				</view>
 				<text class="tab-text">{{ t('message') }}</text>
 			</view>
 			<view class="tab-item" :class="{ active: current === 'profile' }" @click="go('profile')">
@@ -45,7 +50,35 @@
 			validator: (v) => ["home", "project", "add", "message", "profile"].includes(v),
 		},
 		},
+		data() {
+			return {
+				messageBadgeCount: 0,
+			};
+		},
+		mounted() {
+			this.refreshMessageBadge();
+			try {
+				uni.$on("app-tab-badge-refresh", this.refreshMessageBadge);
+			} catch {
+				//
+			}
+		},
+		beforeDestroy() {
+			try {
+				uni.$off("app-tab-badge-refresh", this.refreshMessageBadge);
+			} catch {
+				//
+			}
+		},
 		methods: {
+			refreshMessageBadge() {
+				try {
+					const n = Number(uni.getStorageSync("tab_message_badge") || 0);
+					this.messageBadgeCount = n > 99 ? 99 : n;
+				} catch {
+					this.messageBadgeCount = 0;
+				}
+			},
 			t(key) {
 				return t(key);
 			},
@@ -82,10 +115,10 @@
 		bottom: 0;
 		width: 100%;
 		z-index: 100;
-		position: relative;
 		background-color: #fff;
 		border-top: 1rpx solid #e2e8f0;
 		box-sizing: border-box;
+		box-shadow: 0 -8rpx 32rpx rgba(15, 23, 42, 0.05);
 	}
 
 	.tab-container {
@@ -108,9 +141,39 @@
 		box-sizing: border-box;
 	}
 
+	.tab-icon-wrap {
+		position: relative;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		margin-bottom: 6rpx;
+	}
+
+	.tab-badge {
+		position: absolute;
+		top: -14rpx;
+		right: -28rpx;
+		min-width: 30rpx;
+		height: 30rpx;
+		padding: 0 8rpx;
+		background: linear-gradient(135deg, #ef4444, #dc2626);
+		border-radius: 16rpx;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		border: 3rpx solid #fff;
+		box-sizing: border-box;
+	}
+
+	.tab-badge-t {
+		font-size: 18rpx;
+		font-weight: 800;
+		color: #fff;
+		line-height: 1;
+	}
+
 	.tab-icon {
 		font-size: 36rpx;
-		margin-bottom: 6rpx;
 		color: #64748b;
 	}
 
@@ -145,18 +208,17 @@
 	}
 
 	.center-button {
-		width: 80rpx;
-		height: 80rpx;
+		width: 96rpx;
+		height: 96rpx;
 		border-radius: 50%;
 		background: linear-gradient(135deg, #2563eb, #4f46e5);
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		box-shadow: 0 8rpx 24rpx rgba(37, 99, 235, 0.35);
-		border: 4rpx solid #fff;
+		box-shadow: 0 12rpx 36rpx rgba(37, 99, 235, 0.4);
+		border: 5rpx solid #fff;
 		box-sizing: border-box;
-		/* 负值越小整体上移越多；略减小上浮，让加号更贴近底栏一行 */
-		margin-top: -18rpx;
+		margin-top: -28rpx;
 	}
 
 

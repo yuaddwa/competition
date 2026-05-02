@@ -1,54 +1,141 @@
 <template>
-	<view class="page">
-		<view class="hero">
-			<text class="title">{{ screenTitle }}</text>
-			<text class="sub">ID: {{ workflowId || "-" }}</text>
-		</view>
-
-		<view class="conn" :class="{ on: llmConn.configured }">
-			<text class="conn-t">{{ llmConn.configured ? `已配置模型：${llmConn.model}` : "未配置模型（将使用本地规则）" }}</text>
-			<text class="conn-e">{{ llmConn.apiEndpoint || "" }}</text>
-		</view>
-
-		<view class="seg">
-			<view class="seg-item" :class="{ on: tab === 'assign' }" @click="tab = 'assign'"><text>任务分配</text></view>
-			<view class="seg-item" :class="{ on: tab === 'progress' }" @click="tab = 'progress'"><text>实时进度</text></view>
-			<view class="seg-item" :class="{ on: tab === 'collab' }" @click="tab = 'collab'"><text>协作交流</text></view>
-			<view class="seg-item" :class="{ on: tab === 'schedule' }" @click="tab = 'schedule'"><text>项目排期</text></view>
-		</view>
-
-		<scroll-view v-if="tab === 'assign'" scroll-y class="panel">
-			<view class="card">
-				<text class="card-t">项目目标</text>
-				<textarea v-model="goalText" class="ta" placeholder="输入目标，例如：两周内完成小程序 MVP，上线登录、首页、消息、项目协作与日报。" />
-				<button class="btn primary" type="primary" :loading="assigning" @click="appendRequirementAndAutoRun">追加需求并自动续跑</button>
-				<text class="card-hint">无需人工分配任务，系统会让 Agent 自动拆解、自动执行、自动同步协作记录。</text>
-			</view>
-			<view class="card">
-				<text class="card-t">分配结果</text>
-				<view v-if="!tasks.length" class="empty">暂无任务，先输入目标并分配。</view>
-				<view v-for="task in tasks" :key="task.id || task.taskId" class="task-row">
-					<view class="task-h">
-						<text class="task-title">{{ task.title || task.name }}</text>
-						<text class="badge">{{ statusLabel(task) }}</text>
+	<view class="wb-page">
+		<view class="wb-top-card">
+			<view class="wb-proj-row">
+				<view class="wb-proj-ico"><text class="wb-proj-ico-t">☀️</text></view>
+				<view class="wb-proj-main">
+					<view class="wb-proj-title-row">
+						<text class="wb-proj-title">{{ screenTitle }}</text>
+						<view class="wb-badge-run">
+							<text class="wb-badge-run-t">{{ t("workbench_running") }}</text>
+						</view>
 					</view>
-					<text class="task-meta">{{ (task.assignedAgentName || "未分配") + " · " + (task.department || "-") }}</text>
-					<text class="task-desc">{{ task.description || task.aiExecutionReport || "无描述" }}</text>
+					<view class="wb-id-row" @tap="copyWorkflowId">
+						<text class="wb-id-text">{{ t("workbench_id_label") }}{{ workflowId || "—" }}</text>
+						<text class="wb-id-copy">📋</text>
+					</view>
+				</view>
+			</view>
+			<view class="wb-model-box" :class="{ 'wb-model-ok': llmConn.configured }">
+				<view class="wb-model-ico"><text class="wb-model-ico-t">⟨/⟩</text></view>
+				<view class="wb-model-mid">
+					<text class="wb-model-t">{{ llmConn.configured ? t("workbench_model_cfg") : t("workbench_model_uncfg") }}</text>
+					<text v-if="llmConn.apiEndpoint" class="wb-model-e">{{ llmConn.apiEndpoint }}</text>
+				</view>
+				<view class="wb-model-btn" @tap="goModelSettings">
+					<text class="wb-model-btn-ico">⚙️</text>
+					<text class="wb-model-btn-t">{{ t("workbench_btn_model") }}</text>
+				</view>
+			</view>
+		</view>
+
+		<scroll-view scroll-x class="wb-tabs" show-scrollbar="false">
+			<view class="wb-tabs-inner">
+				<view
+					v-for="tabItem in tabDefs"
+					:key="tabItem.id"
+					class="wb-tab"
+					:class="{ on: tab === tabItem.id }"
+					@tap="tab = tabItem.id"
+				>
+					<text class="wb-tab-ico">{{ tabItem.icon }}</text>
+					<text class="wb-tab-t">{{ t(tabItem.i18n) }}</text>
+				</view>
+			</view>
+		</scroll-view>
+
+		<scroll-view v-if="tab === 'assign'" scroll-y class="wb-panel">
+			<view class="wb-card">
+				<view class="wb-card-h">
+					<text class="wb-card-h-ico">🎯</text>
+					<text class="wb-card-h-t">{{ t("workbench_goal_title") }}</text>
+				</view>
+				<view class="wb-goal-box">
+					<textarea
+						v-model="goalText"
+						class="wb-goal-ta"
+						:placeholder="t('workbench_goal_ph')"
+						placeholder-class="wb-goal-ph"
+					/>
+					<text class="wb-goal-art" aria-hidden="true">🎯</text>
+				</view>
+				<view
+					class="wb-goal-btn"
+					:class="{ disabled: assigning }"
+					@tap="appendRequirementAndAutoRun"
+				>
+					<text class="wb-goal-btn-ico">🪄</text>
+					<text class="wb-goal-btn-t">{{ assigning ? t("workbench_assigning") : t("workbench_goal_btn") }}</text>
+				</view>
+				<view class="wb-goal-hint-row">
+					<text class="wb-hint-i">ⓘ</text>
+					<text class="wb-goal-hint">{{ t("workbench_goal_hint") }}</text>
+				</view>
+			</view>
+
+			<view class="wb-card">
+				<view class="wb-card-h">
+					<text class="wb-card-h-ico">📊</text>
+					<text class="wb-card-h-t">{{ t("workbench_alloc_title") }}</text>
+				</view>
+				<view v-if="!tasks.length" class="wb-empty">{{ t("workbench_alloc_empty") }}</view>
+				<view
+					v-for="(task, ti) in tasks"
+					:key="task.id || task.taskId"
+					class="wb-task"
+					@tap="onTaskTap(task)"
+				>
+					<view class="wb-task-num" :class="ti % 2 === 0 ? 'n0' : 'n1'">
+						<text class="wb-task-num-t">{{ taskIndexStr(ti) }}</text>
+					</view>
+					<view class="wb-task-main">
+						<text class="wb-task-title">{{ task.title || task.name }}</text>
+						<view class="wb-task-meta-row">
+							<text class="wb-task-meta">{{ taskAssignedLine(task) }}</text>
+							<text class="wb-task-dot"> · </text>
+							<text class="wb-task-dept" :class="deptClass(task)">{{ taskDept(task) }}</text>
+						</view>
+						<view class="wb-task-status-wrap">
+							<view class="wb-task-done-badge" v-if="isDone(task)">
+								<text class="wb-task-done-ico">✓</text>
+								<text class="wb-task-done-t">{{ t("workbench_status_done") }}</text>
+							</view>
+							<view class="wb-task-st-badge" v-else>
+								<text class="wb-task-st-t">{{ statusLabel(task) }}</text>
+							</view>
+						</view>
+						<view class="wb-task-detail">
+							<text class="wb-task-doc-ico">📄</text>
+							<text class="wb-task-detail-t">{{ taskDescLine(task) }}</text>
+						</view>
+					</view>
+					<text class="wb-task-chev">›</text>
+				</view>
+				<view class="wb-insight">
+					<text class="wb-insight-ico">💡</text>
+					<view class="wb-insight-txt">
+						<text class="wb-insight-t">{{ t("workbench_insight_t") }}</text>
+						<text class="wb-insight-d">{{ t("workbench_insight_d") }}</text>
+					</view>
+					<text class="wb-insight-art">📋</text>
 				</view>
 			</view>
 			<view class="pad" />
 		</scroll-view>
 
-		<scroll-view v-else-if="tab === 'progress'" scroll-y class="panel">
-			<view class="card">
-				<text class="card-t">Agent 成果看板（自动刷新）</text>
-				<view v-if="!agentProgressRows.length" class="empty">暂无可展示数据</view>
+		<scroll-view v-else-if="tab === 'progress'" scroll-y class="wb-panel">
+			<view class="wb-card">
+				<view class="wb-card-h">
+					<text class="wb-card-h-ico">📈</text>
+					<text class="wb-card-h-t">{{ t("progress_card_title") }}</text>
+				</view>
+				<view v-if="!agentProgressRows.length" class="wb-empty">{{ t("progress_card_empty") }}</view>
 				<view v-for="row in agentProgressRows" :key="row.id" class="agent-row">
 					<view class="agent-top">
 						<text class="agent-name">{{ row.name }}</text>
 						<text class="agent-pct">{{ row.percent }}%</text>
 					</view>
-					<text class="agent-sub">任务 {{ row.done }}/{{ row.total }} · 最近：{{ row.lastSummary }}</text>
+					<text class="agent-sub">{{ progressAgentSub(row) }}</text>
 					<view v-if="row.achievements.length" class="achv-list">
 						<view v-for="a in row.achievements" :key="a.id" class="achv-item">
 							<text class="achv-title">{{ a.title }}</text>
@@ -56,17 +143,20 @@
 							<text class="achv-body">{{ a.body }}</text>
 						</view>
 					</view>
-					<view v-else class="achv-empty">暂未产出可展示成果</view>
+					<view v-else class="achv-empty">{{ t("achv_none") }}</view>
 				</view>
 			</view>
 			<view class="pad" />
 		</scroll-view>
 
-		<scroll-view v-else-if="tab === 'collab'" scroll-y class="panel">
-			<view class="card">
-				<text class="card-t">项目群协作记录</text>
-				<text class="card-hint">协作消息由 Agent 自动产生，无需人工发送。</text>
-				<view v-if="!messages.length" class="empty">暂无消息</view>
+		<scroll-view v-else-if="tab === 'collab'" scroll-y class="wb-panel">
+			<view class="wb-card">
+				<view class="wb-card-h">
+					<text class="wb-card-h-ico">💬</text>
+					<text class="wb-card-h-t">{{ t("collab_card_title") }}</text>
+				</view>
+				<text class="wb-card-subhint">{{ t("collab_card_hint") }}</text>
+				<view v-if="!messages.length" class="wb-empty">{{ t("collab_empty") }}</view>
 				<view v-for="m in messages" :key="m.id || m.messageId" class="msg">
 					<text class="msg-meta">{{ timeOf(m.createdAt) }}</text>
 					<text class="msg-body">{{ m.body || m.content || m.text }}</text>
@@ -75,14 +165,17 @@
 			<view class="pad" />
 		</scroll-view>
 
-		<scroll-view v-else scroll-y class="panel">
-			<view class="card">
-				<text class="card-t">项目排期</text>
-				<view v-if="!scheduleRows.length" class="empty">暂无排期，先做任务分配。</view>
+		<scroll-view v-else scroll-y class="wb-panel">
+			<view class="wb-card">
+				<view class="wb-card-h">
+					<text class="wb-card-h-ico">📅</text>
+					<text class="wb-card-h-t">{{ t("schedule_card_title") }}</text>
+				</view>
+				<view v-if="!scheduleRows.length" class="wb-empty">{{ t("schedule_empty") }}</view>
 				<view v-for="s in scheduleRows" :key="s.id" class="sched-row">
 					<text class="sched-title">{{ s.title }}</text>
 					<text class="sched-line">{{ s.agent }} · {{ s.start }} ~ {{ s.end }}</text>
-					<text class="sched-line">当前状态：{{ s.status }}</text>
+					<text class="sched-line">{{ s.status }}</text>
 				</view>
 			</view>
 			<view class="pad" />
@@ -94,6 +187,7 @@
 	import * as wfs from "@/utils/localWorkflowStore";
 	import { getLlmConnectionSummary } from "@/utils/llmSettings";
 	import { getApiErrorMessage } from "@/utils/apiHelpers";
+	import { t, getLanguage } from "@/utils/lang";
 
 	function ymdOffset(days) {
 		const d = new Date();
@@ -117,12 +211,19 @@
 				messages: [],
 				refreshTimer: null,
 				autoBootstrapped: false,
+				currentLanguage: getLanguage(),
+				tabDefs: [
+					{ id: "assign", icon: "📋", i18n: "workbench_tab_assign" },
+					{ id: "progress", icon: "📈", i18n: "workbench_tab_progress" },
+					{ id: "collab", icon: "💬", i18n: "workbench_tab_collab" },
+					{ id: "schedule", icon: "📅", i18n: "workbench_tab_schedule" },
+				],
 			};
 		},
 		computed: {
 			screenTitle() {
 				if (this.meta && (this.meta.title || this.meta.name)) return this.meta.title || this.meta.name;
-				return "项目执行";
+				return this.t("workbench_title");
 			},
 			agentProgressRows() {
 				const out = [];
@@ -139,13 +240,13 @@
 						total,
 						done,
 						percent,
-						lastSummary: last ? String(last.aiExecutionReport || last.description || "").slice(0, 28) : "暂无",
+						lastSummary: last ? String(last.aiExecutionReport || last.description || "").slice(0, 28) : "—",
 						achievements: sorted
 							.filter((t) => String(t.status || "").toUpperCase() === "DONE")
 							.slice(0, 4)
 							.map((t) => ({
 								id: t.id || t.taskId,
-								title: t.title || t.name || "未命名任务",
+								title: t.title || t.name || "—",
 								status: this.statusLabel(t),
 								body: this.extractAchievement(t),
 							})),
@@ -159,8 +260,8 @@
 					const ed = t.scheduleEnd || ymdOffset(i + 1);
 					return {
 						id: t.id || t.taskId,
-						title: t.title || t.name || "未命名任务",
-						agent: t.assignedAgentName || "未分配",
+						title: t.title || t.name || "—",
+						agent: t.assignedAgentName || this.t("workbench_unassigned"),
 						start: st,
 						end: ed,
 						status: this.statusLabel(t),
@@ -173,6 +274,7 @@
 			this.workflowId = String(raw || "").trim();
 		},
 		async onShow() {
+			this.currentLanguage = getLanguage();
 			await this.bootstrap();
 			this.startRefresh();
 		},
@@ -183,6 +285,16 @@
 			this.stopRefresh();
 		},
 		methods: {
+			t(key, params) {
+				return t(key, this.currentLanguage, params || {});
+			},
+			progressAgentSub(row) {
+				return this.t("workbench_agent_progress_sub", {
+					done: row.done,
+					total: row.total,
+					last: row.lastSummary || "—",
+				});
+			},
 			async bootstrap() {
 				if (!this.workflowId) return;
 				this.llmConn = getLlmConnectionSummary() || this.llmConn;
@@ -192,7 +304,10 @@
 				this.groupId = g && (g.groupId || g.id) ? String(g.groupId || g.id) : "";
 				await this.reloadData();
 				if (!this.goalText) {
-					const base = this.meta && (this.meta.goal || this.meta.description) ? (this.meta.goal || this.meta.description) : this.screenTitle;
+					const base =
+						this.meta && (this.meta.goal || this.meta.description)
+							? this.meta.goal || this.meta.description
+							: this.screenTitle;
 					this.goalText = `目标：${base}。请结合各 Agent 岗位进行真实分工，明确交付物与协作节点。`;
 				}
 				await this.autoKickoffIfNeeded();
@@ -209,12 +324,50 @@
 				if (this.refreshTimer) clearInterval(this.refreshTimer);
 				this.refreshTimer = null;
 			},
+			copyWorkflowId() {
+				const id = String(this.workflowId || "").trim();
+				if (!id) return;
+				uni.setClipboardData({
+					data: id,
+					success: () => uni.showToast({ title: this.t("workbench_id_copied"), icon: "none" }),
+				});
+			},
+			goModelSettings() {
+				uni.navigateTo({ url: "/pages/profile/model-settings" });
+			},
+			taskIndexStr(i) {
+				const n = i + 1;
+				return (n < 10 ? "0" : "") + n;
+			},
+			taskDept(task) {
+				return String(task.department || task.fromDepartment || task.toDepartment || "product").trim() || "product";
+			},
+			deptClass(task) {
+				const d = this.taskDept(task).toLowerCase();
+				if (d.includes("engineer") || d.includes("工程") || d === "engineering") return "dept-eng";
+				if (d.includes("product") || d.includes("产品")) return "dept-prod";
+				return "dept-other";
+			},
+			taskAssignedLine(task) {
+				const name = String(task.assignedAgentName || "").trim();
+				return name || this.t("workbench_unassigned");
+			},
+			taskDescLine(task) {
+				const raw = String(
+					task?.description || task?.aiExecutionReport || task?.automationFullReport || ""
+				).trim();
+				if (raw) return raw.length > 120 ? raw.slice(0, 118) + "…" : raw;
+				return this.t("task_no_detail");
+			},
+			isDone(task) {
+				return String(task.status || "").toUpperCase() === "DONE";
+			},
+			onTaskTap() {
+				/* 预留：任务详情 */
+			},
 			extractAchievement(task) {
 				const text = String(
-					task?.automationFullReport ||
-					task?.aiExecutionReport ||
-					task?.description ||
-					"暂无成果说明"
+					task?.automationFullReport || task?.aiExecutionReport || task?.description || this.t("achv_none")
 				);
 				const hit = text.match(/###\s*执行与交付[\s\S]*?(?=###|$)/);
 				const core = (hit ? hit[0] : text).replace(/[#*`>-]/g, " ").replace(/\s+/g, " ").trim();
@@ -230,10 +383,10 @@
 			},
 			statusLabel(task) {
 				const s = String(task.status || "").toUpperCase();
-				if (s === "DONE") return "已完成";
-				if (s === "IN_PROGRESS") return "进行中";
-				if (s === "BLOCKED") return "阻塞";
-				return "未开始";
+				if (s === "DONE") return this.t("workbench_status_done");
+				if (s === "IN_PROGRESS") return this.t("workbench_status_progress");
+				if (s === "BLOCKED") return this.t("workbench_status_blocked");
+				return this.t("workbench_status_todo");
 			},
 			timeOf(ts) {
 				if (!ts) return "";
@@ -245,11 +398,11 @@
 			async assignByModel(goalInput, opts = {}) {
 				const goal = String(goalInput != null ? goalInput : this.goalText || "").trim();
 				if (!goal) {
-					uni.showToast({ title: "请先输入项目目标", icon: "none" });
+					uni.showToast({ title: this.t("workbench_enter_goal_first"), icon: "none" });
 					return;
 				}
 				if (!this.agents.length) {
-					uni.showToast({ title: "该项目未配置 Agent", icon: "none" });
+					uni.showToast({ title: this.t("workbench_no_agents"), icon: "none" });
 					return;
 				}
 				this.assigning = true;
@@ -281,9 +434,9 @@
 						}
 					}
 					await this.reloadData();
-					if (!opts.silentToast) uni.showToast({ title: "模型分配完成", icon: "success" });
+					if (!opts.silentToast) uni.showToast({ title: this.t("workbench_assign_ok"), icon: "success" });
 				} catch (e) {
-					uni.showToast({ title: getApiErrorMessage(e) || "分配失败", icon: "none" });
+					uni.showToast({ title: getApiErrorMessage(e) || this.t("err_request_failed"), icon: "none" });
 				} finally {
 					this.assigning = false;
 				}
@@ -291,7 +444,7 @@
 			async appendRequirementAndAutoRun() {
 				const goal = String(this.goalText || "").trim();
 				if (!goal) {
-					uni.showToast({ title: "请先输入项目目标", icon: "none" });
+					uni.showToast({ title: this.t("workbench_enter_goal_first"), icon: "none" });
 					return;
 				}
 				await this.assignByModel(goal);
@@ -301,50 +454,673 @@
 </script>
 
 <style scoped>
-	.page { min-height: 100vh; background: #f4f6fb; }
-	.hero { padding: 26rpx 24rpx 10rpx; }
-	.title { display:block; font-size: 40rpx; font-weight: 800; color: #0f172a; }
-	.sub { display:block; margin-top: 8rpx; font-size: 22rpx; color: #94a3b8; word-break: break-all; }
-	.conn { margin: 0 20rpx 12rpx; padding: 14rpx; border-radius: 14rpx; background: #fffbeb; border: 1rpx solid #fcd34d; }
-	.conn.on { background: #eff6ff; border-color: #93c5fd; }
-	.conn-t { display:block; font-size: 24rpx; font-weight: 700; color: #334155; }
-	.conn-e { display:block; margin-top: 6rpx; font-size: 20rpx; color: #64748b; word-break: break-all; }
-	.seg { display:flex; margin: 0 20rpx; background:#e9edf5; border-radius: 16rpx; padding: 6rpx; }
-	.seg-item { flex:1; text-align:center; padding: 14rpx 0; border-radius: 12rpx; font-size: 24rpx; color:#475569; }
-	.seg-item.on { background:#fff; color:#0f172a; font-weight:700; box-shadow: 0 4rpx 12rpx rgba(20,38,70,.08); }
-	.panel { height: calc(100vh - 270rpx); padding: 16rpx 20rpx 0; box-sizing: border-box; }
-	.card { background:#fff; border-radius: 16rpx; border:1rpx solid #e8ecf3; padding: 18rpx; margin-bottom: 14rpx; box-shadow: 0 4rpx 14rpx rgba(15,23,42,.05); }
-	.card-t { display:block; font-size: 28rpx; font-weight: 700; color:#0f172a; margin-bottom: 10rpx; }
-	.card-hint { display:block; margin-top: 10rpx; font-size: 22rpx; color:#64748b; line-height: 1.45; }
-	.ta { width:100%; min-height: 140rpx; border:1rpx solid #dbe3ef; border-radius: 12rpx; padding: 12rpx; box-sizing:border-box; font-size: 26rpx; background:#fff; }
-	.btn { margin-top: 12rpx; height: 76rpx; line-height: 76rpx; border-radius: 12rpx; font-size: 28rpx; }
-	.btn.primary { background: linear-gradient(135deg, #5b8cff, #6478ff) !important; color:#fff; }
-	.empty { padding: 24rpx 0; font-size: 24rpx; color:#94a3b8; text-align:center; }
-	.task-row { padding: 12rpx 0; border-bottom: 1rpx solid #eef2f7; }
-	.task-row:last-child { border-bottom: none; }
-	.task-h { display:flex; align-items:flex-start; gap: 10rpx; }
-	.task-title { flex:1; font-size: 26rpx; color:#0f172a; font-weight: 700; }
-	.badge { font-size: 20rpx; color:#2563eb; background:#e8f0ff; border-radius: 999rpx; padding: 4rpx 10rpx; }
-	.task-meta { display:block; margin-top: 6rpx; font-size: 22rpx; color:#64748b; }
-	.task-desc { display:block; margin-top: 6rpx; font-size: 23rpx; color:#334155; line-height: 1.5; }
-	.agent-row { margin-bottom: 14rpx; }
-	.agent-top { display:flex; justify-content:space-between; align-items:center; margin-bottom: 6rpx; }
-	.agent-name { font-size: 26rpx; font-weight:700; color:#0f172a; }
-	.agent-pct { font-size: 22rpx; color:#2563eb; font-weight:700; }
-	.agent-sub { display:block; margin-top: 6rpx; font-size: 22rpx; color:#64748b; }
-	.achv-list { margin-top: 10rpx; display: flex; flex-direction: column; gap: 10rpx; }
-	.achv-item { background: #f8fafc; border: 1rpx solid #e2e8f0; border-radius: 10rpx; padding: 10rpx; }
-	.achv-title { display:block; font-size: 24rpx; color:#0f172a; font-weight:700; }
-	.achv-status { display:block; margin-top: 4rpx; font-size: 20rpx; color:#2563eb; }
-	.achv-body { display:block; margin-top: 6rpx; font-size: 22rpx; color:#334155; line-height: 1.45; }
-	.achv-empty { margin-top: 10rpx; font-size: 22rpx; color:#94a3b8; }
-	.msg { padding: 10rpx 0; border-bottom: 1rpx solid #eef2f7; }
-	.msg:last-child { border-bottom: none; }
-	.msg-meta { display:block; font-size: 20rpx; color:#94a3b8; margin-bottom: 6rpx; }
-	.msg-body { display:block; font-size: 24rpx; color:#1e293b; line-height: 1.5; }
-	.sched-row { padding: 10rpx 0; border-bottom:1rpx solid #eef2f7; }
-	.sched-row:last-child { border-bottom:none; }
-	.sched-title { display:block; font-size: 26rpx; color:#0f172a; font-weight:700; }
-	.sched-line { display:block; margin-top: 4rpx; font-size: 22rpx; color:#64748b; }
-	.pad { height: 80rpx; }
+	.wb-page {
+		min-height: 100vh;
+		background: #f7f8fa;
+		box-sizing: border-box;
+		padding-bottom: env(safe-area-inset-bottom);
+	}
+
+	.wb-top-card {
+		margin: 20rpx 24rpx 0;
+		padding: 28rpx 24rpx 22rpx;
+		background: #fff;
+		border-radius: 28rpx;
+		border: 1rpx solid #eef0f3;
+		box-shadow: 0 8rpx 28rpx rgba(15, 23, 42, 0.06);
+	}
+
+	.wb-proj-row {
+		display: flex;
+		flex-direction: row;
+		align-items: flex-start;
+		gap: 18rpx;
+	}
+
+	.wb-proj-ico {
+		width: 88rpx;
+		height: 88rpx;
+		border-radius: 22rpx;
+		background: linear-gradient(145deg, #3b82f6, #60a5fa);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		flex-shrink: 0;
+		box-shadow: 0 8rpx 20rpx rgba(59, 130, 246, 0.25);
+	}
+
+	.wb-proj-ico-t {
+		font-size: 44rpx;
+	}
+
+	.wb-proj-main {
+		flex: 1;
+		min-width: 0;
+	}
+
+	.wb-proj-title-row {
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		flex-wrap: wrap;
+		gap: 12rpx;
+	}
+
+	.wb-proj-title {
+		font-size: 34rpx;
+		font-weight: 800;
+		color: #0f172a;
+	}
+
+	.wb-badge-run {
+		background: #ecfdf5;
+		border-radius: 999rpx;
+		padding: 4rpx 14rpx;
+	}
+
+	.wb-badge-run-t {
+		font-size: 22rpx;
+		font-weight: 700;
+		color: #059669;
+	}
+
+	.wb-id-row {
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		margin-top: 12rpx;
+		gap: 10rpx;
+	}
+
+	.wb-id-text {
+		flex: 1;
+		font-size: 22rpx;
+		color: #94a3b8;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.wb-id-copy {
+		font-size: 28rpx;
+		flex-shrink: 0;
+	}
+
+	.wb-model-box {
+		margin-top: 22rpx;
+		padding: 18rpx 16rpx;
+		border-radius: 20rpx;
+		background: #fffbeb;
+		border: 1rpx solid #fde68a;
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		gap: 14rpx;
+	}
+
+	.wb-model-ico {
+		width: 56rpx;
+		height: 56rpx;
+		border-radius: 14rpx;
+		background: #ffedd5;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		flex-shrink: 0;
+	}
+
+	.wb-model-ico-t {
+		font-size: 26rpx;
+		font-weight: 800;
+		color: #d97706;
+	}
+
+	.wb-model-mid {
+		flex: 1;
+		min-width: 0;
+	}
+
+	.wb-model-t {
+		display: block;
+		font-size: 26rpx;
+		font-weight: 700;
+		color: #92400e;
+		line-height: 1.35;
+	}
+
+	.wb-model-e {
+		display: block;
+		margin-top: 6rpx;
+		font-size: 20rpx;
+		color: #a8a29e;
+		word-break: break-all;
+	}
+
+	.wb-model-btn {
+		flex-shrink: 0;
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		gap: 6rpx;
+		padding: 12rpx 16rpx;
+		border-radius: 999rpx;
+		border: 2rpx solid #f59e0b;
+		background: #fff;
+	}
+
+	.wb-model-btn-ico {
+		font-size: 24rpx;
+	}
+
+	.wb-model-box.wb-model-ok {
+		background: #eff6ff;
+		border-color: #bfdbfe;
+	}
+
+	.wb-model-box.wb-model-ok .wb-model-t {
+		color: #1e40af;
+	}
+
+	.wb-model-box.wb-model-ok .wb-model-ico {
+		background: #dbeafe;
+	}
+
+	.wb-model-box.wb-model-ok .wb-model-ico-t {
+		color: #2563eb;
+	}
+
+	.wb-tabs {
+		width: 100%;
+		white-space: nowrap;
+		margin-top: 20rpx;
+		padding: 0 12rpx;
+		box-sizing: border-box;
+	}
+
+	.wb-tabs-inner {
+		display: inline-flex;
+		flex-direction: row;
+		padding: 0 12rpx 0 12rpx;
+		gap: 8rpx;
+	}
+
+	.wb-tab {
+		display: inline-flex;
+		flex-direction: column;
+		align-items: center;
+		padding: 12rpx 20rpx 16rpx;
+		min-width: 140rpx;
+		box-sizing: border-box;
+		border-bottom: 4rpx solid transparent;
+	}
+
+	.wb-tab.on {
+		border-bottom-color: #3b82f6;
+	}
+
+	.wb-tab-ico {
+		font-size: 30rpx;
+		margin-bottom: 6rpx;
+	}
+
+	.wb-tab-t {
+		font-size: 24rpx;
+		color: #64748b;
+		font-weight: 600;
+	}
+
+	.wb-tab.on .wb-tab-t {
+		color: #3b82f6;
+		font-weight: 800;
+	}
+
+	.wb-panel {
+		height: calc(100vh - 420rpx);
+		padding: 16rpx 24rpx 0;
+		box-sizing: border-box;
+	}
+
+	.wb-card {
+		background: #fff;
+		border-radius: 24rpx;
+		border: 1rpx solid #eef0f3;
+		padding: 22rpx 22rpx 20rpx;
+		margin-bottom: 20rpx;
+		box-shadow: 0 6rpx 22rpx rgba(15, 23, 42, 0.05);
+	}
+
+	.wb-card-h {
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		gap: 10rpx;
+		margin-bottom: 16rpx;
+	}
+
+	.wb-card-h-ico {
+		font-size: 32rpx;
+	}
+
+	.wb-card-h-t {
+		font-size: 30rpx;
+		font-weight: 800;
+		color: #0f172a;
+	}
+
+	.wb-card-subhint {
+		display: block;
+		font-size: 22rpx;
+		color: #94a3b8;
+		line-height: 1.45;
+		margin: -8rpx 0 14rpx;
+	}
+
+	.wb-goal-box {
+		position: relative;
+		background: linear-gradient(180deg, #eff6ff 0%, #f0f9ff 100%);
+		border-radius: 20rpx;
+		border: 1rpx solid #bfdbfe;
+		padding: 16rpx;
+		min-height: 200rpx;
+	}
+
+	.wb-goal-ta {
+		width: 100%;
+		min-height: 180rpx;
+		font-size: 26rpx;
+		color: #1e293b;
+		line-height: 1.5;
+		box-sizing: border-box;
+		background: transparent;
+	}
+
+	.wb-goal-ph {
+		color: #94a3b8;
+	}
+
+	.wb-goal-art {
+		position: absolute;
+		right: 12rpx;
+		bottom: 8rpx;
+		font-size: 48rpx;
+		opacity: 0.35;
+		pointer-events: none;
+	}
+
+	.wb-goal-btn {
+		margin-top: 18rpx;
+		height: 88rpx;
+		border-radius: 44rpx;
+		background: linear-gradient(135deg, #3b82f6, #6366f1);
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		justify-content: center;
+		gap: 10rpx;
+		box-shadow: 0 10rpx 26rpx rgba(59, 130, 246, 0.28);
+	}
+
+	.wb-goal-btn.disabled {
+		opacity: 0.55;
+		pointer-events: none;
+	}
+
+	.wb-goal-btn-ico {
+		font-size: 30rpx;
+	}
+
+	.wb-goal-btn-t {
+		font-size: 28rpx;
+		font-weight: 800;
+		color: #fff;
+	}
+
+	.wb-goal-hint-row {
+		display: flex;
+		flex-direction: row;
+		align-items: flex-start;
+		gap: 8rpx;
+		margin-top: 14rpx;
+	}
+
+	.wb-hint-i {
+		font-size: 24rpx;
+		color: #94a3b8;
+		flex-shrink: 0;
+	}
+
+	.wb-goal-hint {
+		flex: 1;
+		font-size: 22rpx;
+		color: #94a3b8;
+		line-height: 1.45;
+	}
+
+	.wb-empty {
+		padding: 28rpx 0;
+		font-size: 24rpx;
+		color: #94a3b8;
+		text-align: center;
+	}
+
+	.wb-task {
+		display: flex;
+		flex-direction: row;
+		align-items: stretch;
+		padding: 20rpx 0;
+		border-bottom: 1rpx solid #f1f5f9;
+		gap: 14rpx;
+	}
+
+	.wb-task:last-of-type {
+		border-bottom: none;
+	}
+
+	.wb-task-num {
+		width: 56rpx;
+		height: 56rpx;
+		border-radius: 14rpx;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		flex-shrink: 0;
+		align-self: flex-start;
+	}
+
+	.wb-task-num.n0 {
+		background: linear-gradient(145deg, #3b82f6, #60a5fa);
+	}
+	.wb-task-num.n1 {
+		background: linear-gradient(145deg, #a855f7, #c084fc);
+	}
+
+	.wb-task-num-t {
+		font-size: 22rpx;
+		font-weight: 900;
+		color: #fff;
+	}
+
+	.wb-task-main {
+		flex: 1;
+		min-width: 0;
+	}
+
+	.wb-task-title {
+		font-size: 28rpx;
+		font-weight: 800;
+		color: #0f172a;
+		line-height: 1.35;
+	}
+
+	.wb-task-meta-row {
+		display: flex;
+		flex-direction: row;
+		flex-wrap: wrap;
+		align-items: center;
+		margin-top: 8rpx;
+	}
+
+	.wb-task-meta {
+		font-size: 22rpx;
+		color: #94a3b8;
+	}
+
+	.wb-task-dot {
+		font-size: 22rpx;
+		color: #94a3b8;
+	}
+
+	.wb-task-dept {
+		font-size: 22rpx;
+		font-weight: 700;
+	}
+
+	.wb-task-dept.dept-prod {
+		color: #2563eb;
+	}
+	.wb-task-dept.dept-eng {
+		color: #7c3aed;
+	}
+	.wb-task-dept.dept-other {
+		color: #0891b2;
+	}
+
+	.wb-task-status-wrap {
+		margin-top: 10rpx;
+	}
+
+	.wb-task-done-badge {
+		display: inline-flex;
+		flex-direction: row;
+		align-items: center;
+		gap: 6rpx;
+		background: #ecfdf5;
+		padding: 4rpx 14rpx;
+		border-radius: 999rpx;
+	}
+
+	.wb-task-done-ico {
+		font-size: 22rpx;
+		color: #059669;
+		font-weight: 900;
+	}
+
+	.wb-task-done-t {
+		font-size: 22rpx;
+		font-weight: 700;
+		color: #059669;
+	}
+
+	.wb-task-st-badge {
+		display: inline-flex;
+		background: #f1f5f9;
+		padding: 4rpx 14rpx;
+		border-radius: 999rpx;
+	}
+
+	.wb-task-st-t {
+		font-size: 22rpx;
+		color: #475569;
+		font-weight: 600;
+	}
+
+	.wb-task-detail {
+		display: flex;
+		flex-direction: row;
+		align-items: flex-start;
+		gap: 8rpx;
+		margin-top: 10rpx;
+	}
+
+	.wb-task-doc-ico {
+		font-size: 24rpx;
+		flex-shrink: 0;
+	}
+
+	.wb-task-detail-t {
+		flex: 1;
+		font-size: 22rpx;
+		color: #64748b;
+		line-height: 1.45;
+	}
+
+	.wb-task-chev {
+		flex-shrink: 0;
+		font-size: 36rpx;
+		color: #cbd5e1;
+		align-self: center;
+		font-weight: 300;
+	}
+
+	.wb-insight {
+		margin-top: 16rpx;
+		padding: 20rpx 18rpx;
+		border-radius: 20rpx;
+		background: linear-gradient(135deg, #eff6ff, #e0e7ff);
+		border: 1rpx solid #c7d2fe;
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		gap: 14rpx;
+	}
+
+	.wb-insight-ico {
+		font-size: 36rpx;
+		flex-shrink: 0;
+	}
+
+	.wb-insight-txt {
+		flex: 1;
+		min-width: 0;
+	}
+
+	.wb-insight-t {
+		display: block;
+		font-size: 26rpx;
+		font-weight: 800;
+		color: #1e3a8a;
+	}
+
+	.wb-insight-d {
+		display: block;
+		margin-top: 6rpx;
+		font-size: 22rpx;
+		color: #4338ca;
+		line-height: 1.4;
+	}
+
+	.wb-insight-art {
+		font-size: 40rpx;
+		flex-shrink: 0;
+		opacity: 0.85;
+	}
+
+	.agent-row {
+		margin-bottom: 20rpx;
+		padding-bottom: 16rpx;
+		border-bottom: 1rpx solid #f1f5f9;
+	}
+	.agent-row:last-child {
+		border-bottom: none;
+		margin-bottom: 0;
+		padding-bottom: 0;
+	}
+
+	.agent-top {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		margin-bottom: 6rpx;
+	}
+
+	.agent-name {
+		font-size: 26rpx;
+		font-weight: 700;
+		color: #0f172a;
+	}
+
+	.agent-pct {
+		font-size: 22rpx;
+		color: #2563eb;
+		font-weight: 700;
+	}
+
+	.agent-sub {
+		display: block;
+		margin-top: 6rpx;
+		font-size: 22rpx;
+		color: #64748b;
+	}
+
+	.achv-list {
+		margin-top: 10rpx;
+		display: flex;
+		flex-direction: column;
+		gap: 10rpx;
+	}
+
+	.achv-item {
+		background: #f8fafc;
+		border: 1rpx solid #e2e8f0;
+		border-radius: 12rpx;
+		padding: 12rpx;
+	}
+
+	.achv-title {
+		display: block;
+		font-size: 24rpx;
+		color: #0f172a;
+		font-weight: 700;
+	}
+
+	.achv-status {
+		display: block;
+		margin-top: 4rpx;
+		font-size: 20rpx;
+		color: #2563eb;
+	}
+
+	.achv-body {
+		display: block;
+		margin-top: 6rpx;
+		font-size: 22rpx;
+		color: #334155;
+		line-height: 1.45;
+	}
+
+	.achv-empty {
+		margin-top: 10rpx;
+		font-size: 22rpx;
+		color: #94a3b8;
+	}
+
+	.msg {
+		padding: 10rpx 0;
+		border-bottom: 1rpx solid #eef2f7;
+	}
+
+	.msg:last-child {
+		border-bottom: none;
+	}
+
+	.msg-meta {
+		display: block;
+		font-size: 20rpx;
+		color: #94a3b8;
+		margin-bottom: 6rpx;
+	}
+
+	.msg-body {
+		display: block;
+		font-size: 24rpx;
+		color: #1e293b;
+		line-height: 1.5;
+	}
+
+	.sched-row {
+		padding: 12rpx 0;
+		border-bottom: 1rpx solid #eef2f7;
+	}
+
+	.sched-row:last-child {
+		border-bottom: none;
+	}
+
+	.sched-title {
+		display: block;
+		font-size: 26rpx;
+		color: #0f172a;
+		font-weight: 700;
+	}
+
+	.sched-line {
+		display: block;
+		margin-top: 4rpx;
+		font-size: 22rpx;
+		color: #64748b;
+	}
+
+	.pad {
+		height: 80rpx;
+	}
 </style>

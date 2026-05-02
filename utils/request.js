@@ -2,6 +2,37 @@ import { getToken, buildQuery, clearSession } from "./index";
 import { t, getLanguage } from "./lang";
 import { pickHttpBodyMessage } from "./apiHelpers";
 
+/** 登录已失效时回首页；防抖 + 优先 switchTab，减少 reLaunch 超时 */
+let authHomeNavLock = false;
+function navigateHomeAfterSessionExpired() {
+	if (authHomeNavLock) return;
+	authHomeNavLock = true;
+	const release = () => {
+		setTimeout(() => {
+			authHomeNavLock = false;
+		}, 2000);
+	};
+	try {
+		uni.switchTab({
+			url: "/pages/home/home",
+			success: release,
+			fail: () => {
+				try {
+					uni.reLaunch({ url: "/pages/home/home", complete: release });
+				} catch (e) {
+					release();
+				}
+			},
+		});
+	} catch (e) {
+		try {
+			uni.reLaunch({ url: "/pages/home/home", complete: release });
+		} catch (e2) {
+			release();
+		}
+	}
+}
+
 /** GET 并发去重：相同 URL 在飞行中只发一次 */
 const inflightGetRequests = new Map();
 
@@ -100,31 +131,6 @@ function isTimeoutError(err) {
   return em.includes("timeout") || em.includes("超时");
 }
 
-function looksLikeAuthExpiredMessage(message = "") {
-  const m = String(message || "").toLowerCase();
-  if (!m) return false;
-  return (
-    m.includes("token") ||
-    m.includes("jwt") ||
-    m.includes("expired") ||
-    m.includes("expire") ||
-    m.includes("login expired") ||
-    m.includes("未登录") ||
-    m.includes("登录失效") ||
-    m.includes("登录已失效") ||
-    m.includes("登录过期") ||
-    m.includes("凭证失效")
-  );
-}
-
-function isAuthExpiredResponse(statusCode, resData, token) {
-  if (Number(statusCode) !== 401) return false;
-  // 本地已无 token，直接视为未登录
-  if (!token) return true;
-  const msg = pickHttpBodyMessage(resData);
-  return looksLikeAuthExpiredMessage(msg);
-}
-
 /**
  * multipart 上传（如头像）；字段名默认 file，与 Swagger 一致。
  */
@@ -159,14 +165,16 @@ export function uploadFile(options = {}) {
           //
         }
         if (statusCode === 401 && needAuth) {
+          if (!token) {
+            reject({ statusCode: 401, message: "未授权", data, needLogin: true });
+            return;
+          }
           clearSession();
           if (showError) {
             uni.showToast({ title: t("err_login_expired", getLanguage()), icon: "none", duration: 2200 });
           }
           reject({ statusCode: 401, message: "未授权", data });
-          setTimeout(() => {
-            uni.reLaunch({ url: "/pages/login/login" });
-          }, 400);
+          setTimeout(() => navigateHomeAfterSessionExpired(), 400);
           return;
         }
         if (statusCode >= 200 && statusCode < 300) {
@@ -257,15 +265,17 @@ function request(options = {}) {
         },
         success: (res) => {
           const { statusCode, data: resData } = res;
-          if (statusCode === 401 && needAuth && isAuthExpiredResponse(statusCode, resData, token)) {
+          if (statusCode === 401 && needAuth) {
+            if (!token) {
+              reject({ statusCode: 401, message: "未授权", data: resData, needLogin: true });
+              return;
+            }
             clearSession();
             if (showError) {
               uni.showToast({ title: t("err_login_expired", getLanguage()), icon: "none", duration: 2200 });
             }
             reject({ statusCode: 401, message: "未授权", data: resData });
-            setTimeout(() => {
-              uni.reLaunch({ url: "/pages/login/login" });
-            }, 400);
+            setTimeout(() => navigateHomeAfterSessionExpired(), 400);
             return;
           }
           if (statusCode >= 200 && statusCode < 300) {

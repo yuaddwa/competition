@@ -1,54 +1,111 @@
 <template>
 	<view class="page-root">
 		<view class="navbar-wrap" :style="{ paddingTop: statusBarPx + 'px' }">
-			<view class="navbar">
-				<view class="navbar-side"></view>
-				<text class="navbar-title">{{ t('message') }}</text>
-				<view class="navbar-side navbar-side-right" @click="showAddMenu">
-					<text v-if="isDeletingDept" class="navbar-done">{{ t('done') }}</text>
-					<text v-else class="navbar-plus">＋</text>
+			<view class="msg-top">
+				<view class="msg-top-left">
+					<view class="msg-title-row">
+						<text class="msg-page-title">{{ t("message") }}</text>
+						<view class="msg-title-dot" />
+					</view>
+					<text class="msg-page-sub">{{ t("message_page_subtitle") }}</text>
+				</view>
+				<view class="msg-top-actions">
+					<view v-if="isDeletingDept" class="msg-done-pill" @tap="showAddMenu">
+						<text class="msg-done-t">{{ t("done") }}</text>
+					</view>
+					<template v-else>
+						<view class="msg-head-circle" @tap="openSearch">
+							<text class="msg-head-ico">🔍</text>
+						</view>
+						<view class="msg-head-circle msg-head-circle-primary" @tap="showAddMenu">
+							<text class="msg-head-plus">＋</text>
+						</view>
+					</template>
+				</view>
+			</view>
+
+			<view class="seg-outer">
+				<view class="seg-bar">
+					<view class="seg-item" :class="{ 'seg-active': messageTab === 0 }" @tap="messageTab = 0">
+						<text class="seg-emoji">💬</text>
+						<text class="seg-label">{{ t("conversation") }}</text>
+						<view v-if="messageTab === 0" class="seg-line" />
+					</view>
+					<view class="seg-item seg-item-wide" :class="{ 'seg-active': messageTab === 1 }" @tap="messageTab = 1">
+						<text class="seg-emoji">📁</text>
+						<text class="seg-label seg-label-shrink">{{ t("collaboration") }}</text>
+						<view class="seg-mini-avs">
+							<view
+								v-for="(a, ix) in deptTabAvatars"
+								:key="ix"
+								class="seg-mini-av"
+								:style="{ marginLeft: ix ? '-10rpx' : '0', zIndex: 3 - ix, background: a.bg }"
+							>
+								<text class="seg-mini-t">{{ a.t }}</text>
+							</view>
+						</view>
+						<text class="seg-chev">›</text>
+						<view v-if="messageTab === 1" class="seg-line" />
+					</view>
+				</view>
+			</view>
+
+			<scroll-view v-if="messageTab === 0" scroll-x class="chip-scroll" :show-scrollbar="false">
+				<view class="chip-row">
+					<view class="chip-card" :class="{ 'chip-on': quickFilter === 'all' }" @tap="quickFilter = 'all'">
+						<text class="chip-ico chip-ico-blue">💬</text>
+						<text class="chip-t">{{ t("msg_chip_all") }}</text>
+						<view class="chip-badge"><text class="chip-badge-n">{{ quickCounts.all }}</text></view>
+					</view>
+					<view class="chip-card" :class="{ 'chip-on': quickFilter === 'at' }" @tap="quickFilter = 'at'">
+						<text class="chip-ico">@</text>
+						<text class="chip-t">{{ t("msg_chip_at") }}</text>
+						<view class="chip-badge"><text class="chip-badge-n">{{ quickCounts.at }}</text></view>
+					</view>
+					<view class="chip-card" :class="{ 'chip-on': quickFilter === 'unread' }" @tap="quickFilter = 'unread'">
+						<text class="chip-ico">🔔</text>
+						<text class="chip-t">{{ t("msg_chip_unread") }}</text>
+						<view class="chip-badge"><text class="chip-badge-n">{{ quickCounts.unread }}</text></view>
+					</view>
+					<view class="chip-card" :class="{ 'chip-on': quickFilter === 'later' }" @tap="quickFilter = 'later'">
+						<text class="chip-ico chip-ico-warn">🕐</text>
+						<text class="chip-t">{{ t("msg_chip_later") }}</text>
+					</view>
+					<view class="chip-card" :class="{ 'chip-on': quickFilter === 'star' }" @tap="quickFilter = 'star'">
+						<text class="chip-ico chip-ico-star">⭐</text>
+						<text class="chip-t">{{ t("msg_chip_star") }}</text>
+					</view>
+				</view>
+			</scroll-view>
+
+			<view v-if="messageTab === 0" class="filter-bar">
+				<view class="filter-left">
+					<text class="filter-arrow">▼</text>
+					<text class="filter-t">{{ t("msg_filter_expand") }}</text>
+				</view>
+				<view class="filter-right" @tap="onFilterTap">
+					<text class="filter-ico">⚙</text>
+					<text class="filter-action">{{ t("filter_action") }}</text>
 				</view>
 			</view>
 		</view>
 
-		<view class="msg-tab-strip">
-			<view
-				class="msg-tab-item"
-				:class="{ 'msg-tab-active': messageTab === 0 }"
-				@tap="messageTab = 0"
-			>
-				<text class="msg-tab-text">{{ t('conversation') }}</text>
-				<view v-if="messageTab === 0" class="msg-tab-underline"></view>
-			</view>
-			<view
-				class="msg-tab-item"
-				:class="{ 'msg-tab-active': messageTab === 1 }"
-				@tap="messageTab = 1"
-			>
-				<text class="msg-tab-text">{{ t('collaboration') }}</text>
-				<view v-if="messageTab === 1" class="msg-tab-underline"></view>
-			</view>
-		</view>
-
 		<scroll-view scroll-y class="feed-scroll" :refresher-enabled="true" :refresher-triggered="refreshing" @refresherrefresh="onRefresh">
-			<view v-if="messageTab === 0" class="tip-line">
-				<text class="tip-t">{{ t('conversation_tip') }}</text>
-			</view>
 			<view v-if="messageTab === 1" class="tip-line">
-				<text class="tip-t">{{ t('department_tip') }}</text>
+				<text class="tip-t">{{ t("department_tip") }}</text>
 			</view>
 
 			<view v-if="loading" class="wx-loading"><text>{{ t('loading') }}</text></view>
 			<template v-else>
 				<template v-if="messageTab === 0">
-					<view v-if="feedRows.length === 0" class="msg-empty-card">
+					<view v-if="displayRows.length === 0" class="msg-empty-card">
 						<text class="msg-empty-emoji">💬</text>
 						<text class="msg-empty-t">{{ t('no_conversation') }}</text>
 						<text class="msg-empty-sub">{{ t('create_group_agent') }}</text>
 					</view>
 					<view v-else class="msg-list">
 						<view
-							v-for="row in feedRows"
+							v-for="row in displayRows"
 							:key="row.id"
 							class="swipe-wrap"
 							@touchstart="onRowTouchStart($event, row)"
@@ -67,13 +124,21 @@
 									<view class="msg-row-top">
 										<view class="msg-title-wrap">
 											<text class="msg-title">{{ row.title }}</text>
-											<text v-if="row.badge" class="msg-pill">{{ row.badge }}</text>
+											<text v-if="isRowPinned(row)" class="msg-tag msg-tag-pin">{{ t("tag_pinned") }}</text>
+											<text v-if="isRowWorkflow(row)" class="msg-tag msg-tag-run">{{ t("tag_in_progress") }}</text>
+											<text v-if="row.badge && !isRowWorkflow(row)" class="msg-pill">{{ row.badge }}</text>
 										</view>
-										<text class="msg-time">{{ formatRowTime(row.time) }}</text>
+										<view class="msg-col-right">
+											<text class="msg-time">{{ formatRowTime(row.time) }}</text>
+											<view class="msg-right-badges">
+												<view v-if="row.unread > 0" class="msg-unread">{{ row.unread > 99 ? "99+" : row.unread }}</view>
+												<text v-if="isRowPinned(row)" class="msg-pin-ico">📌</text>
+											</view>
+										</view>
 									</view>
-									<view class="msg-row-bottom">
-										<text class="msg-preview">{{ row.subtitle }}</text>
-										<view v-if="row.unread > 0" class="msg-unread">{{ row.unread > 99 ? "99+" : row.unread }}</view>
+									<text class="msg-preview msg-preview-2">{{ row.subtitle }}</text>
+									<view v-if="rowTagPills(row).length" class="msg-tag-row">
+										<text v-for="(tg, ti) in rowTagPills(row)" :key="ti" class="msg-tag-pill">{{ tg }}</text>
 									</view>
 								</view>
 							</view>
@@ -217,7 +282,53 @@
 				swipeRowId: "",
 				swipeStartX: 0,
 				swipeDeltaX: 0,
+				quickFilter: "all",
 			};
+		},
+		computed: {
+			deptTabAvatars() {
+				const blocks = this.departmentBlocks || [];
+				const gradient = [
+					"linear-gradient(145deg,#ec4899,#f9a8d4)",
+					"linear-gradient(145deg,#f59e0b,#fcd34d)",
+					"linear-gradient(145deg,#3b82f6,#93c5fd)",
+				];
+				return blocks.slice(0, 3).map((b, i) => ({
+					t: (b.title || "?").slice(0, 1),
+					bg: gradient[i % gradient.length],
+				}));
+			},
+			quickCounts() {
+				const rows = this.feedRows || [];
+				return {
+					all: rows.length,
+					at: rows.filter((r) => /[@＠]/.test(`${r.subtitle || ""}${r.title || ""}`)).length,
+					unread: rows.filter((r) => (r.unread || 0) > 0).length,
+					later: rows.filter(
+						(r) => (r.unread || 0) > 0 && (r.convType === "workflow" || r.convType === "vgroup")
+					).length,
+					star: rows.filter((r) => this.isRowPinned(r)).length,
+				};
+			},
+			displayRows() {
+				const rows = this.feedRows || [];
+				const f = this.quickFilter;
+				if (f === "at") {
+					return rows.filter((r) => /[@＠]/.test(`${r.subtitle || ""}${r.title || ""}`));
+				}
+				if (f === "unread") {
+					return rows.filter((r) => (r.unread || 0) > 0);
+				}
+				if (f === "later") {
+					return rows.filter(
+						(r) => (r.unread || 0) > 0 && (r.convType === "workflow" || r.convType === "vgroup")
+					);
+				}
+				if (f === "star") {
+					return rows.filter((r) => this.isRowPinned(r));
+				}
+				return rows;
+			},
 		},
 		onLoad() {
 			const sys = uni.getSystemInfoSync();
@@ -238,6 +349,37 @@
 			}
 		},
 		methods: {
+			syncTabMessageBadge() {
+				const sum = (this.feedRows || []).reduce((s, r) => s + (Number(r.unread) || 0), 0);
+				try {
+					uni.setStorageSync("tab_message_badge", String(sum));
+				} catch {
+					//
+				}
+				try {
+					uni.$emit("app-tab-badge-refresh");
+				} catch {
+					//
+				}
+			},
+			openSearch() {
+				uni.navigateTo({ url: "/pages/chat/chat-search" });
+			},
+			onFilterTap() {
+				uni.showToast({ title: this.t("filter_action"), icon: "none" });
+			},
+			isRowWorkflow(row) {
+				return row && row.convType === "workflow";
+			},
+			rowTagPills(row) {
+				if (!row) return [];
+				const pills = [];
+				if (row.convType === "vgroup") pills.push(this.t("conv_tag_group"));
+				if (row.convType === "workflow") pills.push(this.t("conv_tag_workflow"));
+				const m = String(row.title || "").match(/\((\d+)\)\s*$/);
+				if (m) pills.push(this.t("conv_member_count", { n: m[1] }));
+				return pills.slice(0, 4);
+			},
 			t(key, params = {}) {
 				return t(key, getLanguage(), params);
 			},
@@ -380,6 +522,7 @@
 					this.feedRows = mapped;
 					this.lastSuccessFeedRows = mapped;
 					this.lastLoadedAt = Date.now();
+					this.syncTabMessageBadge();
 				} catch (e) {
 					console.warn("[message] load", e);
 					this.rebuildDepartmentBlocks();
@@ -389,6 +532,7 @@
 					if (reqId === this.listReqId) {
 						this.loading = false;
 						this.refreshing = false;
+						this.syncTabMessageBadge();
 					}
 				}
 			},
@@ -682,105 +826,346 @@
 		height: 100vh;
 		display: flex;
 		flex-direction: column;
-		background: #f1f5f9;
+		background: linear-gradient(180deg, #f0f4ff 0%, #f5f7fa 32%, #f5f7fa 100%);
 		box-sizing: border-box;
 	}
 
 	.navbar-wrap {
-		background: #ffffff;
+		background: transparent;
 		flex-shrink: 0;
+		padding: 8rpx 24rpx 16rpx;
 	}
 
-	.navbar {
-		height: 88rpx;
+	.msg-top {
+		display: flex;
+		flex-direction: row;
+		align-items: flex-start;
+		justify-content: space-between;
+		margin-bottom: 20rpx;
+	}
+
+	.msg-top-left {
+		flex: 1;
+		min-width: 0;
+	}
+
+	.msg-title-row {
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		gap: 12rpx;
+	}
+
+	.msg-page-title {
+		font-size: 48rpx;
+		font-weight: 800;
+		color: #0f172a;
+		letter-spacing: -0.5rpx;
+	}
+
+	.msg-title-dot {
+		width: 12rpx;
+		height: 12rpx;
+		border-radius: 50%;
+		background: linear-gradient(135deg, #3b82f6, #6366f1);
+		box-shadow: 0 0 12rpx rgba(59, 130, 246, 0.45);
+	}
+
+	.msg-page-sub {
+		display: block;
+		margin-top: 8rpx;
+		font-size: 24rpx;
+		color: #94a3b8;
+		line-height: 1.4;
+	}
+
+	.msg-top-actions {
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		gap: 16rpx;
+		flex-shrink: 0;
+		padding-top: 8rpx;
+	}
+
+	.msg-head-circle {
+		width: 72rpx;
+		height: 72rpx;
+		border-radius: 50%;
+		background: #fff;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		box-shadow: 0 8rpx 24rpx rgba(15, 23, 42, 0.08);
+	}
+
+	.msg-head-circle-primary {
+		background: linear-gradient(145deg, #3b82f6, #2563eb);
+		box-shadow: 0 10rpx 28rpx rgba(37, 99, 235, 0.38);
+	}
+
+	.msg-head-ico {
+		font-size: 30rpx;
+		line-height: 1;
+	}
+
+	.msg-head-plus {
+		font-size: 40rpx;
+		font-weight: 300;
+		color: #fff;
+		line-height: 1;
+	}
+
+	.msg-done-pill {
+		padding: 12rpx 28rpx;
+		background: rgba(37, 99, 235, 0.12);
+		border-radius: 999rpx;
+	}
+
+	.msg-done-t {
+		font-size: 28rpx;
+		font-weight: 600;
+		color: #2563eb;
+	}
+
+	.seg-outer {
+		margin-bottom: 20rpx;
+	}
+
+	.seg-bar {
+		display: flex;
+		flex-direction: row;
+		background: #fff;
+		border-radius: 20rpx;
+		padding: 8rpx 10rpx;
+		box-shadow: 0 8rpx 28rpx rgba(15, 23, 42, 0.06);
+	}
+
+	.seg-item {
+		flex: 1;
+		position: relative;
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		justify-content: center;
+		gap: 8rpx;
+		padding: 20rpx 8rpx 24rpx;
+		border-radius: 16rpx;
+		min-height: 72rpx;
+		box-sizing: border-box;
+	}
+
+	.seg-item-wide {
+		flex: 1.15;
+		padding-left: 4rpx;
+		padding-right: 4rpx;
+	}
+
+	.seg-active {
+		background: linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
+	}
+
+	.seg-emoji {
+		font-size: 28rpx;
+		line-height: 1;
+	}
+
+	.seg-label {
+		font-size: 26rpx;
+		color: #64748b;
+		font-weight: 600;
+		max-width: 200rpx;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.seg-label-shrink {
+		max-width: 160rpx;
+	}
+
+	.seg-active .seg-label {
+		color: #2563eb;
+	}
+
+	.seg-line {
+		position: absolute;
+		bottom: 8rpx;
+		left: 50%;
+		transform: translateX(-50%);
+		width: 56rpx;
+		height: 6rpx;
+		background: linear-gradient(90deg, #2563eb, #6366f1);
+		border-radius: 3rpx;
+	}
+
+	.seg-item-wide .seg-line {
+		width: 80rpx;
+	}
+
+	.seg-mini-avs {
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		margin-left: 6rpx;
+	}
+
+	.seg-mini-av {
+		width: 32rpx;
+		height: 32rpx;
+		border-radius: 50%;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		border: 2rpx solid #fff;
+		box-sizing: border-box;
+	}
+
+	.seg-mini-t {
+		font-size: 18rpx;
+		font-weight: 700;
+		color: #fff;
+	}
+
+	.seg-chev {
+		font-size: 26rpx;
+		color: #cbd5e1;
+		font-weight: 300;
+		margin-left: 4rpx;
+	}
+
+	.chip-scroll {
+		width: 100%;
+		white-space: nowrap;
+		margin-bottom: 16rpx;
+	}
+
+	.chip-row {
+		display: inline-flex;
+		flex-direction: row;
+		gap: 16rpx;
+		padding: 0 4rpx 4rpx 0;
+	}
+
+	.chip-card {
+		display: inline-flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		min-width: 120rpx;
+		padding: 18rpx 14rpx 14rpx;
+		background: #fff;
+		border-radius: 20rpx;
+		box-shadow: 0 8rpx 24rpx rgba(15, 23, 42, 0.06);
+		position: relative;
+		box-sizing: border-box;
+	}
+
+	.chip-on {
+		box-shadow: 0 10rpx 28rpx rgba(37, 99, 235, 0.15);
+		border: 2rpx solid rgba(37, 99, 235, 0.25);
+	}
+
+	.chip-ico {
+		font-size: 32rpx;
+		line-height: 1;
+		margin-bottom: 8rpx;
+		color: #64748b;
+	}
+
+	.chip-ico-blue {
+		color: #2563eb;
+	}
+
+	.chip-ico-warn {
+		color: #ea580c;
+	}
+
+	.chip-ico-star {
+		color: #9333ea;
+	}
+
+	.chip-t {
+		font-size: 22rpx;
+		color: #475569;
+		font-weight: 600;
+	}
+
+	.chip-badge {
+		position: absolute;
+		top: -6rpx;
+		right: -6rpx;
+		min-width: 32rpx;
+		padding: 0 8rpx;
+		height: 32rpx;
+		background: linear-gradient(135deg, #3b82f6, #2563eb);
+		border-radius: 16rpx;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		border: 3rpx solid #f5f7fa;
+		box-sizing: border-box;
+	}
+
+	.chip-badge-n {
+		font-size: 20rpx;
+		font-weight: 700;
+		color: #fff;
+	}
+
+	.filter-bar {
 		display: flex;
 		flex-direction: row;
 		align-items: center;
 		justify-content: space-between;
-		padding: 0 8rpx 0 24rpx;
-		border-bottom: 1rpx solid #e2e8f0;
+		padding: 0 6rpx 8rpx;
+		margin-bottom: 8rpx;
 	}
 
-	.navbar-side {
-		width: 88rpx;
-		min-height: 1px;
-	}
-
-	.navbar-side-right {
+	.filter-left {
 		display: flex;
+		flex-direction: row;
 		align-items: center;
-		justify-content: flex-end;
-		padding-right: 16rpx;
-	}
-
-	.navbar-title {
+		gap: 8rpx;
 		flex: 1;
-		text-align: center;
-		font-size: 34rpx;
-		font-weight: 700;
-		color: #0f172a;
+		min-width: 0;
 	}
 
-	.navbar-plus {
-		font-size: 40rpx;
-		font-weight: 400;
-		color: #2563eb;
-		line-height: 1;
+	.filter-arrow {
+		font-size: 20rpx;
+		color: #94a3b8;
 	}
 
-	.navbar-done {
-		font-size: 28rpx;
-		font-weight: 500;
-		color: #2563eb;
-		line-height: 1;
+	.filter-t {
+		font-size: 24rpx;
+		color: #64748b;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.filter-right {
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		gap: 6rpx;
+		flex-shrink: 0;
+	}
+
+	.filter-ico {
+		font-size: 26rpx;
+		color: #94a3b8;
+	}
+
+	.filter-action {
+		font-size: 24rpx;
+		color: #64748b;
+		font-weight: 600;
 	}
 
 	.feed-scroll {
 		flex: 1;
 		height: 0;
-	}
-
-	.msg-tab-strip {
-		flex-shrink: 0;
-		display: flex;
-		flex-direction: row;
-		background: #ffffff;
-		border-bottom: 1rpx solid #e2e8f0;
-		padding: 0 40rpx;
-	}
-
-	.msg-tab-item {
-		flex: 1;
-		position: relative;
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: flex-end;
-		padding: 22rpx 0 18rpx;
-		min-height: 76rpx;
-		box-sizing: border-box;
-	}
-
-	.msg-tab-text {
-		font-size: 30rpx;
-		color: #64748b;
-		line-height: 1.2;
-	}
-
-	.msg-tab-active .msg-tab-text {
-		color: #0f172a;
-		font-weight: 700;
-	}
-
-	.msg-tab-underline {
-		position: absolute;
-		bottom: 0;
-		left: 50%;
-		transform: translateX(-50%);
-		width: 48rpx;
-		height: 6rpx;
-		background: linear-gradient(90deg, #2563eb, #7c3aed);
-		border-radius: 3rpx;
 	}
 
 	.tip-line {
@@ -837,8 +1222,8 @@
 	}
 	.swipe-wrap {
 		position: relative;
-		margin-bottom: 16rpx;
-		border-radius: 20rpx;
+		margin-bottom: 20rpx;
+		border-radius: 36rpx;
 		overflow: hidden;
 	}
 	.swipe-actions {
@@ -875,12 +1260,12 @@
 		display: flex;
 		flex-direction: row;
 		align-items: stretch;
-		padding: 24rpx 22rpx;
+		padding: 28rpx 24rpx;
 		margin-bottom: 0;
 		background: #fff;
-		border-radius: 20rpx;
+		border-radius: 36rpx;
 		border: none;
-		box-shadow: 0 8rpx 28rpx rgba(15, 23, 42, 0.06);
+		box-shadow: 0 10rpx 40rpx rgba(15, 23, 42, 0.06);
 		transition: transform 0.16s ease;
 	}
 	.msg-row-open {
@@ -952,13 +1337,31 @@
 	}
 
 	.msg-title {
-		font-size: 32rpx;
+		font-size: 30rpx;
 		color: #0f172a;
-		font-weight: 600;
+		font-weight: 700;
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
 		max-width: 100%;
+	}
+
+	.msg-tag {
+		font-size: 20rpx;
+		font-weight: 700;
+		padding: 4rpx 12rpx;
+		border-radius: 999rpx;
+		flex-shrink: 0;
+	}
+
+	.msg-tag-pin {
+		color: #7c3aed;
+		background: rgba(124, 58, 237, 0.1);
+	}
+
+	.msg-tag-run {
+		color: #2563eb;
+		background: rgba(37, 99, 235, 0.1);
 	}
 
 	.msg-pill {
@@ -972,11 +1375,56 @@
 		flex-shrink: 0;
 	}
 
+	.msg-col-right {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-end;
+		gap: 8rpx;
+		flex-shrink: 0;
+	}
+
+	.msg-right-badges {
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		gap: 8rpx;
+	}
+
+	.msg-pin-ico {
+		font-size: 26rpx;
+		line-height: 1;
+		opacity: 0.85;
+	}
+
 	.msg-time {
 		font-size: 22rpx;
 		color: #94a3b8;
 		flex-shrink: 0;
-		padding-top: 4rpx;
+	}
+
+	.msg-preview-2 {
+		white-space: normal;
+		display: -webkit-box;
+		-webkit-box-orient: vertical;
+		-webkit-line-clamp: 2;
+		line-height: 1.45;
+		margin-bottom: 10rpx;
+	}
+
+	.msg-tag-row {
+		display: flex;
+		flex-direction: row;
+		flex-wrap: wrap;
+		gap: 8rpx;
+	}
+
+	.msg-tag-pill {
+		font-size: 20rpx;
+		color: #64748b;
+		background: #f1f5f9;
+		padding: 4rpx 14rpx;
+		border-radius: 999rpx;
+		font-weight: 500;
 	}
 
 	.msg-row-bottom {
@@ -1009,7 +1457,7 @@
 		min-width: 36rpx;
 		height: 36rpx;
 		padding: 0 10rpx;
-		background: linear-gradient(135deg, #ef4444, #dc2626);
+		background: linear-gradient(135deg, #3b82f6, #2563eb);
 		color: #fff;
 		font-size: 22rpx;
 		font-weight: 700;
@@ -1018,6 +1466,7 @@
 		align-items: center;
 		justify-content: center;
 		flex-shrink: 0;
+		box-shadow: 0 4rpx 12rpx rgba(37, 99, 235, 0.28);
 	}
 
 	.msg-dept-count {

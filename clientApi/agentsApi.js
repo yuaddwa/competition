@@ -1,6 +1,6 @@
 import request from "@/utils/request";
 import { unwrapData, unwrapList } from "@/utils/apiHelpers";
-import { getUserInfo } from "@/utils/index";
+import { getUserInfo, getToken } from "@/utils/index";
 
 function resolveCurrentUserId() {
 	const me = getUserInfo() || {};
@@ -24,6 +24,7 @@ export async function getAgentById(id) {
 
 /** 素材库列表，可按 category/department 过滤 */
 export async function listAgentMaterials(params = {}) {
+	if (!getToken()) return [];
 	try {
 		const r = await request.get("/api/agents", params, { needAuth: true, showError: false });
 		return unwrapList(r);
@@ -34,12 +35,14 @@ export async function listAgentMaterials(params = {}) {
 
 /** 当前用户 Agent 列表 */
 export async function listUserAgents(params = {}) {
+	if (!getToken()) return [];
 	const r = await request.get("/api/user-agents", params, { needAuth: true });
 	return unwrapList(r);
 }
 
 /** 严格当前登录用户 Agent 列表；拿不到当前用户 id 时返回空，避免展示示例/他人数据 */
 export async function listMyUserAgents(params = {}) {
+	if (!getToken()) return [];
 	const myId = resolveCurrentUserId();
 	if (!myId) return [];
 	const list = await listUserAgents(params);
@@ -106,6 +109,7 @@ export async function deleteUserAgent(agentId) {
 
 /** 用户 Agent 可选部门列表 */
 export async function listUserAgentDepartments() {
+	if (!getToken()) return [];
 	const r = await request.get("/api/user-agents/departments", {}, { needAuth: true, showError: false });
 	const d = unwrapData(r);
 	if (Array.isArray(d)) return d;
@@ -147,6 +151,7 @@ export async function deleteUserAgentDepartment(departmentId) {
 
 /** 用户 Agent 预设列表 */
 export async function listUserAgentPresets() {
+	if (!getToken()) return [];
 	const r = await request.get("/api/user-agents/presets", {}, { needAuth: true, showError: false });
 	return unwrapList(r);
 }

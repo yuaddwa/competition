@@ -47,23 +47,23 @@ export const MESSAGE_SLUG_TO_AGENT_ID = {
 
 /** static 目录下图标（与文件名一致） */
 export const MESSAGE_DEPT_ICON_BY_SLUG = {
-  engineering: "/static/工程部的图标，一个扳手_.png",
-  design: "/static/设计部的图标，一支笔_.png",
-  "paid-media": "/static/一群小人观看电视__.png",
-  sales: "/static/一个小人把货物卖给另一个小人_.png",
-  marketing: "/static/一个天平_.png",
-  product: "/static/一个产品_.png",
-  "project-management": "/static/许多的项目_.png",
-  testing: "/static/一个小人对着电脑测试_.png",
-  support: "/static/一个医疗的符号_.png",
-  "spatial-computing": "/static/立体的正方形.png",
-  specialized: "/static/钻研问题的小人_.png",
-  finance: "/static/美金的图标.png",
-  "game-development": "/static/一个手柄.png",
-  academic: "/static/一本书.png",
+  engineering: "/static/engineering-wrench.png",
+  design: "/static/design-pen.png",
+  "paid-media": "/static/paid-media-tv-watchers.png",
+  sales: "/static/sales-handoff.png",
+  marketing: "/static/balance-scale.png",
+  product: "/static/product-icon.png",
+  "project-management": "/static/projects-many.png",
+  testing: "/static/testing-computer.png",
+  support: "/static/support-medical.png",
+  "spatial-computing": "/static/cube-3d.png",
+  specialized: "/static/research-figure.png",
+  finance: "/static/icon-dollar.png",
+  "game-development": "/static/gamepad.png",
+  academic: "/static/book.png",
 };
 
-export const FALLBACK_ICON = "/static/一本书.png";
+export const FALLBACK_ICON = "/static/book.png";
 
 const CUSTOM_DEPTS_KEY = "msg_custom_departments";
 const HIDDEN_DEPTS_KEY = "msg_hidden_departments";

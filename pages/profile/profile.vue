@@ -1,118 +1,192 @@
 <template>
 	<view class="profile-page">
-		<view class="main-scroll">
-			<view class="header-section" :style="{ paddingTop: statusBarPx + 'px' }">
-				<view class="profile-header" @click="onHeaderTap">
-					<view class="header-left">
+		<scroll-view scroll-y class="main-scroll">
+			<view class="hero-block" :style="{ paddingTop: statusBarPx + 'px' }">
+				<view class="top-bar">
+					<view class="top-bar-left">
+						<view class="title-row">
+							<text class="page-title">{{ t("profile") }}</text>
+							<view class="blue-dot" />
+						</view>
+						<text class="page-sub">{{ t("profile_page_subtitle") }}</text>
+					</view>
+					<view class="top-bar-right">
+						<view class="sq-btn" @tap="onScanTap">
+							<text class="sq-ico">⎕</text>
+						</view>
+						<view class="sq-btn sq-btn-bell" @tap="goSettings">
+							<text class="sq-ico">🔔</text>
+							<view v-if="loggedIn" class="bell-badge"><text class="bell-badge-t">3</text></view>
+						</view>
+					</view>
+				</view>
+
+				<view class="user-glass" @tap="onHeaderTap">
+					<view class="user-glass-row">
 						<view class="avatar-wrap">
 							<image v-if="avatarImg" class="avatar-img" :src="avatarImg" mode="aspectFill" />
 							<text v-else class="avatar-text">{{ avatarChar }}</text>
 						</view>
-						<view class="header-main">
+						<view class="user-main">
 							<view class="name-row">
 								<text class="nick">{{ displayName }}</text>
-								<view class="ceo-badge">
-									<text class="ceo-badge-icon">👑</text>
-									<text class="ceo-badge-text">CEO</text>
+								<text class="crown">👑</text>
+								<view class="ceo-pill" v-if="loggedIn">
+									<text class="ceo-pill-t">CEO</text>
 								</view>
 							</view>
-							<text class="account-line">{{ accountSubLine }}</text>
+							<text class="tagline">{{ accountSubLine }}</text>
+							<view v-if="loggedIn" class="chip-tags">
+								<view class="chip-tag"><text class="chip-tag-ico">🤖</text><text class="chip-tag-t">{{ t("profile_tag_ai") }}</text></view>
+								<view class="chip-tag"><text class="chip-tag-ico">⚡</text><text class="chip-tag-t">{{ t("profile_tag_collab") }}</text></view>
+								<view class="chip-tag"><text class="chip-tag-ico">📈</text><text class="chip-tag-t">{{ t("profile_tag_growth") }}</text></view>
+							</view>
+						</view>
+						<text class="chev-right">›</text>
+					</view>
+
+					<view class="stats-dual">
+						<view class="stat-card" hover-class="stat-card-hover" @tap.stop="showAgentList">
+							<view class="stat-icon-box stat-icon-blue">
+								<text class="stat-icon-emoji">👥</text>
+							</view>
+							<view class="stat-body">
+								<text class="stat-label">{{ t("profile_stat_digital") }}</text>
+								<text class="stat-num">{{ agentCount }}</text>
+							</view>
+							<view class="stat-side">
+								<text class="stat-trend-up">↑ 1</text>
+								<text class="stat-trend-sub">{{ t("profile_stat_vs_week") }}</text>
+							</view>
+						</view>
+						<view class="stat-card" hover-class="stat-card-hover" @tap.stop="goCreateGroup">
+							<view class="stat-icon-box stat-icon-purple">
+								<text class="stat-icon-emoji">📁</text>
+							</view>
+							<view class="stat-body">
+								<text class="stat-label">{{ t("profile_stat_groups") }}</text>
+								<text class="stat-num">{{ groupCount }}</text>
+							</view>
+							<view class="stat-side">
+								<text class="stat-trend-flat">-</text>
+								<text class="stat-trend-sub">{{ t("profile_stat_in_progress") }}</text>
+							</view>
 						</view>
 					</view>
-					<text class="header-arrow">›</text>
 				</view>
 
-				<view class="team-overview">
-					<view class="team-strip-half" hover-class="team-strip-half-hover" @tap="showAgentList">
-						<text class="team-stat-label">{{ t('digital_employee_fallback') }}</text>
-						<text class="team-stat-num">{{ agentCount }}</text>
+				<scroll-view scroll-x class="quick-scroll" :show-scrollbar="false">
+					<view class="quick-row">
+						<view class="qcard qcard-a" @tap="goCreateAgent">
+							<view class="qcard-top">
+								<text class="qcard-ico">👤+</text>
+								<view class="qcard-go"><text class="qcard-go-i">→</text></view>
+							</view>
+							<text class="qcard-t">{{ t("profile_quick_card_1_t") }}</text>
+							<text class="qcard-s">{{ t("profile_quick_card_1_sub") }}</text>
+						</view>
+						<view class="qcard qcard-b" @tap="goCreateGroup">
+							<view class="qcard-top">
+								<text class="qcard-ico">👥</text>
+								<view class="qcard-go"><text class="qcard-go-i">→</text></view>
+							</view>
+							<text class="qcard-t">{{ t("profile_quick_card_2_t") }}</text>
+							<text class="qcard-s">{{ t("profile_quick_card_2_sub") }}</text>
+						</view>
+						<view class="qcard qcard-c" @tap="goPage('/pages/worklog/worklog')">
+							<view class="qcard-top">
+								<text class="qcard-ico">📊</text>
+								<view class="qcard-go"><text class="qcard-go-i">→</text></view>
+							</view>
+							<text class="qcard-t">{{ t("profile_quick_card_3_t") }}</text>
+							<text class="qcard-s">{{ t("profile_quick_card_3_sub") }}</text>
+						</view>
+						<view class="qcard qcard-d" @tap="goPage('/pages/profile/settings')">
+							<view class="qcard-top">
+								<text class="qcard-ico">🏅</text>
+								<view class="qcard-go"><text class="qcard-go-i">→</text></view>
+							</view>
+							<text class="qcard-t">{{ t("profile_quick_card_4_t") }}</text>
+							<text class="qcard-s">{{ t("profile_quick_card_4_sub") }}</text>
+						</view>
 					</view>
-					<view class="team-strip-divider" />
-					<view class="team-strip-half" hover-class="team-strip-half-hover" @click="goCreateGroup">
-						<text class="team-stat-label">{{ t('project_group_fallback') }}</text>
-						<text class="team-stat-num">{{ groupCount }}</text>
-					</view>
-				</view>
+				</scroll-view>
 			</view>
 
 			<view class="menu-section">
-				<view class="menu-card">
-					<view class="menu-row" hover-class="menu-row-hover" @click="goCreateAgent">
-						<view class="menu-row-icon"><text class="menu-row-emoji">⚡</text></view>
-						<view class="menu-row-body">
-							<text class="menu-row-title">{{ t('profile_quick_hire_title') }}</text>
-							<text class="menu-row-sub">{{ t('profile_quick_hire_sub') }}</text>
+				<view class="settings-card">
+					<view v-if="loggedIn" class="set-row" hover-class="set-row-hover" @click="goPage('/pages/profile/agent-model-assign')">
+						<view class="set-icon set-icon-blue"><text class="set-emoji">🔗</text></view>
+						<view class="set-mid">
+							<text class="set-title">{{ t("agent_model_assign_nav") }}</text>
+							<text class="set-sub">{{ t("profile_menu_models_sub") }}</text>
 						</view>
-						<text class="menu-row-chev">›</text>
+						<text class="set-chev">›</text>
 					</view>
-					<view class="menu-divider" />
-					<view class="menu-row" hover-class="menu-row-hover" @click="goCreateGroup">
-						<view class="menu-row-icon"><text class="menu-row-emoji">🚀</text></view>
-						<view class="menu-row-body">
-							<text class="menu-row-title">{{ t('profile_quick_group_title') }}</text>
-							<text class="menu-row-sub">{{ t('profile_quick_group_sub') }}</text>
+					<view v-if="loggedIn" class="set-divider" />
+
+					<view v-if="loggedIn" class="set-row" hover-class="set-row-hover" @click="goChangePassword">
+						<view class="set-icon set-icon-purple"><text class="iconfont set-ico-font">&#xe78f;</text></view>
+						<view class="set-mid">
+							<text class="set-title">{{ t("change_password") }}</text>
+							<text class="set-sub">{{ t("profile_menu_pass_sub") }}</text>
 						</view>
-						<text class="menu-row-chev">›</text>
+						<text class="set-chev">›</text>
+					</view>
+					<view v-if="loggedIn" class="set-divider" />
+
+					<view class="set-row" hover-class="set-row-hover" @click="goSettings">
+						<view class="set-icon set-icon-gray"><text class="iconfont set-ico-font">&#xe654;</text></view>
+						<view class="set-mid">
+							<text class="set-title">{{ t("settings") }}</text>
+							<text class="set-sub">{{ t("profile_menu_settings_sub") }}</text>
+						</view>
+						<text class="set-chev">›</text>
+					</view>
+					<view class="set-divider" />
+
+					<view class="set-row" hover-class="set-row-hover" @click="goSettings">
+						<view class="set-icon set-icon-orange"><text class="set-emoji">🔔</text></view>
+						<view class="set-mid">
+							<text class="set-title">{{ t("notification_settings") }}</text>
+							<text class="set-sub">{{ t("profile_menu_notify_sub") }}</text>
+						</view>
+						<text class="set-chev">›</text>
+					</view>
+					<view class="set-divider" />
+
+					<view class="set-row" hover-class="set-row-hover" @click="goProfileInfo">
+						<view class="set-icon set-icon-green"><text class="set-emoji">🛡</text></view>
+						<view class="set-mid">
+							<text class="set-title">{{ t("data_privacy") }}</text>
+							<text class="set-sub">{{ t("profile_menu_privacy_sub") }}</text>
+						</view>
+						<text class="set-chev">›</text>
+					</view>
+					<view class="set-divider" />
+
+					<view class="set-row set-row-last" hover-class="set-row-hover" @click="goSettings">
+						<view class="set-icon set-icon-sky"><text class="set-emoji">❓</text></view>
+						<view class="set-mid">
+							<text class="set-title">{{ t("help_feedback") }}</text>
+							<text class="set-sub">{{ t("profile_menu_help_sub") }}</text>
+						</view>
+						<text class="set-chev">›</text>
 					</view>
 				</view>
 
-				<view class="menu-card">
-					<view class="menu-row" hover-class="menu-row-hover" @click="goPage('/pages/worklog/worklog')">
-						<view class="menu-row-icon"><text class="menu-row-emoji">📊</text></view>
-						<view class="menu-row-body">
-							<text class="menu-row-title">{{ t('profile_daily_report') }}</text>
-							<text class="menu-row-sub">{{ t('profile_daily_report_sub') }}</text>
-						</view>
-						<text class="menu-row-chev">›</text>
+				<view class="about-card">
+					<view class="about-logo"><text class="about-logo-t">AI</text></view>
+					<view class="about-texts">
+						<text class="about-title">{{ t("profile_about_card_title") }}</text>
+						<text class="about-desc">{{ t("profile_about_card_desc") }}</text>
 					</view>
-				</view>
-
-				<view v-if="loggedIn" class="menu-card">
-					<view class="menu-row" hover-class="menu-row-hover" @click="goPage('/pages/profile/agent-model-assign')">
-						<view class="menu-row-icon"><text class="menu-row-emoji">🔗</text></view>
-						<view class="menu-row-body">
-							<text class="menu-row-title">{{ t('agent_model_assign_nav') }}</text>
-						</view>
-						<text class="menu-row-chev">›</text>
-					</view>
-					<view class="menu-divider" />
-					<view class="menu-row" hover-class="menu-row-hover" @click="goChangePassword">
-						<view class="menu-row-icon menu-row-icon-mono">
-							<text class="iconfont menu-row-ico">&#xe78f;</text>
-						</view>
-						<view class="menu-row-body">
-							<text class="menu-row-title">{{ t('change_password') }}</text>
-						</view>
-						<text class="menu-row-chev">›</text>
-					</view>
-				</view>
-
-				<view class="menu-card">
-					<view class="menu-row" hover-class="menu-row-hover" @click="goSettings">
-						<view class="menu-row-icon menu-row-icon-mono">
-							<text class="iconfont menu-row-ico">&#xe654;</text>
-						</view>
-						<view class="menu-row-body">
-							<text class="menu-row-title">{{ t('settings') }}</text>
-						</view>
-						<text class="menu-row-chev">›</text>
-					</view>
-				</view>
-
-				<view class="menu-card menu-card-muted">
-					<view class="menu-row menu-row-static">
-						<text class="menu-row-title menu-row-title-only">{{ t('about') }}</text>
-						<text class="menu-row-extra">{{ t('version') }}</text>
-					</view>
-					<view class="about-foot">
-						<text class="about-foot-line">{{ t('profile_about_tagline') }}</text>
-						<text class="about-foot-line sub">{{ t('profile_about_sub') }}</text>
-					</view>
+					<text class="about-deco">◆</text>
 				</view>
 			</view>
 
 			<view class="scroll-pad" />
-		</view>
+		</scroll-view>
 		<AppTabBar current="profile" />
 
 		<view v-if="showAgentPopup" class="mask" @click="closeAgentPopup">
@@ -198,7 +272,7 @@
 			accountSubLine() {
 				const _ = this.currentLanguage;
 				if (!this.loggedIn) return this.t("account_sub_guest");
-				return this.t("account_sub_logged");
+				return this.t("profile_tagline_logged");
 			},
 			avatarChar() {
 				const _ = this.currentLanguage;
@@ -354,6 +428,14 @@
 			goCreateGroup() {
 				uni.navigateTo({ url: "/pages/team/create-group" });
 			},
+			onScanTap() {
+				uni.scanCode({
+					success: () => {},
+					fail: () => {
+						uni.showToast({ title: "扫码功能暂不可用", icon: "none" });
+					},
+				});
+			},
 		},
 	};
 </script>
@@ -363,56 +445,136 @@
 		display: flex;
 		flex-direction: column;
 		height: 100vh;
-		background-color: #f2f2f7;
+		background: linear-gradient(180deg, #e8eeff 0%, #f5f7fa 28%, #f5f7fa 100%);
 		box-sizing: border-box;
-		font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Helvetica Neue', sans-serif;
+		font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", sans-serif;
 	}
 
 	.main-scroll {
 		flex: 1;
 		height: 0;
-		padding: 0;
 		box-sizing: border-box;
-		overflow-y: auto;
-		-webkit-overflow-scrolling: touch;
 	}
 
-	.header-section {
-		background: #fff;
-		padding: 24rpx 20rpx 28rpx;
-		border-bottom: 1rpx solid #e8e8ed;
+	.hero-block {
+		padding: 16rpx 24rpx 8rpx;
 	}
 
-	.profile-header {
+	.top-bar {
 		display: flex;
 		flex-direction: row;
-		align-items: center;
+		align-items: flex-start;
+		justify-content: space-between;
+		margin-bottom: 24rpx;
 	}
 
-	.profile-header:active {
-		opacity: 0.92;
-	}
-
-	.header-arrow {
-		font-size: 40rpx;
-		color: #94a3b8;
-		font-weight: 300;
-		flex-shrink: 0;
-		padding-left: 8rpx;
-	}
-
-	.header-left {
-		display: flex;
-		flex-direction: row;
-		align-items: center;
+	.top-bar-left {
 		flex: 1;
 		min-width: 0;
-		margin-right: 16rpx;
+	}
+
+	.title-row {
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		gap: 12rpx;
+	}
+
+	.page-title {
+		font-size: 48rpx;
+		font-weight: 800;
+		color: #0f172a;
+	}
+
+	.blue-dot {
+		width: 12rpx;
+		height: 12rpx;
+		border-radius: 50%;
+		background: #2563eb;
+		box-shadow: 0 0 12rpx rgba(37, 99, 235, 0.45);
+	}
+
+	.page-sub {
+		display: block;
+		margin-top: 8rpx;
+		font-size: 24rpx;
+		color: #94a3b8;
+		line-height: 1.4;
+	}
+
+	.top-bar-right {
+		display: flex;
+		flex-direction: row;
+		gap: 16rpx;
+		padding-top: 8rpx;
+	}
+
+	.sq-btn {
+		width: 72rpx;
+		height: 72rpx;
+		border-radius: 20rpx;
+		background: #fff;
+		box-shadow: 0 8rpx 24rpx rgba(15, 23, 42, 0.08);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		position: relative;
+	}
+
+	.sq-ico {
+		font-size: 32rpx;
+		color: #0f172a;
+		font-weight: 600;
+	}
+
+	.sq-btn-bell .sq-ico {
+		font-size: 28rpx;
+	}
+
+	.bell-badge {
+		position: absolute;
+		top: -6rpx;
+		right: -6rpx;
+		min-width: 32rpx;
+		height: 32rpx;
+		padding: 0 8rpx;
+		background: linear-gradient(135deg, #ef4444, #dc2626);
+		border-radius: 16rpx;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		border: 3rpx solid #f5f7fa;
+		box-sizing: border-box;
+	}
+
+	.bell-badge-t {
+		font-size: 20rpx;
+		font-weight: 800;
+		color: #fff;
+	}
+
+	.user-glass {
+		border-radius: 36rpx;
+		padding: 28rpx 24rpx 24rpx;
+		background: linear-gradient(145deg, rgba(255, 255, 255, 0.95), rgba(248, 250, 255, 0.92));
+		box-shadow: 0 12rpx 48rpx rgba(99, 102, 241, 0.12), 0 4rpx 16rpx rgba(15, 23, 42, 0.06);
+		border: 1rpx solid rgba(255, 255, 255, 0.8);
+		margin-bottom: 24rpx;
+	}
+
+	.user-glass:active {
+		opacity: 0.96;
+	}
+
+	.user-glass-row {
+		display: flex;
+		flex-direction: row;
+		align-items: center;
 	}
 
 	.avatar-wrap {
-		width: 96rpx;
-		height: 96rpx;
+		width: 112rpx;
+		height: 112rpx;
 		border-radius: 50%;
 		background: #e8ecf1;
 		flex-shrink: 0;
@@ -420,22 +582,23 @@
 		align-items: center;
 		justify-content: center;
 		overflow: hidden;
-		border: 1rpx solid #e0e0e6;
+		border: 4rpx solid #fff;
+		box-shadow: 0 6rpx 20rpx rgba(15, 23, 42, 0.08);
 	}
 
 	.avatar-img {
-		width: 96rpx;
-		height: 96rpx;
+		width: 112rpx;
+		height: 112rpx;
 		border-radius: 50%;
 	}
 
 	.avatar-text {
-		font-size: 36rpx;
-		font-weight: 600;
+		font-size: 40rpx;
+		font-weight: 700;
 		color: #64748b;
 	}
 
-	.header-main {
+	.user-main {
 		flex: 1;
 		min-width: 0;
 		margin-left: 20rpx;
@@ -445,233 +608,408 @@
 		display: flex;
 		flex-direction: row;
 		align-items: center;
-		gap: 12rpx;
+		flex-wrap: wrap;
+		gap: 10rpx;
 	}
 
 	.nick {
-		font-size: 34rpx;
-		font-weight: 600;
-		color: #111;
-		line-height: 1.25;
-		flex: 1;
-		min-width: 0;
+		font-size: 36rpx;
+		font-weight: 800;
+		color: #0f172a;
+		max-width: 100%;
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
 
-	.ceo-badge {
+	.crown {
+		font-size: 28rpx;
+	}
+
+	.ceo-pill {
+		padding: 4rpx 16rpx;
+		border-radius: 999rpx;
+		background: linear-gradient(135deg, #7c3aed, #6366f1);
+	}
+
+	.ceo-pill-t {
+		font-size: 20rpx;
+		font-weight: 800;
+		color: #fff;
+	}
+
+	.tagline {
+		display: block;
+		margin-top: 10rpx;
+		font-size: 24rpx;
+		color: #64748b;
+	}
+
+	.chip-tags {
 		display: flex;
+		flex-direction: row;
+		flex-wrap: wrap;
+		gap: 12rpx;
+		margin-top: 16rpx;
+	}
+
+	.chip-tag {
+		display: flex;
+		flex-direction: row;
 		align-items: center;
 		gap: 6rpx;
+		padding: 8rpx 14rpx;
+		background: #f1f5f9;
+		border-radius: 12rpx;
+	}
+
+	.chip-tag-ico {
+		font-size: 22rpx;
+	}
+
+	.chip-tag-t {
+		font-size: 22rpx;
+		color: #475569;
+		font-weight: 600;
+	}
+
+	.chev-right {
+		font-size: 40rpx;
+		color: #cbd5e1;
+		font-weight: 300;
+		align-self: center;
+	}
+
+	.stats-dual {
+		display: flex;
+		flex-direction: row;
+		gap: 16rpx;
+		margin-top: 28rpx;
+	}
+
+	.stat-card {
+		flex: 1;
+		min-width: 0;
+		background: #fff;
+		border-radius: 24rpx;
+		padding: 20rpx 16rpx;
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		gap: 12rpx;
+		box-shadow: 0 6rpx 24rpx rgba(15, 23, 42, 0.06);
+	}
+
+	.stat-card-hover {
+		opacity: 0.92;
+	}
+
+	.stat-icon-box {
+		width: 64rpx;
+		height: 64rpx;
+		border-radius: 18rpx;
+		display: flex;
+		align-items: center;
+		justify-content: center;
 		flex-shrink: 0;
 	}
 
-	.ceo-badge-icon {
-		font-size: 24rpx;
+	.stat-icon-blue {
+		background: rgba(59, 130, 246, 0.12);
 	}
 
-	.ceo-badge-text {
-		font-size: 20rpx;
-		font-weight: 600;
-		color: #64748b;
-		background: #f1f5f9;
-		padding: 4rpx 10rpx;
-		border-radius: 6rpx;
-		letter-spacing: 0;
+	.stat-icon-purple {
+		background: rgba(139, 92, 246, 0.12);
 	}
 
-	.account-line {
+	.stat-icon-emoji {
+		font-size: 30rpx;
+	}
+
+	.stat-body {
+		flex: 1;
+		min-width: 0;
+	}
+
+	.stat-label {
 		display: block;
-		margin-top: 8rpx;
+		font-size: 22rpx;
+		color: #64748b;
+		font-weight: 600;
+	}
+
+	.stat-num {
+		display: block;
+		font-size: 36rpx;
+		font-weight: 800;
+		color: #0f172a;
+		margin-top: 4rpx;
+	}
+
+	.stat-side {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-end;
+		flex-shrink: 0;
+	}
+
+	.stat-trend-up {
 		font-size: 24rpx;
-		color: #475569;
+		font-weight: 800;
+		color: #16a34a;
+	}
+
+	.stat-trend-flat {
+		font-size: 28rpx;
+		font-weight: 600;
+		color: #94a3b8;
+	}
+
+	.stat-trend-sub {
+		font-size: 20rpx;
+		color: #94a3b8;
+		margin-top: 4rpx;
+	}
+
+	.quick-scroll {
+		width: 100%;
+		white-space: nowrap;
+		padding-bottom: 8rpx;
+	}
+
+	.quick-row {
+		display: inline-flex;
+		flex-direction: row;
+		gap: 16rpx;
+		padding: 4rpx 2rpx 8rpx;
+	}
+
+	.qcard {
+		display: inline-flex;
+		flex-direction: column;
+		width: 240rpx;
+		min-height: 200rpx;
+		padding: 20rpx 18rpx 18rpx;
+		border-radius: 28rpx;
+		box-sizing: border-box;
+		box-shadow: 0 12rpx 36rpx rgba(15, 23, 42, 0.1);
+		vertical-align: top;
+	}
+
+	.qcard-a {
+		background: linear-gradient(145deg, #3b82f6, #1d4ed8);
+	}
+	.qcard-b {
+		background: linear-gradient(145deg, #8b5cf6, #6d28d9);
+	}
+	.qcard-c {
+		background: linear-gradient(145deg, #14b8a6, #0d9488);
+	}
+	.qcard-d {
+		background: linear-gradient(145deg, #f97316, #ea580c);
+	}
+
+	.qcard-top {
+		display: flex;
+		flex-direction: row;
+		justify-content: space-between;
+		align-items: flex-start;
+		margin-bottom: 16rpx;
+	}
+
+	.qcard-ico {
+		font-size: 36rpx;
+		line-height: 1;
+	}
+
+	.qcard-go {
+		width: 44rpx;
+		height: 44rpx;
+		border-radius: 50%;
+		background: rgba(255, 255, 255, 0.25);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.qcard-go-i {
+		font-size: 24rpx;
+		color: #fff;
+		font-weight: 700;
+	}
+
+	.qcard-t {
+		font-size: 28rpx;
+		font-weight: 800;
+		color: #fff;
 		line-height: 1.35;
 	}
 
-	.team-overview {
-		display: flex;
-		flex-direction: row;
-		align-items: stretch;
-		margin-top: 24rpx;
-		padding: 0;
-		border-radius: 12rpx;
-		background: #f7f7f8;
-		border: 1rpx solid #ececf0;
-		overflow: hidden;
-	}
-
-	.team-strip-half {
-		flex: 1;
-		min-width: 0;
-		display: flex;
-		flex-direction: row;
-		align-items: center;
-		justify-content: center;
-		gap: 14rpx;
-		padding: 22rpx 16rpx;
-		box-sizing: border-box;
-	}
-
-	.team-strip-half-hover {
-		background: rgba(0, 0, 0, 0.04);
-	}
-
-	.team-strip-divider {
-		width: 1rpx;
-		align-self: stretch;
-		background: #e0e0e6;
-		flex-shrink: 0;
-		margin: 16rpx 0;
-	}
-
-	.team-stat-num {
-		font-size: 32rpx;
-		font-weight: 700;
-		color: #111;
-		line-height: 1;
-		letter-spacing: -0.5rpx;
-		flex-shrink: 0;
-	}
-
-	.team-stat-label {
-		font-size: 24rpx;
-		color: #64748b;
-		font-weight: 500;
-		line-height: 1.3;
-		max-width: 56%;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
+	.qcard-s {
+		margin-top: 8rpx;
+		font-size: 22rpx;
+		color: rgba(255, 255, 255, 0.88);
+		line-height: 1.4;
+		white-space: normal;
 	}
 
 	.menu-section {
-		padding: 16rpx 20rpx 0;
+		padding: 8rpx 24rpx 0;
 	}
 
-	.menu-card {
+	.settings-card {
 		background: #fff;
-		border-radius: 12rpx;
-		border: 1rpx solid #e8e8ed;
+		border-radius: 28rpx;
 		overflow: hidden;
-		margin-bottom: 12rpx;
+		box-shadow: 0 8rpx 32rpx rgba(15, 23, 42, 0.06);
+		margin-bottom: 20rpx;
 	}
 
-	.menu-card-muted {
-		background: #fafafa;
-		border-color: #ececf0;
-	}
-
-	.menu-row {
+	.set-row {
 		display: flex;
 		flex-direction: row;
 		align-items: center;
-		min-height: 96rpx;
-		padding: 18rpx 20rpx;
+		padding: 26rpx 22rpx;
+		min-height: 112rpx;
 		box-sizing: border-box;
 	}
 
-	.menu-row-hover {
-		background: #f7f7f8;
+	.set-row-hover {
+		background: #f8fafc;
 	}
 
-	.menu-row-static {
-		min-height: 72rpx;
-		padding-bottom: 12rpx;
+	.set-row-last {
+		border-bottom: none;
 	}
 
-	.menu-row-icon {
-		width: 44rpx;
-		height: 44rpx;
-		border-radius: 10rpx;
-		background: #f2f2f7;
+	.set-icon {
+		width: 72rpx;
+		height: 72rpx;
+		border-radius: 20rpx;
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		margin-right: 16rpx;
+		margin-right: 20rpx;
 		flex-shrink: 0;
 	}
 
-	.menu-row-icon-mono {
-		background: #f2f2f7;
+	.set-icon-blue {
+		background: rgba(59, 130, 246, 0.12);
+	}
+	.set-icon-purple {
+		background: rgba(139, 92, 246, 0.12);
+	}
+	.set-icon-gray {
+		background: rgba(100, 116, 139, 0.1);
+	}
+	.set-icon-orange {
+		background: rgba(249, 115, 22, 0.12);
+	}
+	.set-icon-green {
+		background: rgba(34, 197, 94, 0.12);
+	}
+	.set-icon-sky {
+		background: rgba(14, 165, 233, 0.12);
 	}
 
-	.menu-row-emoji {
-		font-size: 22rpx;
-		line-height: 1;
+	.set-emoji {
+		font-size: 32rpx;
 	}
 
-	.menu-row-ico {
-		font-size: 28rpx;
-		color: #64748b;
-		line-height: 1;
+	.set-ico-font {
+		font-size: 32rpx;
+		color: #475569;
 	}
 
-	.menu-row-body {
+	.set-mid {
 		flex: 1;
 		min-width: 0;
-		display: flex;
-		flex-direction: column;
-		gap: 4rpx;
 	}
 
-	.menu-row-title {
+	.set-title {
 		font-size: 30rpx;
-		font-weight: 500;
-		color: #111;
-		line-height: 1.3;
+		font-weight: 700;
+		color: #0f172a;
 	}
 
-	.menu-row-title-only {
-		flex: 1;
-	}
-
-	.menu-row-sub {
+	.set-sub {
+		display: block;
+		margin-top: 6rpx;
 		font-size: 24rpx;
-		color: #8e8e93;
+		color: #94a3b8;
 		line-height: 1.35;
 	}
 
-	.menu-row-chev {
-		flex-shrink: 0;
+	.set-chev {
 		font-size: 32rpx;
-		color: #c7c7cc;
-		font-weight: 300;
-		padding-left: 8rpx;
+		color: #cbd5e1;
 	}
 
-	.menu-row-extra {
-		font-size: 26rpx;
-		color: #8e8e93;
-	}
-
-	.menu-divider {
+	.set-divider {
 		height: 1rpx;
-		background: #ececf0;
-		margin-left: 80rpx;
+		background: #f1f5f9;
+		margin-left: 114rpx;
 	}
 
-	.about-foot {
-		padding: 0 20rpx 20rpx;
+	.about-card {
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		padding: 28rpx 22rpx;
+		border-radius: 28rpx;
+		background: linear-gradient(135deg, #e0f2fe, #eef2ff);
+		box-shadow: 0 8rpx 28rpx rgba(14, 165, 233, 0.12);
+		margin-bottom: 16rpx;
+		gap: 20rpx;
 	}
 
-	.about-foot-line {
+	.about-logo {
+		width: 88rpx;
+		height: 88rpx;
+		border-radius: 22rpx;
+		background: linear-gradient(145deg, #2563eb, #4f46e5);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		flex-shrink: 0;
+		box-shadow: 0 8rpx 20rpx rgba(37, 99, 235, 0.3);
+	}
+
+	.about-logo-t {
+		font-size: 28rpx;
+		font-weight: 900;
+		color: #fff;
+	}
+
+	.about-texts {
+		flex: 1;
+		min-width: 0;
+	}
+
+	.about-title {
+		font-size: 30rpx;
+		font-weight: 800;
+		color: #0f172a;
+	}
+
+	.about-desc {
 		display: block;
+		margin-top: 8rpx;
 		font-size: 24rpx;
-		color: #8e8e93;
+		color: #64748b;
 		line-height: 1.45;
 	}
 
-	.about-foot-line.sub {
-		margin-top: 6rpx;
-		font-size: 22rpx;
-		color: #aeaeb2;
+	.about-deco {
+		font-size: 44rpx;
+		color: rgba(37, 99, 235, 0.25);
+		flex-shrink: 0;
 	}
 
 	.scroll-pad {
 		height: 200rpx;
 		padding-bottom: env(safe-area-inset-bottom);
-		background-color: #f2f2f7;
+		background: transparent;
 	}
 
 	.mask {
@@ -876,106 +1214,57 @@
 </style>
 
 <style>
-	/*
-	 * 「我的」页大量样式在 scoped 内写死浅色；全局 App.vue 的 .page .cell 等选择器无法命中本页。
-	 * 在深色模式下用 html[data-theme=dark] 下的选择器 + !important 统一覆盖。
-	 */
 	[data-theme="dark"] .profile-page {
-		background-color: var(--bg-primary) !important;
+		background: var(--bg-primary) !important;
 	}
 
-	[data-theme="dark"] .header-section {
-		background: var(--bg-secondary) !important;
-		border-bottom-color: var(--border-color) !important;
-	}
-
-	[data-theme="dark"] .header-arrow {
-		color: var(--text-tertiary) !important;
-	}
-
-	[data-theme="dark"] .nick {
+	[data-theme="dark"] .page-title,
+	[data-theme="dark"] .nick,
+	[data-theme="dark"] .stat-num,
+	[data-theme="dark"] .set-title,
+	[data-theme="dark"] .about-title {
 		color: var(--text-primary) !important;
 	}
 
-	[data-theme="dark"] .account-line {
+	[data-theme="dark"] .page-sub,
+	[data-theme="dark"] .tagline,
+	[data-theme="dark"] .set-sub,
+	[data-theme="dark"] .about-desc,
+	[data-theme="dark"] .stat-label {
 		color: var(--text-secondary) !important;
 	}
 
-	[data-theme="dark"] .ceo-badge-text {
-		color: var(--text-secondary) !important;
-		background: var(--bg-tertiary) !important;
-	}
-
-	[data-theme="dark"] .team-overview {
-		background: var(--bg-tertiary) !important;
-		border: 1rpx solid var(--border-color) !important;
-	}
-
-	[data-theme="dark"] .team-strip-half-hover {
-		background: var(--cell-hover) !important;
-	}
-
-	[data-theme="dark"] .team-strip-divider {
-		background: var(--border-color) !important;
-	}
-
-	[data-theme="dark"] .team-stat-num {
-		color: var(--text-primary) !important;
-	}
-
-	[data-theme="dark"] .team-stat-label {
-		color: var(--text-secondary) !important;
-	}
-
-	[data-theme="dark"] .menu-card {
+	[data-theme="dark"] .sq-btn,
+	[data-theme="dark"] .user-glass,
+	[data-theme="dark"] .stat-card,
+	[data-theme="dark"] .settings-card {
 		background: var(--bg-secondary) !important;
 		border-color: var(--border-color) !important;
 	}
 
-	[data-theme="dark"] .menu-card-muted {
+	[data-theme="dark"] .chip-tag {
 		background: var(--bg-tertiary) !important;
 	}
 
-	[data-theme="dark"] .menu-row-hover {
+	[data-theme="dark"] .chip-tag-t {
+		color: var(--text-secondary) !important;
+	}
+
+	[data-theme="dark"] .set-row-hover {
 		background: var(--cell-hover) !important;
 	}
 
-	[data-theme="dark"] .menu-row-title {
-		color: var(--text-primary) !important;
-	}
-
-	[data-theme="dark"] .menu-row-sub {
-		color: var(--text-secondary) !important;
-	}
-
-	[data-theme="dark"] .menu-row-chev,
-	[data-theme="dark"] .menu-row-extra {
-		color: var(--text-tertiary) !important;
-	}
-
-	[data-theme="dark"] .menu-divider {
+	[data-theme="dark"] .set-divider {
 		background: var(--border-color) !important;
 	}
 
-	[data-theme="dark"] .menu-row-icon,
-	[data-theme="dark"] .menu-row-icon-mono {
-		background: var(--bg-tertiary) !important;
-	}
-
-	[data-theme="dark"] .menu-row-ico {
-		color: var(--text-secondary) !important;
-	}
-
-	[data-theme="dark"] .about-foot-line {
-		color: var(--text-secondary) !important;
-	}
-
-	[data-theme="dark"] .about-foot-line.sub {
+	[data-theme="dark"] .set-chev,
+	[data-theme="dark"] .chev-right {
 		color: var(--text-tertiary) !important;
 	}
 
-	[data-theme="dark"] .scroll-pad {
-		background-color: var(--bg-primary) !important;
+	[data-theme="dark"] .about-card {
+		background: var(--bg-tertiary) !important;
 	}
 
 	[data-theme="dark"] .agent-popup {
